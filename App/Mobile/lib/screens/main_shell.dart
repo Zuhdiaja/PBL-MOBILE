@@ -4,6 +4,7 @@ import '../theme/app_colors.dart';
 import '../widgets/app_bottom_navigation.dart';
 import 'home_screen.dart';
 import 'profile_screen.dart';
+import 'scan_qr_screen.dart';
 import 'scan_url_screen.dart';
 import 'settings_screen.dart';
 
@@ -28,6 +29,12 @@ class _MainShellState extends State<MainShell> {
     if (paste) _scanKey.currentState?.pasteIntoFirstField();
   }
 
+  void _openQr() => Navigator.of(context).push(
+    MaterialPageRoute<void>(
+      builder: (_) => ScanQrScreen(onNavigate: _selectTab),
+    ),
+  );
+
   void _openSettings() => Navigator.of(context).push(
     MaterialPageRoute<void>(
       builder: (_) => SettingsScreen(onNavigate: _selectTab),
@@ -44,14 +51,14 @@ class _MainShellState extends State<MainShell> {
           HomeScreen(
             onScan: _openScan,
             onPaste: () => _openScan(paste: true),
-            onQr: () => _selectTab(1),
+            onQr: _openQr,
             onShare: () => _selectTab(1),
             onHistory: () => _selectTab(2),
             onProfile: () => _selectTab(4),
           ),
           ScanUrlScreen(
             key: _scanKey,
-            onQr: () => _selectTab(1),
+            onQr: _openQr,
             onShare: () => _selectTab(1),
           ),
           const _PlaceholderPage(title: 'Riwayat'),
