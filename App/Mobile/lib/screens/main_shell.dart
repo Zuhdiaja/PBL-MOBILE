@@ -4,6 +4,7 @@ import '../theme/app_colors.dart';
 import '../widgets/app_bottom_navigation.dart';
 import 'home_screen.dart';
 import 'profile_screen.dart';
+import 'scan_url_screen.dart';
 import 'settings_screen.dart';
 
 class MainShell extends StatefulWidget {
@@ -15,10 +16,16 @@ class MainShell extends StatefulWidget {
 
 class _MainShellState extends State<MainShell> {
   int _selectedIndex = 0;
+  final _scanKey = GlobalKey<ScanUrlScreenState>();
 
   void _selectTab(int index) {
     FocusManager.instance.primaryFocus?.unfocus();
     setState(() => _selectedIndex = index);
+  }
+
+  void _openScan({bool paste = false}) {
+    _selectTab(1);
+    if (paste) _scanKey.currentState?.pasteIntoFirstField();
   }
 
   void _openSettings() => Navigator.of(context).push(
@@ -35,14 +42,18 @@ class _MainShellState extends State<MainShell> {
         index: _selectedIndex,
         children: [
           HomeScreen(
-            onScan: () => _selectTab(1),
-            onPaste: () => _selectTab(1),
+            onScan: _openScan,
+            onPaste: () => _openScan(paste: true),
             onQr: () => _selectTab(1),
             onShare: () => _selectTab(1),
             onHistory: () => _selectTab(2),
             onProfile: () => _selectTab(4),
           ),
-          const _PlaceholderPage(title: 'Scan'),
+          ScanUrlScreen(
+            key: _scanKey,
+            onQr: () => _selectTab(1),
+            onShare: () => _selectTab(1),
+          ),
           const _PlaceholderPage(title: 'Riwayat'),
           const _PlaceholderPage(title: 'Statistik'),
           ProfileScreen(onSettings: _openSettings),
