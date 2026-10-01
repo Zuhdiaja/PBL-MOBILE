@@ -2,50 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../data/demo_account.dart';
 import '../theme/app_colors.dart';
-import '../widgets/app_bottom_navigation.dart';
 import '../widgets/section_label.dart';
 import 'login_screen.dart';
-import 'settings_screen.dart';
-
-class MainShell extends StatefulWidget {
-  const MainShell({super.key});
-
-  @override
-  State<MainShell> createState() => _MainShellState();
-}
-
-class _MainShellState extends State<MainShell> {
-  int _selectedIndex = 4;
-
-  @override
-  Widget build(BuildContext context) {
-    final pages = [
-      const _PlaceholderPage(title: 'Beranda'),
-      const _PlaceholderPage(title: 'Scan'),
-      const _PlaceholderPage(title: 'Riwayat'),
-      const _PlaceholderPage(title: 'Statistik'),
-      ProfileScreen(onSettings: _openSettings),
-    ];
-
-    return Scaffold(
-      body: SafeArea(child: pages[_selectedIndex]),
-      bottomNavigationBar: AppBottomNavigation(
-        selectedIndex: _selectedIndex,
-        onDestinationSelected: _selectTab,
-      ),
-    );
-  }
-
-  void _openSettings() {
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => SettingsScreen(onNavigate: _selectTab),
-      ),
-    );
-  }
-
-  void _selectTab(int index) => setState(() => _selectedIndex = index);
-}
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key, required this.onSettings});
@@ -53,7 +11,7 @@ class ProfileScreen extends StatelessWidget {
   final VoidCallback onSettings;
 
   @override
-  Widget build(BuildContext context) => Padding(
+  Widget build(BuildContext context) => SingleChildScrollView(
     padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -268,24 +226,6 @@ class _CountBadge extends StatelessWidget {
       style: TextStyle(
         color: Colors.white,
         fontSize: 9,
-        fontWeight: FontWeight.w700,
-      ),
-    ),
-  );
-}
-
-class _PlaceholderPage extends StatelessWidget {
-  const _PlaceholderPage({required this.title});
-
-  final String title;
-
-  @override
-  Widget build(BuildContext context) => Center(
-    child: Text(
-      title,
-      style: const TextStyle(
-        color: AppColors.ink,
-        fontSize: 22,
         fontWeight: FontWeight.w700,
       ),
     ),

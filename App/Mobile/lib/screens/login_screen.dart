@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../data/demo_account.dart';
 import '../widgets/auth_screen.dart';
-import 'profile_screen.dart';
+import 'main_shell.dart';
 import 'register_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -50,7 +50,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   void _submit() {
     if (DemoAccount.matches(_emailController.text, _passwordController.text)) {
-      _openProfile(context);
+      _openHome(context);
       return;
     }
 
@@ -62,7 +62,7 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 }
 
-void _openProfile(BuildContext context) {
+void _openHome(BuildContext context) {
   Navigator.of(context).pushAndRemoveUntil(
     MaterialPageRoute<void>(builder: (_) => const MainShell()),
     (route) => false,

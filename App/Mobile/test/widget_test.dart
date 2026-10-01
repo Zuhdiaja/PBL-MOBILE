@@ -41,7 +41,8 @@ void main() {
     await tester.enterText(find.byType(TextField).at(1), '123456');
     await tester.tap(find.widgetWithText(FilledButton, 'Masuk'));
     await tester.pumpAndSettle();
-    expect(find.text('Nadia Putri'), findsOneWidget);
+    expect(find.text('Halo, Nadia'), findsOneWidget);
+    expect(find.text('Mulai scan'), findsOneWidget);
   });
 
   testWidgets('auth flow opens profile settings and returns', (
@@ -57,6 +58,9 @@ void main() {
     await tester.tap(find.widgetWithText(FilledButton, 'Daftar'));
     await tester.pumpAndSettle();
 
+    expect(find.text('Halo, Nadia'), findsOneWidget);
+    await tester.tap(find.text('Profil'));
+    await tester.pumpAndSettle();
     expect(find.text('Nadia Putri'), findsOneWidget);
     await tester.tap(find.text('Pengaturan'));
     await tester.pumpAndSettle();
