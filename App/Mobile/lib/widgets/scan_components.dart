@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../screens/scan_result_screen.dart';
 import '../theme/app_colors.dart';
 import 'app_bottom_navigation.dart';
 
@@ -48,12 +49,14 @@ class ScanSubpage extends StatelessWidget {
   const ScanSubpage({
     super.key,
     required this.title,
-    required this.onNavigate,
+    this.onNavigate,
+    this.selectedIndex = 1,
     required this.children,
   });
 
   final String title;
-  final ValueChanged<int> onNavigate;
+  final ValueChanged<int>? onNavigate;
+  final int selectedIndex;
   final List<Widget> children;
 
   @override
@@ -91,13 +94,15 @@ class ScanSubpage extends StatelessWidget {
         ],
       ),
     ),
-    bottomNavigationBar: AppBottomNavigation(
-      selectedIndex: 1,
-      onDestinationSelected: (index) {
-        Navigator.of(context).pop();
-        onNavigate(index);
-      },
-    ),
+    bottomNavigationBar: onNavigate != null
+        ? AppBottomNavigation(
+            selectedIndex: selectedIndex,
+            onDestinationSelected: (index) {
+              Navigator.of(context).pop();
+              onNavigate!(index);
+            },
+          )
+        : null,
   );
 }
 
@@ -349,6 +354,19 @@ Future<void> showScanPreview(BuildContext context, List<String> urls) {
                 ),
               ),
             const SizedBox(height: 12),
+            ScanButton(
+              label: 'Lihat Hasil Scan',
+              icon: Icons.shield_outlined,
+              onPressed: () {
+                Navigator.of(context).pop();
+                Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const ScanResultScreen(),
+                  ),
+                );
+              },
+            ),
+            const SizedBox(height: 8),
             ScanButton(
               label: 'Kembali',
               icon: Icons.arrow_back_rounded,
