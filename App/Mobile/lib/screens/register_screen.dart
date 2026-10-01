@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../widgets/auth_screen.dart';
-import 'profile_screen.dart';
+import 'main_shell.dart';
 
 class RegisterScreen extends StatelessWidget {
   const RegisterScreen({super.key});
@@ -19,11 +19,11 @@ class RegisterScreen extends StatelessWidget {
     footerPrompt: 'Sudah punya akun?',
     footerAction: 'Masuk',
     onFooterTap: () => Navigator.of(context).pop(),
-    onSubmit: () => _openProfile(context),
+    onSubmit: () => _openHome(context),
   );
 }
 
-void _openProfile(BuildContext context) {
+void _openHome(BuildContext context) {
   Navigator.of(context).pushAndRemoveUntil(
     MaterialPageRoute<void>(builder: (_) => const MainShell()),
     (route) => false,
