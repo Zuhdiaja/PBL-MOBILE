@@ -129,7 +129,7 @@ class AuthScreen extends StatelessWidget {
               const SizedBox(height: 22),
               const Center(
                 child: Text(
-                  'Login dan password hanya simulasi. Data contoh tersimpan di browser ini.',
+                  'Gunakan akun contoh untuk mencoba tampilan aplikasi.',
                   textAlign: TextAlign.center,
                   style: TextStyle(fontSize: 9, color: Color(0xFFA5B0C1)),
                 ),

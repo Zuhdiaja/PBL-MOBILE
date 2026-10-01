@@ -155,15 +155,6 @@ class ProfileScreen extends StatelessWidget {
             (route) => false,
           ),
         ),
-        const Center(
-          child: Padding(
-            padding: EdgeInsets.only(top: 10),
-            child: Text(
-              'LinkGuard · Mockup v1.0',
-              style: TextStyle(color: Color(0xFFA5B0C1), fontSize: 10),
-            ),
-          ),
-        ),
       ],
     ),
   );
