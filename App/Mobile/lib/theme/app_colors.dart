@@ -11,6 +11,8 @@ class AppColors {
   static const softSurface = Color(0xFFF4F6FB);
   static const danger = Color(0xFFB6393D);
   static const paleDanger = Color(0xFFFCEFF0);
+  static const warning = Color(0xFFA96A0F);
+  static const paleWarning = Color(0xFFFBF1E2);
   static const success = Color(0xFF21754D);
   static const paleSuccess = Color(0xFFECF7F1);
 }

@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 
-import '../theme/app_colors.dart';
 import '../widgets/app_bottom_navigation.dart';
+import 'history_screen.dart';
 import 'home_screen.dart';
 import 'profile_screen.dart';
 import 'scan_qr_screen.dart';
 import 'scan_url_screen.dart';
 import 'settings_screen.dart';
 import 'share_link_screen.dart';
+import 'stats_screen.dart';
 
 class MainShell extends StatefulWidget {
   const MainShell({super.key});
@@ -64,8 +65,8 @@ class _MainShellState extends State<MainShell> {
             onProfile: () => _selectTab(4),
           ),
           ScanUrlScreen(key: _scanKey, onQr: _openQr, onShare: _openShare),
-          const _PlaceholderPage(title: 'Riwayat'),
-          const _PlaceholderPage(title: 'Statistik'),
+          const HistoryScreen(),
+          const StatsScreen(),
           ProfileScreen(onSettings: _openSettings),
         ],
       ),
@@ -73,24 +74,6 @@ class _MainShellState extends State<MainShell> {
     bottomNavigationBar: AppBottomNavigation(
       selectedIndex: _selectedIndex,
       onDestinationSelected: _selectTab,
-    ),
-  );
-}
-
-class _PlaceholderPage extends StatelessWidget {
-  const _PlaceholderPage({required this.title});
-
-  final String title;
-
-  @override
-  Widget build(BuildContext context) => Center(
-    child: Text(
-      title,
-      style: const TextStyle(
-        color: AppColors.ink,
-        fontSize: 22,
-        fontWeight: FontWeight.w700,
-      ),
     ),
   );
 }

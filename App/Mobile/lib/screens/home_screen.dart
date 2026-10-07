@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 import '../widgets/scan_components.dart';
 import '../widgets/recent_scans.dart';
+import 'notifications_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({
@@ -41,9 +42,10 @@ class HomeScreen extends StatelessWidget {
           const SizedBox(width: 8),
           IconButton.filledTonal(
             tooltip: 'Notifikasi',
-            onPressed: () => showScanMessage(
-              context,
-              'Notifikasi belum tersedia pada pratinjau ini.',
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => const NotificationsScreen(),
+              ),
             ),
             style: IconButton.styleFrom(
               backgroundColor: AppColors.softSurface,

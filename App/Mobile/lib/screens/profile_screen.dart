@@ -4,6 +4,8 @@ import '../data/demo_account.dart';
 import '../theme/app_colors.dart';
 import '../widgets/section_label.dart';
 import 'login_screen.dart';
+import 'notifications_screen.dart';
+import 'report_status_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key, required this.onSettings});
@@ -90,12 +92,20 @@ class ProfileScreen extends StatelessWidget {
           icon: Icons.description_outlined,
           title: 'Status laporan',
           trailing: const _CountBadge(),
-          onTap: () => _showInfo(context, 'Status laporan'),
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => const ReportStatusScreen(),
+            ),
+          ),
         ),
         _ProfileAction(
           icon: Icons.notifications_none,
           title: 'Notifikasi',
-          onTap: () => _showInfo(context, 'Notifikasi'),
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => const NotificationsScreen(),
+            ),
+          ),
         ),
         const SizedBox(height: 15),
         const SectionLabel('AKUN'),
@@ -230,10 +240,4 @@ class _CountBadge extends StatelessWidget {
       ),
     ),
   );
-}
-
-void _showInfo(BuildContext context, String title) {
-  ScaffoldMessenger.of(context)
-    ..hideCurrentSnackBar()
-    ..showSnackBar(SnackBar(content: Text('$title · data contoh')));
 }

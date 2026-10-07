@@ -9,7 +9,8 @@ Aplikasi pemeriksa tautan berbasis Flutter. Saat ini masih menggunakan data cont
 - Scan QR Code
 - Bagikan ke LinkGuard
 
-Login, daftar, profil, dan pengaturan tersedia. Riwayat dan Statistik masih placeholder.
+Login, daftar, profil, dan pengaturan tersedia. Riwayat, statistik, status
+laporan, dan notifikasi menggunakan data contoh.
 
 ## Menjalankan
 
