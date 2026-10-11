@@ -1,13 +1,17 @@
 import 'package:flutter/material.dart';
 
+import '../app/input_scan_dependencies.dart';
+import '../features/input_scan/presentation/pages/home_screen.dart';
+import '../features/input_scan/presentation/pages/scan_qr_screen.dart';
+import '../features/input_scan/presentation/pages/scan_url_screen.dart';
+import '../features/input_scan/presentation/pages/share_link_screen.dart';
 import '../widgets/app_bottom_navigation.dart';
+import '../widgets/scan_components.dart';
 import 'history_screen.dart';
-import 'home_screen.dart';
+import 'notifications_screen.dart';
 import 'profile_screen.dart';
-import 'scan_qr_screen.dart';
-import 'scan_url_screen.dart';
+import 'scan_result_screen.dart';
 import 'settings_screen.dart';
-import 'share_link_screen.dart';
 import 'stats_screen.dart';
 
 class MainShell extends StatefulWidget {
@@ -19,29 +23,56 @@ class MainShell extends StatefulWidget {
 
 class _MainShellState extends State<MainShell> {
   int _selectedIndex = 0;
-  final _scanKey = GlobalKey<ScanUrlScreenState>();
+  final _inputScan = InputScanDependencies();
+
+  @override
+  void dispose() {
+    _inputScan.dispose();
+    super.dispose();
+  }
 
   void _selectTab(int index) {
     FocusManager.instance.primaryFocus?.unfocus();
     setState(() => _selectedIndex = index);
   }
 
-  void _openScan({bool paste = false}) {
+  Future<void> _openScan({bool paste = false}) async {
     _selectTab(1);
-    if (paste) _scanKey.currentState?.pasteIntoFirstField();
+    if (paste) {
+      final message = await _inputScan.scanUrl.pasteIntoFirstField();
+      if (mounted && message != null) showScanMessage(context, message);
+    }
   }
+
+  void _openResults() => Navigator.of(context)
+      .push(MaterialPageRoute<void>(builder: (_) => const ScanResultScreen()));
+
+  void _openNotifications() => Navigator.of(
+    context,
+  ).push(MaterialPageRoute<void>(builder: (_) => const NotificationsScreen()));
 
   void _openQr() => Navigator.of(context).push(
     MaterialPageRoute<void>(
-      builder: (_) => ScanQrScreen(onNavigate: _selectTab),
+      builder: (_) => ScanQrScreen(
+        controller: _inputScan.scanQr,
+        onNavigate: _selectTab,
+        onViewResults: _openResults,
+      ),
     ),
   );
 
-  void _openShare() => Navigator.of(context).push(
-    MaterialPageRoute<void>(
-      builder: (_) => ShareLinkScreen(onNavigate: _selectTab),
-    ),
-  );
+  void _openShare() {
+    final controller = _inputScan.createShareLink();
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => ShareLinkScreen(
+          controller: controller,
+          onNavigate: _selectTab,
+          onViewResults: _openResults,
+        ),
+      ),
+    );
+  }
 
   void _openSettings() => Navigator.of(context).push(
     MaterialPageRoute<void>(
@@ -57,6 +88,13 @@ class _MainShellState extends State<MainShell> {
         index: _selectedIndex,
         children: [
           HomeScreen(
+            controller: _inputScan.home,
+            onNotifications: _openNotifications,
+            onRecentScan: (scan) => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => _inputScan.detailFor(scan),
+              ),
+            ),
             onScan: _openScan,
             onPaste: () => _openScan(paste: true),
             onQr: _openQr,
@@ -64,7 +102,12 @@ class _MainShellState extends State<MainShell> {
             onHistory: () => _selectTab(2),
             onProfile: () => _selectTab(4),
           ),
-          ScanUrlScreen(key: _scanKey, onQr: _openQr, onShare: _openShare),
+          ScanUrlScreen(
+            controller: _inputScan.scanUrl,
+            onQr: _openQr,
+            onShare: _openShare,
+            onViewResults: _openResults,
+          ),
           const HistoryScreen(),
           const StatsScreen(),
           ProfileScreen(onSettings: _openSettings),
