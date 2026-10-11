@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-
-import 'package:pbl_semester5/data/scan_result.dart';
+import 'package:pbl_semester5/app/scan_results_dependencies.dart';
 import 'package:pbl_semester5/screens/report_prediction_screen.dart';
 import 'package:pbl_semester5/screens/scan_detail_screen.dart';
 import 'package:pbl_semester5/screens/scan_result_screen.dart';
@@ -20,11 +19,31 @@ Widget harness(Widget child, double scale) => MaterialApp(
 );
 
 void main() {
+  late ScanResultsDependencies dependencies;
+
+  setUp(() => dependencies = ScanResultsDependencies());
+  tearDown(() => dependencies.dispose());
+
   final cases = <String, Widget Function()>{
-    'report': () => ReportPredictionScreen(item: demoScanResults.first),
-    'detail': () => ScanDetailScreen(item: demoScanResults.first),
-    'result': () => const ScanResultScreen(),
+    'report': () => ReportPredictionScreen(
+      controller: dependencies.createReportController(
+        dependencies.findResult('0'),
+      ),
+    ),
+    'detail': () => ScanDetailScreen(
+      result: dependencies.findResult('0'),
+      onReport: (_) {},
+    ),
+    'result': () => ScanResultScreen(
+      controller: dependencies.scanResults,
+      onOpenDetail: (_) {},
+    ),
   };
+
+  test('dependencies expose example results', () {
+    dependencies.scanResults.load();
+    expect(dependencies.scanResults.summary.totalCount, greaterThan(0));
+  });
 
   for (final entry in cases.entries) {
     testWidgets('detail-info ${entry.key}', (tester) async {

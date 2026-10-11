@@ -3,10 +3,12 @@ import 'package:flutter/material.dart';
 import '../data/scan_result.dart';
 import '../theme/app_colors.dart';
 import '../widgets/scan_components.dart';
-import 'scan_detail_screen.dart';
 
 class HistoryScreen extends StatefulWidget {
-  const HistoryScreen({super.key});
+  const HistoryScreen({super.key, this.onOpenDetail});
+
+  /// Navigation is wired by the shell; this feature stays on its own data.
+  final ValueChanged<int>? onOpenDetail;
 
   @override
   State<HistoryScreen> createState() => _HistoryScreenState();
@@ -77,7 +79,13 @@ class _HistoryScreenState extends State<HistoryScreen> {
           ..add(const SizedBox(height: 8));
       }
       children
-        ..add(_HistoryRow(item: item))
+        ..add(
+          _HistoryRow(
+            item: item,
+            index: demoScanResults.indexOf(item),
+            onOpenDetail: widget.onOpenDetail,
+          ),
+        )
         ..add(const SizedBox(height: 6));
     }
     return children;
@@ -85,7 +93,11 @@ class _HistoryScreenState extends State<HistoryScreen> {
 }
 
 class _FilterChip extends StatelessWidget {
-  const _FilterChip({required this.label, required this.selected, required this.onTap});
+  const _FilterChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
 
   final String label;
   final bool selected;
@@ -96,9 +108,7 @@ class _FilterChip extends StatelessWidget {
     color: selected ? AppColors.blue : Colors.white,
     shape: RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(10),
-      side: BorderSide(
-        color: selected ? AppColors.blue : AppColors.line,
-      ),
+      side: BorderSide(color: selected ? AppColors.blue : AppColors.line),
     ),
     child: InkWell(
       onTap: onTap,
@@ -121,9 +131,15 @@ class _FilterChip extends StatelessWidget {
 }
 
 class _HistoryRow extends StatelessWidget {
-  const _HistoryRow({required this.item});
+  const _HistoryRow({
+    required this.item,
+    required this.index,
+    required this.onOpenDetail,
+  });
 
   final ScanResultItem item;
+  final int index;
+  final ValueChanged<int>? onOpenDetail;
 
   @override
   Widget build(BuildContext context) {
@@ -131,11 +147,7 @@ class _HistoryRow extends StatelessWidget {
     final background = item.categoryBackground;
 
     return InkWell(
-      onTap: () => Navigator.of(context).push(
-        MaterialPageRoute<void>(
-          builder: (_) => ScanDetailScreen(item: item),
-        ),
-      ),
+      onTap: () => onOpenDetail?.call(index),
       borderRadius: BorderRadius.circular(12),
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 8),
@@ -175,7 +187,10 @@ class _HistoryRow extends StatelessWidget {
                   const SizedBox(height: 3),
                   Text(
                     item.scanTime,
-                    style: const TextStyle(color: AppColors.muted, fontSize: 11),
+                    style: const TextStyle(
+                      color: AppColors.muted,
+                      fontSize: 11,
+                    ),
                   ),
                 ],
               ),
@@ -185,7 +200,10 @@ class _HistoryRow extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: background,
                     borderRadius: BorderRadius.circular(6),

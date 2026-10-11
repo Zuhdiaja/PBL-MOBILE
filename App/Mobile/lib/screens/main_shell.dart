@@ -1,15 +1,19 @@
 import 'package:flutter/material.dart';
 
 import '../app/input_scan_dependencies.dart';
+import '../app/scan_results_dependencies.dart';
 import '../features/input_scan/presentation/pages/home_screen.dart';
 import '../features/input_scan/presentation/pages/scan_qr_screen.dart';
 import '../features/input_scan/presentation/pages/scan_url_screen.dart';
 import '../features/input_scan/presentation/pages/share_link_screen.dart';
+import '../features/scan_results/domain/entities/scan_result.dart';
 import '../widgets/app_bottom_navigation.dart';
 import '../widgets/scan_components.dart';
 import 'history_screen.dart';
 import 'notifications_screen.dart';
 import 'profile_screen.dart';
+import 'report_prediction_screen.dart';
+import 'scan_detail_screen.dart';
 import 'scan_result_screen.dart';
 import 'settings_screen.dart';
 import 'stats_screen.dart';
@@ -24,10 +28,12 @@ class MainShell extends StatefulWidget {
 class _MainShellState extends State<MainShell> {
   int _selectedIndex = 0;
   final _inputScan = InputScanDependencies();
+  final _scanResults = ScanResultsDependencies();
 
   @override
   void dispose() {
     _inputScan.dispose();
+    _scanResults.dispose();
     super.dispose();
   }
 
@@ -44,8 +50,34 @@ class _MainShellState extends State<MainShell> {
     }
   }
 
-  void _openResults() => Navigator.of(context)
-      .push(MaterialPageRoute<void>(builder: (_) => const ScanResultScreen()));
+  void _openResults() => Navigator.of(context).push(
+    MaterialPageRoute<void>(
+      builder: (_) => ScanResultScreen(
+        controller: _scanResults.scanResults,
+        onOpenDetail: _openDetail,
+        onNavigate: _selectTab,
+      ),
+    ),
+  );
+
+  void _openDetail(ScanResult result) => Navigator.of(context).push(
+    MaterialPageRoute<void>(
+      builder: (_) => ScanDetailScreen(
+        result: result,
+        onReport: _openReport,
+        onNavigate: _selectTab,
+      ),
+    ),
+  );
+
+  void _openReport(ScanResult result) => Navigator.of(context).push(
+    MaterialPageRoute<void>(
+      builder: (_) => ReportPredictionScreen(
+        controller: _scanResults.createReportController(result),
+        onNavigate: _selectTab,
+      ),
+    ),
+  );
 
   void _openNotifications() => Navigator.of(
     context,
@@ -90,11 +122,8 @@ class _MainShellState extends State<MainShell> {
           HomeScreen(
             controller: _inputScan.home,
             onNotifications: _openNotifications,
-            onRecentScan: (scan) => Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (_) => _inputScan.detailFor(scan),
-              ),
-            ),
+            onRecentScan: (scan) =>
+                _openDetail(_scanResults.findResult(scan.id)),
             onScan: _openScan,
             onPaste: () => _openScan(paste: true),
             onQr: _openQr,
@@ -108,7 +137,10 @@ class _MainShellState extends State<MainShell> {
             onShare: _openShare,
             onViewResults: _openResults,
           ),
-          const HistoryScreen(),
+          HistoryScreen(
+            onOpenDetail: (index) =>
+                _openDetail(_scanResults.findResult('$index')),
+          ),
           const StatsScreen(),
           ProfileScreen(onSettings: _openSettings),
         ],
