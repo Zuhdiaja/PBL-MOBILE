@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
-import '../screens/scan_result_screen.dart';
 import '../theme/app_colors.dart';
 import 'app_bottom_navigation.dart';
 
@@ -267,114 +265,8 @@ class UrlField extends StatelessWidget {
   );
 }
 
-/// Local input validation only; this makes no assessment of a URL's safety.
-String? validateUrl(String? value) {
-  final text = value?.trim() ?? '';
-  if (text.isEmpty) return 'Masukkan URL yang ingin diperiksa.';
-  final uri = Uri.tryParse(text);
-  if (uri == null ||
-      !{'http', 'https'}.contains(uri.scheme.toLowerCase()) ||
-      uri.host.isEmpty ||
-      !uri.host.contains('.') ||
-      RegExp(r'\s').hasMatch(text)) {
-    return 'Gunakan URL lengkap, misalnya https://contoh.com.';
-  }
-  return null;
-}
-
-Future<String?> readClipboardUrl(BuildContext context) async {
-  try {
-    final data = await Clipboard.getData(Clipboard.kTextPlain);
-    final text = data?.text?.trim() ?? '';
-    if (!context.mounted) return null;
-    if (text.isNotEmpty) return text;
-    showScanMessage(
-      context,
-      'Belum ada teks untuk ditempel. Salin URL dahulu.',
-    );
-  } on PlatformException {
-    if (context.mounted) {
-      showScanMessage(
-        context,
-        'Teks belum bisa ditempel. Masukkan URL manual.',
-      );
-    }
-  }
-  return null;
-}
-
 void showScanMessage(BuildContext context, String text) {
   ScaffoldMessenger.of(context)
     ..hideCurrentSnackBar()
     ..showSnackBar(SnackBar(content: Text(text)));
-}
-
-Future<void> showScanPreview(BuildContext context, List<String> urls) {
-  FocusManager.instance.primaryFocus?.unfocus();
-  return showModalBottomSheet<void>(
-    context: context,
-    isScrollControlled: true,
-    useSafeArea: true,
-    showDragHandle: true,
-    backgroundColor: Colors.white,
-    builder: (context) => Padding(
-      padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('Pratinjau pemeriksaan', style: sectionTitleStyle),
-            const SizedBox(height: 8),
-            const Text(
-              'Tautan siap diperiksa. Belum ada penilaian keamanan pada pratinjau ini.',
-              style: bodyStyle,
-            ),
-            const SizedBox(height: 20),
-            for (final url in urls)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Icon(Icons.link, size: 21, color: AppColors.blue),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        url,
-                        style: const TextStyle(
-                          color: AppColors.ink,
-                          fontSize: 14,
-                          height: 1.5,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            const SizedBox(height: 12),
-            ScanButton(
-              label: 'Lihat Hasil Scan',
-              icon: Icons.shield_outlined,
-              onPressed: () {
-                Navigator.of(context).pop();
-                Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => const ScanResultScreen(),
-                  ),
-                );
-              },
-            ),
-            const SizedBox(height: 8),
-            ScanButton(
-              label: 'Kembali',
-              icon: Icons.arrow_back_rounded,
-              onPressed: () => Navigator.of(context).pop(),
-            ),
-          ],
-        ),
-      ),
-    ),
-  );
 }
