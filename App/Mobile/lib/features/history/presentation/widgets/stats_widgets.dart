@@ -1,107 +1,10 @@
 import 'package:flutter/material.dart';
 
-import '../data/demo_activity.dart';
-import '../data/scan_result.dart';
-import '../theme/app_colors.dart';
-import '../widgets/scan_components.dart';
+import '../../../../theme/app_colors.dart';
 
-class StatsScreen extends StatelessWidget {
-  const StatsScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final total = demoScanResults.length;
-    final safeCount = demoScanResults.where((e) => e.isSafe).length;
-    final unsafeCount = total - safeCount;
-    final phishingCount = demoScanResults
-        .where((e) => e.category == 'Phishing')
-        .length;
-    final malwareCount = demoScanResults
-        .where((e) => e.category == 'Malware')
-        .length;
-    final reportCount = demoReports.length;
-    final safePercent = total == 0 ? 0 : (safeCount * 100 / total).round();
-
-    return ScanPage(
-      children: [
-        const Text('Statistik', style: pageTitleStyle),
-        const SizedBox(height: 6),
-        const Text('Ringkasan aktivitas pemeriksaan', style: bodyStyle),
-        const SizedBox(height: 22),
-        _TotalCard(total: total),
-        const SizedBox(height: 12),
-        GridView.count(
-          crossAxisCount: 2,
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          mainAxisSpacing: 10,
-          crossAxisSpacing: 10,
-          childAspectRatio: 1.18,
-          children: [
-            _StatCard(
-              icon: Icons.verified_user_outlined,
-              value: '$safeCount',
-              label: 'URL aman',
-              color: AppColors.success,
-              background: AppColors.paleSuccess,
-            ),
-            _StatCard(
-              icon: Icons.warning_amber_rounded,
-              value: '$unsafeCount',
-              label: 'URL berbahaya',
-              color: AppColors.danger,
-              background: AppColors.paleDanger,
-            ),
-            _StatCard(
-              icon: Icons.phishing_outlined,
-              value: '$phishingCount',
-              label: 'Phishing ditemukan',
-              color: AppColors.blue,
-              background: AppColors.paleBlue,
-            ),
-            _StatCard(
-              icon: Icons.bug_report_outlined,
-              value: '$malwareCount',
-              label: 'Malware ditemukan',
-              color: AppColors.danger,
-              background: AppColors.paleDanger,
-            ),
-            _StatCard(
-              icon: Icons.flag_outlined,
-              value: '$reportCount',
-              label: 'Jumlah laporan',
-              color: AppColors.blue,
-              background: AppColors.paleBlue,
-            ),
-            _StatCard(
-              icon: Icons.percent_rounded,
-              value: '$safePercent%',
-              label: 'Proporsi URL aman',
-              color: AppColors.success,
-              background: AppColors.paleSuccess,
-            ),
-          ],
-        ),
-        const SizedBox(height: 24),
-        const Text(
-          'Aktivitas 7 hari',
-          style: TextStyle(
-            color: AppColors.ink,
-            fontSize: 16,
-            fontWeight: FontWeight.w800,
-          ),
-        ),
-        const SizedBox(height: 12),
-        const _WeeklyChart(),
-        const SizedBox(height: 12),
-        const InfoNote('Data contoh. Statistik dihitung dari riwayat simulasi.'),
-      ],
-    );
-  }
-}
-
-class _TotalCard extends StatelessWidget {
-  const _TotalCard({required this.total});
+/// Blue hero card with the total number of scans.
+class StatsTotalCard extends StatelessWidget {
+  const StatsTotalCard({super.key, required this.total});
 
   final int total;
 
@@ -163,8 +66,9 @@ class _TotalCard extends StatelessWidget {
   );
 }
 
-class _StatCard extends StatelessWidget {
-  const _StatCard({
+class StatsCard extends StatelessWidget {
+  const StatsCard({
+    super.key,
     required this.icon,
     required this.value,
     required this.label,
@@ -225,8 +129,9 @@ class _StatCard extends StatelessWidget {
   );
 }
 
-class _WeeklyChart extends StatelessWidget {
-  const _WeeklyChart();
+/// Seven day bar chart for the simulated activity sample.
+class WeeklyActivityChart extends StatelessWidget {
+  const WeeklyActivityChart({super.key});
 
   static const _values = [1, 2, 2, 3, 3, 4, 5];
   static const _days = ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'];
@@ -245,7 +150,9 @@ class _WeeklyChart extends StatelessWidget {
       children: [
         for (var i = 0; i < _values.length; i++) ...[
           if (i > 0) const SizedBox(width: 8),
-          Expanded(child: _Bar(value: _values[i], day: _days[i])),
+          Expanded(
+            child: _Bar(value: _values[i], day: _days[i]),
+          ),
         ],
       ],
     ),
@@ -260,7 +167,7 @@ class _Bar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isLast = day == _WeeklyChart._days.last;
+    final isLast = day == WeeklyActivityChart._days.last;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -274,10 +181,7 @@ class _Bar extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 8),
-        Text(
-          day,
-          style: const TextStyle(color: AppColors.muted, fontSize: 10),
-        ),
+        Text(day, style: const TextStyle(color: AppColors.muted, fontSize: 10)),
       ],
     );
   }

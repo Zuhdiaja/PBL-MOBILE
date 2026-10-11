@@ -1,24 +1,25 @@
 import 'package:flutter/material.dart';
 
 import '../app/auth_dependencies.dart';
+import '../app/history_dependencies.dart';
 import '../app/input_scan_dependencies.dart';
 import '../app/scan_results_dependencies.dart';
 import '../features/auth/presentation/pages/profile_page.dart';
 import '../features/auth/presentation/pages/settings_page.dart';
+import '../features/history/presentation/pages/history_screen.dart';
+import '../features/history/presentation/pages/notifications_screen.dart';
+import '../features/history/presentation/pages/report_status_screen.dart';
+import '../features/history/presentation/pages/stats_screen.dart';
 import '../features/input_scan/presentation/pages/home_screen.dart';
 import '../features/input_scan/presentation/pages/scan_qr_screen.dart';
 import '../features/input_scan/presentation/pages/scan_url_screen.dart';
 import '../features/input_scan/presentation/pages/share_link_screen.dart';
 import '../features/scan_results/domain/entities/scan_result.dart';
+import '../features/scan_results/presentation/pages/report_prediction_screen.dart';
+import '../features/scan_results/presentation/pages/scan_detail_screen.dart';
+import '../features/scan_results/presentation/pages/scan_result_screen.dart';
 import '../widgets/app_bottom_navigation.dart';
 import '../widgets/scan_components.dart';
-import 'history_screen.dart';
-import 'notifications_screen.dart';
-import 'report_prediction_screen.dart';
-import 'report_status_screen.dart';
-import 'scan_detail_screen.dart';
-import 'scan_result_screen.dart';
-import 'stats_screen.dart';
 
 class MainShell extends StatefulWidget {
   const MainShell({super.key, required this.auth, required this.onSignOut});
@@ -37,11 +38,13 @@ class _MainShellState extends State<MainShell> {
   int _selectedIndex = 0;
   final _inputScan = InputScanDependencies();
   final _scanResults = ScanResultsDependencies();
+  final _history = HistoryDependencies();
 
   @override
   void dispose() {
     _inputScan.dispose();
     _scanResults.dispose();
+    _history.dispose();
     super.dispose();
   }
 
@@ -87,13 +90,17 @@ class _MainShellState extends State<MainShell> {
     ),
   );
 
-  void _openNotifications() => Navigator.of(
-    context,
-  ).push(MaterialPageRoute<void>(builder: (_) => const NotificationsScreen()));
+  void _openNotifications() => Navigator.of(context).push(
+    MaterialPageRoute<void>(
+      builder: (_) => NotificationsScreen(controller: _history.notifications),
+    ),
+  );
 
-  void _openReportStatus() => Navigator.of(
-    context,
-  ).push(MaterialPageRoute<void>(builder: (_) => const ReportStatusScreen()));
+  void _openReportStatus() => Navigator.of(context).push(
+    MaterialPageRoute<void>(
+      builder: (_) => ReportStatusScreen(controller: _history.reportStatus),
+    ),
+  );
 
   void _openQr() => Navigator.of(context).push(
     MaterialPageRoute<void>(
@@ -158,10 +165,11 @@ class _MainShellState extends State<MainShell> {
             onViewResults: _openResults,
           ),
           HistoryScreen(
-            onOpenDetail: (index) =>
-                _openDetail(_scanResults.findResult('$index')),
+            controller: _history.history,
+            onOpenDetail: (entry) =>
+                _openDetail(_scanResults.findResult(entry.id)),
           ),
-          const StatsScreen(),
+          StatsScreen(controller: _history.stats),
           ProfilePage(
             controller: widget.auth.profile,
             account: widget.auth.auth.account ?? widget.auth.demoAccount,

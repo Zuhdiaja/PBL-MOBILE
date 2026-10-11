@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pbl_semester5/app/scan_results_dependencies.dart';
-import 'package:pbl_semester5/screens/report_prediction_screen.dart';
-import 'package:pbl_semester5/screens/scan_detail_screen.dart';
-import 'package:pbl_semester5/screens/scan_result_screen.dart';
+import 'package:pbl_semester5/features/scan_results/presentation/pages/report_prediction_screen.dart';
+import 'package:pbl_semester5/features/scan_results/presentation/pages/scan_detail_screen.dart';
+import 'package:pbl_semester5/features/scan_results/presentation/pages/scan_result_screen.dart';
 import 'package:pbl_semester5/theme/app_colors.dart';
 
 Widget harness(Widget child, double scale) => MaterialApp(
