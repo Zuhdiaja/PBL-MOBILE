@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 
+import '../app/auth_dependencies.dart';
 import '../app/input_scan_dependencies.dart';
 import '../app/scan_results_dependencies.dart';
+import '../features/auth/presentation/pages/profile_page.dart';
+import '../features/auth/presentation/pages/settings_page.dart';
 import '../features/input_scan/presentation/pages/home_screen.dart';
 import '../features/input_scan/presentation/pages/scan_qr_screen.dart';
 import '../features/input_scan/presentation/pages/scan_url_screen.dart';
@@ -11,15 +14,20 @@ import '../widgets/app_bottom_navigation.dart';
 import '../widgets/scan_components.dart';
 import 'history_screen.dart';
 import 'notifications_screen.dart';
-import 'profile_screen.dart';
 import 'report_prediction_screen.dart';
+import 'report_status_screen.dart';
 import 'scan_detail_screen.dart';
 import 'scan_result_screen.dart';
-import 'settings_screen.dart';
 import 'stats_screen.dart';
 
 class MainShell extends StatefulWidget {
-  const MainShell({super.key});
+  const MainShell({super.key, required this.auth, required this.onSignOut});
+
+  /// Auth wiring shared with the login screen.
+  final AuthDependencies auth;
+
+  /// Called after the session is closed.
+  final VoidCallback onSignOut;
 
   @override
   State<MainShell> createState() => _MainShellState();
@@ -83,6 +91,10 @@ class _MainShellState extends State<MainShell> {
     context,
   ).push(MaterialPageRoute<void>(builder: (_) => const NotificationsScreen()));
 
+  void _openReportStatus() => Navigator.of(
+    context,
+  ).push(MaterialPageRoute<void>(builder: (_) => const ReportStatusScreen()));
+
   void _openQr() => Navigator.of(context).push(
     MaterialPageRoute<void>(
       builder: (_) => ScanQrScreen(
@@ -108,9 +120,17 @@ class _MainShellState extends State<MainShell> {
 
   void _openSettings() => Navigator.of(context).push(
     MaterialPageRoute<void>(
-      builder: (_) => SettingsScreen(onNavigate: _selectTab),
+      builder: (_) => SettingsPage(
+        controller: widget.auth.settings,
+        onNavigate: _selectTab,
+      ),
     ),
   );
+
+  void _signOut() {
+    widget.auth.auth.submitSignOut();
+    widget.onSignOut();
+  }
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -142,7 +162,14 @@ class _MainShellState extends State<MainShell> {
                 _openDetail(_scanResults.findResult('$index')),
           ),
           const StatsScreen(),
-          ProfileScreen(onSettings: _openSettings),
+          ProfilePage(
+            controller: widget.auth.profile,
+            account: widget.auth.auth.account ?? widget.auth.demoAccount,
+            onSettings: _openSettings,
+            onSignOut: _signOut,
+            onReportStatus: _openReportStatus,
+            onNotifications: _openNotifications,
+          ),
         ],
       ),
     ),

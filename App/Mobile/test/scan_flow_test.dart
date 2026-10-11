@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:pbl_semester5/screens/main_shell.dart';
+import 'package:pbl_semester5/app/auth_dependencies.dart';
 import 'package:pbl_semester5/main.dart';
+import 'package:pbl_semester5/screens/main_shell.dart';
 
 Future<void> openApp(
   WidgetTester tester, {
@@ -18,20 +19,38 @@ Future<void> openApp(
   await tester.pumpAndSettle();
 }
 
-class MyAppTestShell extends StatelessWidget {
+class MyAppTestShell extends StatefulWidget {
   const MyAppTestShell({super.key, this.textScale = 1});
 
   final double textScale;
+
+  @override
+  State<MyAppTestShell> createState() => _MyAppTestShellState();
+}
+
+class _MyAppTestShellState extends State<MyAppTestShell> {
+  final _auth = AuthDependencies();
+
+  @override
+  void dispose() {
+    _auth.dispose();
+    super.dispose();
+  }
+
+  void _signOut() => Navigator.of(context).pushAndRemoveUntil(
+    MaterialPageRoute<void>(builder: (_) => const SizedBox.shrink()),
+    (route) => false,
+  );
 
   @override
   Widget build(BuildContext context) => MaterialApp(
     theme: (const MyApp().build(context) as MaterialApp).theme,
     builder: (context, child) => MediaQuery(
       data: MediaQuery.of(context)
-          .copyWith(textScaler: TextScaler.linear(textScale)),
+          .copyWith(textScaler: TextScaler.linear(widget.textScale)),
       child: child!,
     ),
-    home: const MainShell(),
+    home: MainShell(auth: _auth, onSignOut: _signOut),
   );
 }
 

@@ -1,23 +1,27 @@
 import 'package:flutter/material.dart';
 
-import '../theme/app_colors.dart';
+import '../../../../theme/app_colors.dart';
 
+/// Describes one input in the login or register form.
 class AuthField {
   const AuthField({
     required this.label,
     required this.hint,
     this.obscure = false,
     this.controller,
+    this.keyboardType,
   });
 
   final String label;
   final String hint;
   final bool obscure;
   final TextEditingController? controller;
+  final TextInputType? keyboardType;
 }
 
-class AuthScreen extends StatelessWidget {
-  const AuthScreen({
+/// Shared layout for the login and register screens.
+class AuthForm extends StatelessWidget {
+  const AuthForm({
     super.key,
     required this.title,
     required this.subtitle,
@@ -27,6 +31,8 @@ class AuthScreen extends StatelessWidget {
     required this.footerAction,
     required this.onFooterTap,
     required this.onSubmit,
+    this.errorMessage,
+    this.isSubmitting = false,
   });
 
   final String title;
@@ -37,6 +43,12 @@ class AuthScreen extends StatelessWidget {
   final String footerAction;
   final VoidCallback onFooterTap;
   final VoidCallback onSubmit;
+
+  /// Message shown under the fields when the last attempt failed.
+  final String? errorMessage;
+
+  /// Disables the action button while a request is in flight.
+  final bool isSubmitting;
 
   @override
   Widget build(BuildContext context) {
@@ -70,11 +82,15 @@ class AuthScreen extends StatelessWidget {
                 _LabeledField(field: field),
                 const SizedBox(height: 11),
               ],
+              if (errorMessage != null) ...[
+                _ErrorBanner(message: errorMessage!),
+                const SizedBox(height: 11),
+              ],
               SizedBox(
                 width: double.infinity,
                 height: 46,
                 child: FilledButton.icon(
-                  onPressed: onSubmit,
+                  onPressed: isSubmitting ? null : onSubmit,
                   iconAlignment: IconAlignment.end,
                   icon: const Icon(Icons.arrow_forward_rounded, size: 17),
                   label: Text(
@@ -140,6 +156,38 @@ class AuthScreen extends StatelessWidget {
       ),
     );
   }
+}
+
+class _ErrorBanner extends StatelessWidget {
+  const _ErrorBanner({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: double.infinity,
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+    decoration: BoxDecoration(
+      color: const Color(0xFFFDECEC),
+      borderRadius: BorderRadius.circular(9),
+    ),
+    child: Row(
+      children: [
+        const Icon(Icons.error_outline, size: 15, color: Color(0xFFC83D42)),
+        const SizedBox(width: 7),
+        Expanded(
+          child: Text(
+            message,
+            style: const TextStyle(
+              color: Color(0xFFC83D42),
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
 }
 
 class _Brand extends StatelessWidget {
@@ -265,6 +313,7 @@ class _LabeledField extends StatelessWidget {
           child: TextField(
             controller: field.controller,
             obscureText: field.obscure,
+            keyboardType: field.keyboardType,
             decoration: InputDecoration(
               hintText: field.hint,
               hintStyle: const TextStyle(color: AppColors.muted, fontSize: 13),
