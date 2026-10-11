@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:pbl_semester5/data/scan_result.dart';
-import 'package:pbl_semester5/screens/scan_detail_screen.dart';
+import 'package:pbl_semester5/features/scan_results/presentation/pages/scan_detail_screen.dart';
 
 import 'scan_flow_test.dart' show openApp, tapVisible;
 
