@@ -14,8 +14,8 @@ void main() {
     await tapVisible(tester, find.text(demoScanResults[1].url));
     expect(find.text('Detail hasil'), findsOneWidget);
     expect(
-      tester.widget<ScanDetailScreen>(find.byType(ScanDetailScreen)).item,
-      same(demoScanResults[1]),
+      tester.widget<ScanDetailScreen>(find.byType(ScanDetailScreen)).result.url,
+      demoScanResults[1].url,
     );
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
