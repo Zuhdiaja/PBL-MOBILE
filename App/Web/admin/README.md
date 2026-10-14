@@ -1,21 +1,14 @@
 # LinkGuard Admin
 
-Scaffold Next.js dengan TypeScript dan App Router. Tooling memakai Bun, Oxlint, dan Oxfmt. Halaman awal masih kosong.
+Next.js, TypeScript, Bun, Oxlint/Oxfmt, Tailwind CSS 4, shadcn Base UI Nova, dan TanStack Table dengan pagination server. Halaman `/login`, `/datasets`, `/profile`; tidak ada registrasi publik.
+
+Lihat [panduan web](../README.md) untuk menjalankan seluruh layanan lewat Docker Compose, membuat akun admin, dan pengujian.
 
 ```sh
 bun install --frozen-lockfile
 bun run dev
 ```
 
-Buka `http://localhost:3000`.
+`bun run lint`, `bun run format:check`, `bun run typecheck`, `bun run build`, dan `bun run test:e2e` tersedia. Geist disajikan lokal dari paket `geist`.
 
-```sh
-bun run lint
-bun run format:check
-bun run typecheck
-bun run build
-```
-
-Untuk memformat file: `bun run format`.
-
-Struktur lengkap ada di [README Web](../README.md).
+Tampilan mengadaptasi blok resmi [dashboard-01](https://ui.shadcn.com/blocks#blocks) dan [login-03](https://ui.shadcn.com/blocks/login), menggunakan varian Base UI Nova. Sidebar dapat diciutkan di desktop, menjadi drawer pada mobile, dan menyimpan aksi keluar pada menu akun. Tabel memakai header sticky dan scroll terpisah; pagination tetap berada di footer tabel.

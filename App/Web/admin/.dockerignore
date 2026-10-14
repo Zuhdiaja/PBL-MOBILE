@@ -1,0 +1,14 @@
+node_modules
+.next
+.env*
+playwright-report
+test-results
+.impeccable
+
+*.png.json
+*.jpg.json
+*.jpeg.json
+*.webp.json
+*.avif.json
+*.gif.json
+*.svg.json

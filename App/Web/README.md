@@ -1,64 +1,111 @@
-# LinkGuard Web
+# LinkGuard Admin
 
-Scaffold kosong untuk dashboard admin Next.js dan REST API Flask.
+Dashboard V1 untuk login admin, satu dataset CSV aktif, pengelolaan pengguna, dan profil. Tidak ada registrasi publik. Admin pertama dibuat lewat CLI; admin berikutnya dapat ditambahkan dari dashboard. Admin web hanya masuk dengan email dan password.
 
-Versi stabil diverifikasi pada 11 Oktober 2026 melalui registry npm dan PyPI:
+## Docker Compose
 
-- Next.js **16.4.0**, React **19.3.0**, TypeScript **7.0.2**.
-- Bun **1.4.3**, Oxlint **1.87.0**, Oxfmt **0.72.0**.
-- Flask **3.1.3**.
-
-## Struktur
-
-```text
-App/Web/
-├── admin/
-│   ├── public/            # Aset statis
-│   ├── src/
-│   │   ├── app/           # Halaman dan layout App Router
-│   │   ├── components/    # Komponen bersama
-│   │   ├── features/      # Modul per fitur
-│   │   ├── hooks/         # Custom hooks
-│   │   ├── lib/           # Helper dan integrasi
-│   │   └── types/         # Tipe TypeScript
-│   ├── package.json
-│   └── bun.lock
-└── api/
-    ├── app/
-    │   ├── __init__.py    # Application factory
-    │   ├── routes/        # Endpoint REST API
-    │   ├── models/        # Model data
-    │   ├── services/      # Logika bisnis
-    │   ├── schemas/       # Validasi dan serialisasi
-    │   └── utils/         # Helper
-    ├── tests/
-    └── requirements.txt
-```
-
-Folder cadangan sengaja kosong. Belum ada UI dashboard, endpoint, autentikasi, database, atau integrasi antar aplikasi.
-
-## Menjalankan
-
-Gunakan Bun 1.4.3+ dan Python 3.10+. Jika memakai Node.js untuk tooling, gunakan Node.js 24+.
-
-Admin, dari root repository:
+Dari folder `App/Web`:
 
 ```sh
-cd App/Web/admin
+cp .env.example .env
+python3 -c "import secrets; print(secrets.token_hex(32))"
+```
+
+Isi `SECRET_KEY` dan `POSTGRES_PASSWORD` di `.env` dengan dua nilai acak yang berbeda, lalu:
+
+```sh
+docker compose up -d --build --wait
+docker compose exec api flask --app app:create_app create-admin \
+  --email admin@example.com --name "Admin LinkGuard"
+```
+
+CLI meminta password minimal 12 karakter secara interaktif. Buka **http://localhost:3000**. Compose menjalankan web Next.js, API Flask, worker RQ, PostgreSQL, Redis, dan migration otomatis. Hanya port web yang dibuka ke host; API, database, dan Redis berada di jaringan internal. CSV sementara dan avatar berada pada volume privat bersama API/worker.
+
+```sh
+docker compose logs -f api worker web
+docker compose stop
+```
+
+Volume data tetap tersimpan saat layanan dihentikan. Perubahan `MAX_UPLOAD_MB` memerlukan rebuild web karena konfigurasi proxy dibaca saat build.
+
+## HTTPS
+
+Untuk deployment HTTPS, arahkan reverse proxy ke web dan set `COOKIE_SECURE=true`. Sesuaikan batas request reverse proxy minimal `MAX_UPLOAD_MB + 1` MB. Rewrite Next.js meneruskan `/api/v1` ke Flask; cookie sesi Redis bersifat HttpOnly, SameSite=Lax, dan berlaku maksimal delapan jam. Request perubahan memerlukan CSRF. Password memakai scrypt; perubahan password mengakhiri sesi perangkat lain.
+
+Implementasi mengacu pada [shadcn Next.js](https://ui.shadcn.com/docs/installation/next), [pagination TanStack](https://tanstack.com/table/latest/docs/framework/react/guide/pagination).
+
+## Pengguna
+
+Menu **Pengguna** memiliki tab **Admin dashboard** dan **Pengguna mobile**. Keduanya mendukung tambah akun, edit nama, pengaturan ulang password, serta aktif/nonaktif. Email tetap dan unik pada masing-masing jenis akun. Password minimal 12 karakter disimpan sebagai hash scrypt. Daftar memakai pagination server 25/50/100 akun.
+
+Semua admin aktif memiliki izin pengelolaan yang sama. Akun sendiri tidak dapat dinonaktifkan atau diatur ulang passwordnya lewat menu ini; gunakan Profil untuk mengubah password dengan password lama. Perubahan status atau pengaturan ulang password admin membatalkan sesi akun tersebut. Perubahan admin diserialisasi dalam transaksi PostgreSQL untuk menjaga akses saat dua admin saling menonaktifkan.
+
+Akun mobile disimpan terpisah di PostgreSQL dan tidak mempunyai akses dashboard. **Autentikasi Flutter saat ini masih memakai data demo di memori dan belum terhubung ke akun ini.** Status serta password mobile yang dikelola di sini baru akan berlaku pada aplikasi setelah integrasi API autentikasi mobile dibuat. Tidak ada endpoint registrasi web publik. Login Google ditujukan untuk pengguna mobile, bukan admin web; integrasi autentikasi mobile termasuk Google belum diimplementasikan. Endpoint Google admin lama tidak tersedia.
+
+Login desktop memakai dua kolom (form dan penjelasan akses); layar di bawah 1024px memakai satu kolom.
+
+## Dataset
+
+Sumber yang dituju adalah [MURL 2026 di Mendeley](https://data.mendeley.com/datasets/5fk24y4xmg/1). CSV asli belum tersedia di repository; fixture pengujian adalah data sintetis.
+
+- CSV UTF-8 atau UTF-8 BOM, maksimal 512 MB secara default. Header menentukan kolom; maksimal 1024 kolom.
+- Semua nilai disimpan sebagai string; spasi, label, header duplikat, duplikat baris, urutan, dan newline di dalam field dipertahankan. Tidak ada asumsi kolom atau jumlah kelas.
+- CSV harus memiliki header dan jumlah field konsisten. File encoding salah, kutipan rusak, karakter NUL, atau baris yang tidak sesuai ditolak. CSV dengan header saja diterima sebagai dataset kosong.
+- Unggahan mengembalikan `202` dan masuk antrean. Hanya satu impor aktif; unggahan lain menerima `409`.
+- Worker membaca streaming dan menyimpan batch maksimal 1000 baris atau sekitar 4 MB nilai. Dataset baru menggantikan dataset lama dalam transaksi setelah seluruh impor selesai. Data lama dibersihkan setelah pergantian; file unggahan sementara dihapus setelah selesai/gagal.
+- Pekerjaan gagal/terhenti dipulihkan sebagai `failed` saat metadata/status dibaca atau unggahan berikutnya dilakukan. Heartbeat yang kedaluwarsa lebih dari satu jam ditandai gagal; worker yang sudah ditandai gagal tidak boleh mengaktifkan dataset. Dataset lama tetap tersedia.
+- Pagination 25/50/100 baris dijalankan di PostgreSQL melalui indeks `(dataset_id, row_number)`. URL menyimpan halaman, ukuran halaman, dan identitas dataset; pergantian dataset kembali ke halaman pertama.
+
+## Menjalankan tanpa container web
+
+Bun 1.4.3+, Python 3.13+, PostgreSQL dan Redis diperlukan. Dari `admin`:
+
+```sh
 bun install --frozen-lockfile
+cp .env.example .env.local
 bun run dev
 ```
 
-Buka `http://localhost:3000`; halaman awal kosong. Lint dan format memakai Oxlint dan Oxfmt; pemeriksaan tipe memakai TypeScript. Jalankan `bun run lint`, `bun run format:check`, `bun run typecheck`, dan `bun run build` untuk pengecekan.
-
-API, di terminal lain dari root repository:
+Dari `api`, buat virtual environment dan install `requirements.lock`. Isi `SECRET_KEY`, `DATABASE_URL`, `REDIS_URL`, dan `PRIVATE_STORAGE` sebagai environment, lalu:
 
 ```sh
-cd App/Web/api
-python3 -m venv .venv
-source .venv/bin/activate
-python -m pip install -r requirements.txt
-python -m flask --app app:create_app run --debug --port 5001
+python -m flask --app app:create_app db upgrade
+python -m flask --app app:create_app run --port 5001
+# Terminal terpisah, environment yang sama:
+python worker.py
 ```
 
-API berjalan di `http://localhost:5001` dan mengembalikan 404 karena belum ada route.
+Frontend memakai `API_URL=http://127.0.0.1:5001` secara default. Geist disajikan lokal, tanpa unduhan font Google saat build.
+
+## Pemeriksaan
+
+Dari `admin`:
+
+```sh
+bun run lint
+bun run format:check
+bun run typecheck
+bun run build
+```
+
+Pengujian API memakai database **khusus pengujian** `linkguard_test` dan Redis DB 15. Pengujian membuat ulang tabel database tersebut, bukan database aplikasi:
+
+```sh
+# Dari App/Web, buat sekali:
+docker compose exec postgres createdb -U linkguard linkguard_test
+docker compose --profile test run --build --rm test
+```
+
+Playwright menguji web dan API yang benar-benar berjalan, pada 1440 px dan 390 px. Buat akun khusus uji, bukan akun produksi:
+
+```sh
+docker compose exec api flask --app app:create_app create-admin \
+  --email e2e@example.com --name "Admin E2E" --password e2e-only-password-2026
+cd admin
+bunx playwright install chromium
+bun run test:e2e
+```
+
+Akun, dataset, foto, dan nama akun E2E akan berubah selama pengujian. `E2E_BASE_URL`, `E2E_EMAIL`, dan `E2E_PASSWORD` dapat dikonfigurasi. Screenshot ada di `test-results/screenshots`; trace kegagalan ada di `test-results`.
+
+CI menjalankan lint, format, typecheck, build web, migration, pytest PostgreSQL, serta alur Playwright. Verifikasi dengan CSV MURL asli menunggu file tersedia.
