@@ -1,0 +1,24 @@
+# Keep project notes local; retain README files at every level.
+*.[Mm][Dd]
+![Rr][Ee][Aa][Dd][Mm][Ee].[Mm][Dd]
+
+# Local assistant tools and generation metadata.
+.impeccable/
+.codex/
+.claude/
+.agents/
+.cursor/
+.gemini/
+.opencode/
+.aider*
+*.prompt
+*.prompt.txt
+*.prompt.json
+*.provenance.json
+*.png.json
+*.jpg.json
+*.jpeg.json
+*.webp.json
+*.avif.json
+*.gif.json
+*.svg.json
