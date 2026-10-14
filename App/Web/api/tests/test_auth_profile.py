@@ -47,8 +47,35 @@ def test_session_rotation(app, client):
     assert other.get("/api/v1/auth/me").status_code == 401
 
 
+def test_profile_password_and_other_session(app, authenticated):
+    client, headers = authenticated
+    other = app.test_client()
+    assert login(other).status_code == 200
+    assert client.patch("/api/v1/profile", json={"name":" "}, headers=headers).status_code == 400
+    response = client.patch("/api/v1/profile", json={"name":"New Name","email":"evil@example.com"}, headers=headers)
+    assert response.json["user"]["name"] == "New Name"
+    assert response.json["user"]["email"] == "admin@example.com"
+    assert client.post("/api/v1/profile/password", json={"old_password":"bad","new_password":"new-good-password"}, headers=headers).status_code == 400
+    assert client.post("/api/v1/profile/password", json={"old_password":"initial-password","new_password":"tiny"}, headers=headers).status_code == 400
+    assert client.post("/api/v1/profile/password", json={"old_password":"initial-password","new_password":"new-good-password"}, headers=headers).status_code == 200
+    assert other.get("/api/v1/auth/me").status_code == 401
+    assert client.get("/api/v1/auth/me").status_code == 200
+    assert login(other, password="new-good-password").status_code == 200
 
 
+def test_avatar_validation_and_reencoding(authenticated):
+    client, headers = authenticated
+    assert client.put("/api/v1/profile/avatar", data={"file":(BytesIO(b"not image"),"x.png")}, headers=headers).status_code == 400
+    assert client.put("/api/v1/profile/avatar", data={"file":(BytesIO(b"x"*(2*1024*1024+1)),"x.png")}, headers=headers).status_code == 413
+    raw = BytesIO()
+    Image.new("RGB", (1024, 600), "blue").save(raw, format="PNG")
+    response = client.put("/api/v1/profile/avatar", data={"file":(BytesIO(raw.getvalue()),"x.png")}, headers=headers)
+    assert response.status_code == 200
+    result = client.get("/api/v1/profile/avatar")
+    assert result.mimetype == "image/webp"
+    with Image.open(BytesIO(result.data)) as image:
+        assert image.width <= 512 and image.height <= 512
+        assert not image.getexif()
 
 
 def test_admin_google_routes_are_absent_even_with_credentials(app, client):

@@ -90,3 +90,63 @@ def me():
 def logout():
     session.clear()
     return jsonify(message="Anda telah keluar.")
+
+
+@api.patch("/profile")
+def profile():
+    name = body().get("name")
+    if not isinstance(name, str) or not 1 <= len(name.strip()) <= 120:
+        return error("invalid_name", "Nama harus 1–120 karakter.")
+    g.admin.name = name.strip()
+    db.session.commit()
+    return jsonify(user=g.admin.public(), message="Profil disimpan.")
+
+
+@api.post("/profile/password")
+@limiter.limit("5 per minute")
+def password():
+    data = body()
+    old, new = data.get("old_password"), data.get("new_password")
+    if not g.admin.password_hash:
+        return error("password_unavailable", "Password akun belum diatur. Hubungi admin lain untuk mengaturnya.")
+    if not isinstance(old, str) or len(old) > 256 or not check_password_hash(g.admin.password_hash, old):
+        return error("invalid_password", "Password lama tidak sesuai.")
+    if not isinstance(new, str) or not 12 <= len(new) <= 256:
+        return error("weak_password", "Password baru harus 12–256 karakter.")
+    g.admin.password_hash = generate_password_hash(new, method="scrypt")
+    g.admin.session_version += 1
+    db.session.commit()
+    session["version"] = g.admin.session_version
+    return jsonify(message="Password diubah. Sesi di perangkat lain telah diakhiri.")
+
+
+@api.route("/profile/avatar", methods=["GET", "PUT"])
+def avatar():
+    storage = Path(current_app.config["PRIVATE_STORAGE"], "avatars")
+    if request.method == "GET":
+        if not g.admin.avatar:
+            return error("not_found", "Foto profil belum tersedia.", 404)
+        return send_file(storage / g.admin.avatar, mimetype="image/webp")
+    upload = request.files.get("file")
+    if not upload:
+        return error("file_required", "Pilih foto profil.")
+    raw = upload.stream.read(2 * 1024 * 1024 + 1)
+    if len(raw) > 2 * 1024 * 1024:
+        return error("file_too_large", "Foto maksimal 2 MB.", 413)
+    try:
+        with Image.open(BytesIO(raw)) as image:
+            if image.format not in {"JPEG", "PNG", "WEBP"} or image.width * image.height > 20_000_000:
+                raise ValueError()
+            image.load()
+            image = image.convert("RGB")
+            image.thumbnail((512, 512))
+            filename = f"{uuid4().hex}.webp"
+            image.save(storage / filename, format="WEBP", quality=85)
+    except (UnidentifiedImageError, OSError, ValueError, Image.DecompressionBombError):
+        return error("invalid_image", "Gunakan foto JPEG, PNG, atau WebP yang valid.")
+    previous = g.admin.avatar
+    g.admin.avatar = filename
+    db.session.commit()
+    if previous:
+        (storage / previous).unlink(missing_ok=True)
+    return jsonify(user=g.admin.public(), message="Foto profil disimpan.")
