@@ -23,3 +23,50 @@ class Admin(db.Model):
         return dict(id=self.id, email=self.email, name=self.name,
                     has_password=bool(self.password_hash),
                     avatar_url=f"/api/v1/profile/avatar?v={self.avatar}" if self.avatar else None)
+
+
+class Dataset(db.Model):
+    __tablename__ = "datasets"
+    id = db.Column(db.String(36), primary_key=True)
+    filename = db.Column(db.String(255), nullable=False)
+    columns = db.Column(JSONB, nullable=False, default=list)
+    row_count = db.Column(db.BigInteger, nullable=False, default=0)
+    uploaded_at = db.Column(db.DateTime(timezone=True), nullable=False, default=now)
+
+    def public(self):
+        return dict(id=self.id, filename=self.filename, columns=self.columns,
+                    row_count=self.row_count, uploaded_at=self.uploaded_at.isoformat())
+
+
+class DatasetRow(db.Model):
+    __tablename__ = "dataset_rows"
+    dataset_id = db.Column(db.String(36), db.ForeignKey("datasets.id", ondelete="CASCADE"), primary_key=True)
+    row_number = db.Column(db.BigInteger, primary_key=True)
+    values = db.Column(JSONB, nullable=False)
+
+
+class DatasetState(db.Model):
+    __tablename__ = "dataset_state"
+    id = db.Column(db.Integer, primary_key=True)
+    active_id = db.Column(db.String(36), db.ForeignKey("datasets.id", ondelete="SET NULL"))
+    __table_args__ = (db.CheckConstraint("id = 1", name="single_dataset_state"),)
+
+
+class ImportJob(db.Model):
+    __tablename__ = "dataset_imports"
+    id = db.Column(db.String(36), primary_key=True)
+    filename = db.Column(db.String(255), nullable=False)
+    status = db.Column(db.String(16), nullable=False, default="queued")
+    row_count = db.Column(db.BigInteger, nullable=False, default=0)
+    error = db.Column(db.Text)
+    created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=now)
+    updated_at = db.Column(db.DateTime(timezone=True), nullable=False, default=now)
+    __table_args__ = (
+        db.Index("one_live_import", db.text("(1)"), unique=True,
+                 postgresql_where=db.text("status IN ('queued', 'running')")),
+        db.CheckConstraint("status IN ('queued','running','succeeded','failed')", name="import_status"),
+    )
+
+    def public(self):
+        return dict(id=self.id, filename=self.filename, status=self.status,
+                    row_count=self.row_count, error=self.error)

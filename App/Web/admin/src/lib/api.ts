@@ -5,6 +5,30 @@ export type User = {
   has_password: boolean;
   avatar_url: string | null;
 };
+export type Dataset = {
+  id: string;
+  filename: string;
+  columns: string[];
+  row_count: number;
+  uploaded_at: string;
+};
+export type ImportJob = {
+  id: string;
+  filename: string;
+  status: "queued" | "running" | "succeeded" | "failed";
+  row_count: number;
+  error: string | null;
+};
+export type DatasetResponse = { dataset: Dataset | null; latest_import: ImportJob | null };
+export type DataRow = { row_number: number; values: string[] };
+export type RowsResponse = {
+  dataset_id: string;
+  rows: DataRow[];
+  page: number;
+  page_size: number;
+  page_count: number;
+  row_count: number;
+};
 export class ApiError extends Error {
   constructor(
     public code: string,

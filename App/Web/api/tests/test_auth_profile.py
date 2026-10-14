@@ -28,7 +28,7 @@ def test_inactive_and_absolute_expiry(app, client, authenticated):
     client, headers = authenticated
     with client.session_transaction() as session:
         session["issued_at"] = time.time() - 8 * 3600
-    assert client.get("/api/v1/auth/me").status_code == 401
+    assert client.get("/api/v1/dataset").status_code == 401
     with app.app_context():
         admin = db.session.scalar(db.select(Admin).filter_by(email="admin@example.com"))
         admin.active = False

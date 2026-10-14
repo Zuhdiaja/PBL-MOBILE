@@ -11,7 +11,8 @@ from rq import Callback
 from sqlalchemy.exc import IntegrityError
 from werkzeug.security import check_password_hash, generate_password_hash
 from app.extensions import db, limiter
-from app.models import Admin
+from app.models import Admin, Dataset, DatasetRow, DatasetState, ImportJob
+from app.services.importer import reconcile, import_csv, import_failed
 
 api = Blueprint("api", __name__)
 PUBLIC = {"api.csrf", "api.login", "api.health"}
@@ -150,3 +151,89 @@ def avatar():
     if previous:
         (storage / previous).unlink(missing_ok=True)
     return jsonify(user=g.admin.public(), message="Foto profil disimpan.")
+
+
+@api.get("/dataset")
+def dataset():
+    reconcile()
+    state = db.session.scalar(db.select(DatasetState).where(DatasetState.id == 1).with_for_update(read=True))
+    active = db.session.get(Dataset, state.active_id) if state and state.active_id else None
+    latest = db.session.scalar(db.select(ImportJob).order_by(ImportJob.created_at.desc()).limit(1))
+    return jsonify(dataset=active.public() if active else None, latest_import=latest.public() if latest else None)
+
+
+@api.post("/dataset/imports")
+def create_import():
+    reconcile()
+    upload = request.files.get("file")
+    if not upload or not upload.filename or not upload.filename.lower().endswith(".csv"):
+        return error("invalid_file", "Pilih file CSV UTF-8.")
+    job_id = str(uuid4())
+    filename = upload.filename.replace("\\", "/").split("/")[-1][:255] or "dataset.csv"
+    path = Path(current_app.config["PRIVATE_STORAGE"], "imports", job_id)
+    try:
+        size = 0
+        with path.open("wb") as destination:
+            while chunk := upload.stream.read(1024 * 1024):
+                size += len(chunk)
+                if size > current_app.config["MAX_DATASET_BYTES"]:
+                    return error("file_too_large", "File melebihi batas unggahan.", 413)
+                destination.write(chunk)
+        if not size:
+            return error("empty_file", "File CSV kosong.")
+        job = ImportJob(id=job_id, filename=filename)
+        db.session.add(job)
+        try:
+            # PostgreSQL's partial unique index serializes concurrent imports across API processes.
+            db.session.commit()
+        except IntegrityError:
+            db.session.rollback()
+            return error("import_busy", "Impor lain sedang berlangsung. Tunggu sampai selesai.", 409)
+        try:
+            current_app.extensions["queue"].enqueue(import_csv, job_id, job_id=job_id,
+                job_timeout=current_app.config["IMPORT_TIMEOUT"], failure_ttl=86400,
+                result_ttl=86400, on_failure=Callback(import_failed))
+        except Exception:
+            job.status = "failed"
+            job.error = "Antrean impor tidak tersedia. Coba unggah kembali."
+            db.session.commit()
+            return error("queue_unavailable", job.error, 503)
+        return jsonify(import_job=job.public()), 202
+    finally:
+        existing = db.session.get(ImportJob, job_id)
+        if not existing or existing.status == "failed":
+            path.unlink(missing_ok=True)
+
+
+@api.get("/dataset/imports/<job_id>")
+def import_status(job_id):
+    reconcile()
+    job = db.session.get(ImportJob, job_id)
+    if not job:
+        return error("not_found", "Impor tidak ditemukan.", 404)
+    return jsonify(import_job=job.public())
+
+
+@api.get("/dataset/rows")
+def rows():
+    # Hold a shared state lock so activation cannot delete rows while this page is read.
+    state = db.session.scalar(db.select(DatasetState).where(DatasetState.id == 1).with_for_update(read=True))
+    requested = request.args.get("dataset_id")
+    if not state or not state.active_id:
+        return error("no_dataset", "Belum ada dataset aktif.", 404)
+    if requested != state.active_id:
+        return error("dataset_changed", "Dataset telah diganti. Memuat dataset terbaru.", 409)
+    try:
+        page, page_size = int(request.args.get("page", 1)), int(request.args.get("page_size", 25))
+    except ValueError:
+        return error("invalid_pagination", "Halaman tidak valid.")
+    active = db.session.get(Dataset, requested)
+    pages = max(1, math.ceil(active.row_count / page_size)) if page_size in (25, 50, 100) else 0
+    if page_size not in (25, 50, 100) or page < 1 or page > pages:
+        return error("invalid_pagination", "Halaman atau jumlah baris tidak valid.")
+    first = (page - 1) * page_size + 1
+    result = db.session.scalars(db.select(DatasetRow).where(DatasetRow.dataset_id == requested,
+        DatasetRow.row_number >= first, DatasetRow.row_number < first + page_size).order_by(DatasetRow.row_number)).all()
+    return jsonify(dataset_id=requested, page=page, page_size=page_size,
+        row_count=active.row_count, page_count=pages,
+        rows=[dict(row_number=row.row_number, values=row.values) for row in result])
