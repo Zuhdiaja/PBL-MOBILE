@@ -88,3 +88,21 @@ export function messageOf(error: unknown) {
   return error instanceof Error ? error.message : "Terjadi kesalahan. Coba lagi.";
 }
 export const number = new Intl.NumberFormat("id-ID");
+
+export type AccountKind = "admin" | "mobile";
+export type ManagedUser = {
+  id: number;
+  kind: AccountKind;
+  name: string;
+  email: string;
+  active: boolean;
+  has_password: boolean;
+};
+export type UsersResponse = {
+  kind: AccountKind;
+  items: ManagedUser[];
+  page: number;
+  page_size: number;
+  row_count: number;
+  page_count: number;
+};

@@ -237,3 +237,7 @@ def rows():
     return jsonify(dataset_id=requested, page=page, page_size=page_size,
         row_count=active.row_count, page_count=pages,
         rows=[dict(row_number=row.row_number, values=row.values) for row in result])
+
+
+# Register account management on this authenticated blueprint.
+from app.routes import users as _users

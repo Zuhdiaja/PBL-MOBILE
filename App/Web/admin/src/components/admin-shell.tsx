@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import {
   Database,
   UserRound,
+  UsersRound,
   LogOut,
   ShieldCheck,
   ChevronsUpDown,
@@ -111,6 +112,7 @@ function Navigation({
             <SidebarMenu>
               {[
                 { href: "/datasets", name: "Dataset", Icon: Database },
+                { href: "/users", name: "Pengguna", Icon: UsersRound },
                 { href: "/profile", name: "Profil", Icon: UserRound },
               ].map(({ href, name, Icon }) => (
                 <SidebarMenuItem key={href}>
@@ -212,7 +214,7 @@ function SiteHeader() {
         <span className="breadcrumb-parent">Ruang kerja</span>
         <ChevronRight aria-hidden="true" size={14} className="breadcrumb-parent" />
         <span aria-current="page">
-          {path === "/profile" ? "Profil" : "Dataset"}
+          {path === "/profile" ? "Profil" : path === "/users" ? "Pengguna" : "Dataset"}
         </span>
       </nav>
       <Badge variant="outline" className="ml-auto font-normal text-muted-foreground">

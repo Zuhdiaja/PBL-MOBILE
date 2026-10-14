@@ -25,6 +25,16 @@ class Admin(db.Model):
                     avatar_url=f"/api/v1/profile/avatar?v={self.avatar}" if self.avatar else None)
 
 
+class MobileUser(db.Model):
+    __tablename__ = "mobile_users"
+    id = db.Column(db.Integer, primary_key=True)
+    email = db.Column(db.String(254), unique=True, nullable=False)
+    name = db.Column(db.String(120), nullable=False)
+    password_hash = db.Column(db.Text, nullable=False)
+    active = db.Column(db.Boolean, nullable=False, default=True)
+    created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=now)
+
+
 class Dataset(db.Model):
     __tablename__ = "datasets"
     id = db.Column(db.String(36), primary_key=True)

@@ -2,7 +2,7 @@ import { test, expect, type Page } from "@playwright/test";
 import { mkdir } from "node:fs/promises";
 const email = process.env.E2E_EMAIL || "e2e@example.com";
 const password = process.env.E2E_PASSWORD || "e2e-only-password-2026";
-async function navigate(page: Page, name: "Dataset" | "Profil") {
+async function navigate(page: Page, name: "Dataset" | "Profil" | "Pengguna") {
   const menu = page.getByRole("button", { name: "Buka navigasi" });
   if (await menu.isVisible()) await menu.click();
   await page.getByRole("link", { name, exact: true }).filter({ visible: true }).click();
@@ -237,4 +237,89 @@ test("error dapat dicoba lagi dan loading dapat dibaca", async ({ page }) => {
   await expect(page.getByText("Memuat halaman dataset…")).toBeVisible();
   await expect(page.locator("tbody tr").first()).toBeVisible();
   await logout(page);
+});
+
+test("kelola admin dashboard dan pengguna mobile", async ({ page }, info) => {
+  const errors: string[] = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  await login(page);
+  await navigate(page, "Pengguna");
+  await expect(page.getByRole("heading", { name: "Pengguna", exact: true })).toBeVisible();
+  // Your own account keeps the profile password flow and cannot deactivate itself.
+  await page.getByRole("button", { name: `Aksi untuk ${email}`, exact: true }).click();
+  await expect(page.getByRole("menuitem", { name: "Atur password", exact: true })).toBeDisabled();
+  await expect(page.getByRole("menuitem", { name: "Nonaktifkan", exact: true })).toBeDisabled();
+  await page.keyboard.press("Escape");
+  for (const kind of ["admin", "mobile"]) {
+    if (kind === "mobile") await page.getByRole("tab", { name: "Pengguna mobile" }).click();
+    const accountEmail = `${kind}-${info.project.name}-${Date.now()}@example.com`;
+    await page.getByRole("button", { name: "Tambah akun", exact: true }).first().click();
+    const dialog = page.getByRole("dialog");
+    await expect(dialog.getByLabel("Izinkan login Google")).toHaveCount(0);
+    await dialog.getByLabel("Nama", { exact: true }).fill(`Akun ${kind}`);
+    await dialog.getByLabel("Email", { exact: true }).fill(accountEmail);
+    await dialog.getByLabel("Password awal", { exact: true }).fill("initial-managed-password");
+    await dialog
+      .getByLabel("Konfirmasi password", { exact: true })
+      .fill("initial-managed-password");
+    await dialog.getByRole("button", { name: "Tambah akun", exact: true }).click();
+    await expect(dialog).not.toBeVisible();
+    // The last page contains freshly appended accounts even after repeated test runs.
+    const sizeSelect = page.getByLabel("Akun per halaman");
+    await sizeSelect.selectOption("100");
+    const row = page.getByRole("row").filter({ hasText: accountEmail });
+    while (
+      !(await row.count()) &&
+      (await page.getByRole("button", { name: "Halaman pengguna berikutnya" }).isEnabled())
+    ) {
+      await page.getByRole("button", { name: "Halaman pengguna berikutnya" }).click();
+      await expect(page.getByText("Memuat daftar pengguna…")).not.toBeVisible();
+    }
+    await expect(row).toContainText("Aktif");
+    async function action(name: string) {
+      await row.getByRole("button", { name: `Aksi untuk ${accountEmail}`, exact: true }).click();
+      await page.getByRole("menuitem", { name, exact: true }).click();
+    }
+    await action("Edit akun");
+    await expect(dialog.getByLabel("Email", { exact: true })).toHaveAttribute("readonly", "");
+    await dialog.getByLabel("Nama", { exact: true }).fill(`Diperbarui ${kind}`);
+    await dialog.getByRole("button", { name: "Simpan perubahan" }).click();
+    await expect(row).toContainText(`Diperbarui ${kind}`);
+    await action("Atur password");
+    await dialog.getByLabel("Password baru", { exact: true }).fill("updated-managed-password");
+    await dialog
+      .getByLabel("Konfirmasi password", { exact: true })
+      .fill("updated-managed-password");
+    await dialog.getByRole("button", { name: "Simpan perubahan" }).click();
+    await expect(dialog).not.toBeVisible();
+    await action("Nonaktifkan");
+    await dialog.getByRole("button", { name: "Nonaktifkan akun", exact: true }).click();
+    await expect(row).toContainText("Nonaktif");
+    await action("Aktifkan");
+    await dialog.getByRole("button", { name: "Aktifkan akun", exact: true }).click();
+    await expect(row).toContainText("Aktif");
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+    ).toBeTruthy();
+    await mkdir("test-results/screenshots", { recursive: true });
+    await expect(page.locator('[data-slot="dialog-content"]')).toHaveCount(0);
+    await page.evaluate(async () => {
+      (document.activeElement as HTMLElement | null)?.blur();
+      const region = document.querySelector(".users-table-scroll");
+      if (region) region.scrollLeft = 0;
+      window.scrollTo(0, 0);
+      await document.fonts.ready;
+    });
+    await page.screenshot({
+      animations: "disabled",
+      path: `test-results/screenshots/users-${kind}-${info.project.name}.png`,
+      fullPage: true,
+    });
+    // Keep local fixture records, disabled, for reproducible review.
+    await action("Nonaktifkan");
+    await dialog.getByRole("button", { name: "Nonaktifkan akun", exact: true }).click();
+    await expect(row).toContainText("Nonaktif");
+  }
+  await logout(page);
+  expect(errors).toEqual([]);
 });
