@@ -1,3 +1,5 @@
+import '../../../../widgets/load_view.dart';
+
 import 'package:flutter/material.dart';
 
 import '../../../../theme/app_colors.dart';
@@ -15,27 +17,32 @@ class NotificationsScreen extends StatefulWidget {
 }
 
 class _NotificationsScreenState extends State<NotificationsScreen> {
-  @override
-  void initState() {
-    super.initState();
-    widget.controller.load();
-  }
-
   void _markAllRead() {
     widget.controller.markAllRead();
     showScanMessage(context, 'Semua notifikasi ditandai telah dibaca.');
   }
 
   @override
-  Widget build(BuildContext context) => AnimatedBuilder(
-    animation: widget.controller,
-    builder: (context, _) {
+  Widget build(BuildContext context) => LoadView(
+    controller: widget.controller,
+    kind: 'notifications',
+    subpage: true,
+    builder: (context) {
       final controller = widget.controller;
       final unreadCount = controller.unreadCount;
 
       return ScanSubpage(
         title: 'Notifikasi',
         children: [
+          Text(
+            'Pemberitahuan saat laporan selesai ditinjau.',
+            style: TextStyle(
+              fontSize: 13,
+              color: context.colors.muted,
+              height: 1.7,
+            ),
+          ),
+          const SizedBox(height: 12),
           Row(
             children: [
               Expanded(
@@ -43,58 +50,28 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                   unreadCount > 0
                       ? '$unreadCount notifikasi belum dibaca'
                       : 'Semua notifikasi telah dibaca',
-                  style: bodyStyle,
+                  style: TextStyle(fontSize: 11, color: context.colors.muted),
                 ),
               ),
               TextButton(
                 onPressed: unreadCount > 0 ? _markAllRead : null,
-                style: TextButton.styleFrom(
-                  minimumSize: const Size(48, 48),
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  textStyle: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                  ),
+                child: const Text(
+                  'Tandai semua dibaca',
+                  style: TextStyle(fontSize: 11),
                 ),
-                child: const Text('Tandai semua dibaca'),
               ),
             ],
           ),
-          const SizedBox(height: 8),
-          ..._buildGroupedItems(controller),
-          const SizedBox(height: 8),
+          if (controller.notifications.isEmpty)
+            const InfoNote('Belum ada notifikasi.'),
+          ...controller.notifications.map(
+            (item) =>
+                NotificationRow(item: item, unread: controller.isUnread(item)),
+          ),
+          const SizedBox(height: 22),
           const InfoNote('Data contoh. Notifikasi belum terhubung ke server.'),
         ],
       );
     },
   );
-
-  List<Widget> _buildGroupedItems(NotificationsController controller) {
-    final children = <Widget>[];
-    String? currentGroup;
-
-    for (final item in controller.notifications) {
-      if (item.group != currentGroup) {
-        if (children.isNotEmpty) children.add(const SizedBox(height: 18));
-        currentGroup = item.group;
-        children
-          ..add(
-            Text(
-              currentGroup.toUpperCase(),
-              style: const TextStyle(
-                color: AppColors.muted,
-                fontSize: 11,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 0.8,
-              ),
-            ),
-          )
-          ..add(const SizedBox(height: 6));
-      }
-      children.add(
-        NotificationRow(item: item, unread: controller.isUnread(item)),
-      );
-    }
-    return children;
-  }
 }

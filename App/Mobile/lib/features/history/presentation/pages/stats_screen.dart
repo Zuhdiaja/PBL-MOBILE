@@ -1,3 +1,5 @@
+import '../../../../widgets/load_view.dart';
+
 import 'package:flutter/material.dart';
 
 import '../../../../theme/app_colors.dart';
@@ -16,94 +18,132 @@ class StatsScreen extends StatefulWidget {
 
 class _StatsScreenState extends State<StatsScreen> {
   @override
-  void initState() {
-    super.initState();
-    widget.controller.load();
-  }
-
-  @override
-  Widget build(BuildContext context) => AnimatedBuilder(
-    animation: widget.controller,
-    builder: (context, _) {
+  Widget build(BuildContext context) => LoadView(
+    controller: widget.controller,
+    kind: 'stats',
+    subpage: false,
+    builder: (context) {
       final summary = widget.controller.summary;
+      if (summary.totalCount == 0) {
+        return const ScanPage(
+          children: [
+            Text('Statistik', style: pageTitleStyle),
+            SizedBox(height: 24),
+            InfoNote('Belum ada pemindaian untuk ditampilkan.'),
+          ],
+        );
+      }
 
       return ScanPage(
         children: [
           const Text('Statistik', style: pageTitleStyle),
-          const SizedBox(height: 6),
-          const Text('Ringkasan aktivitas pemeriksaan', style: bodyStyle),
-          const SizedBox(height: 22),
+          const SizedBox(height: 8),
+          Text(
+            'Total pemindaian',
+            style: TextStyle(fontSize: 14, color: context.colors.muted),
+          ),
+          const SizedBox(height: 8),
           StatsTotalCard(total: summary.totalCount),
-          const SizedBox(height: 12),
-          GridView.count(
-            crossAxisCount: 2,
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            mainAxisSpacing: 10,
-            crossAxisSpacing: 10,
-            childAspectRatio: 1.18,
+          const SizedBox(height: 20),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: Row(
+              children: [
+                if (summary.safeCount > 0)
+                  Expanded(
+                    flex: summary.safeCount,
+                    child: Container(height: 6, color: context.colors.success),
+                  ),
+                if (summary.unsafeCount > 0) ...[
+                  const SizedBox(width: 3),
+                  Expanded(
+                    flex: summary.unsafeCount,
+                    child: Container(height: 6, color: context.colors.danger),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            spacing: 18,
+            runSpacing: 8,
             children: [
-              StatsCard(
-                icon: Icons.verified_user_outlined,
-                value: '${summary.safeCount}',
-                label: 'URL aman',
-                color: AppColors.success,
-                background: AppColors.paleSuccess,
+              _Legend(
+                '${summary.safeCount} aman · ${summary.safePercent}%',
+                context.colors.success,
               ),
-              StatsCard(
-                icon: Icons.warning_amber_rounded,
-                value: '${summary.unsafeCount}',
-                label: 'URL berbahaya',
-                color: AppColors.danger,
-                background: AppColors.paleDanger,
-              ),
-              StatsCard(
-                icon: Icons.phishing_outlined,
-                value: '${summary.phishingCount}',
-                label: 'Phishing ditemukan',
-                color: AppColors.blue,
-                background: AppColors.paleBlue,
-              ),
-              StatsCard(
-                icon: Icons.bug_report_outlined,
-                value: '${summary.malwareCount}',
-                label: 'Malware ditemukan',
-                color: AppColors.danger,
-                background: AppColors.paleDanger,
-              ),
-              StatsCard(
-                icon: Icons.flag_outlined,
-                value: '${summary.reportCount}',
-                label: 'Jumlah laporan',
-                color: AppColors.blue,
-                background: AppColors.paleBlue,
-              ),
-              StatsCard(
-                icon: Icons.percent_rounded,
-                value: '${summary.safePercent}%',
-                label: 'Proporsi URL aman',
-                color: AppColors.success,
-                background: AppColors.paleSuccess,
+              _Legend(
+                '${summary.unsafeCount} perlu perhatian · ${100 - summary.safePercent}%',
+                context.colors.danger,
               ),
             ],
           ),
           const SizedBox(height: 24),
-          const Text(
-            'Aktivitas 7 hari',
-            style: TextStyle(
-              color: AppColors.ink,
-              fontSize: 16,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
+          const Text('Aktivitas tujuh hari', style: sectionTitleStyle),
           const SizedBox(height: 12),
           const WeeklyActivityChart(),
           const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: StatsCard(
+                  icon: Icons.phishing_outlined,
+                  value: '${summary.phishingCount}',
+                  label: 'Phishing',
+                  color: context.colors.danger,
+                  background: context.colors.paleDanger,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: StatsCard(
+                  icon: Icons.bug_report_outlined,
+                  value: '${summary.malwareCount}',
+                  label: 'Malware',
+                  color: context.colors.danger,
+                  background: context.colors.paleDanger,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: StatsCard(
+                  icon: Icons.flag_outlined,
+                  value: '${summary.reportCount}',
+                  label: 'Laporan',
+                  color: context.colors.blue,
+                  background: context.colors.paleBlue,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
           const InfoNote(
             'Data contoh. Statistik dihitung dari riwayat simulasi.',
           ),
         ],
       );
     },
+  );
+}
+
+class _Legend extends StatelessWidget {
+  const _Legend(this.label, this.color);
+  final String label;
+  final Color color;
+  @override
+  Widget build(BuildContext context) => Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Icon(Icons.circle, size: 5, color: color),
+      const SizedBox(width: 6),
+      Flexible(
+        child: Text(
+          label,
+          style: TextStyle(fontSize: 11, color: context.colors.muted),
+        ),
+      ),
+    ],
   );
 }

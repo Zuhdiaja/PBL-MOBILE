@@ -1,11 +1,11 @@
-import 'package:flutter/foundation.dart';
+import '../../../../presentation/load_controller.dart';
 
 import '../../domain/entities/report_status.dart';
 import '../../domain/repositories/report_status_repository.dart';
 import '../../domain/usecases/build_report_timeline.dart';
 
 /// State for the list of reports the user has submitted.
-class ReportStatusController extends ChangeNotifier {
+class ReportStatusController extends LoadController {
   ReportStatusController({
     required this.repository,
     required this.buildReportTimeline,
@@ -18,8 +18,8 @@ class ReportStatusController extends ChangeNotifier {
 
   List<ReportStatus> get reports => _reports;
 
-  void load() {
-    _reports = repository.getReports();
-    notifyListeners();
+  @override
+  Future<void> load() {
+    return loadValue(repository.getReports, (value) => _reports = value);
   }
 }

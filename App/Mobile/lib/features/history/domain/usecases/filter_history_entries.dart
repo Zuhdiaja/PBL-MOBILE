@@ -16,7 +16,18 @@ class FilterHistoryEntries {
   List<HistoryEntry> call(
     Iterable<HistoryEntry> entries, {
     required String filter,
-  }) => filter == allLabel
-      ? List.unmodifiable(entries)
-      : List.unmodifiable(entries.where((entry) => entry.category == filter));
+    String query = '',
+    String scope = 'Semua',
+  }) {
+    final term = query.trim().toLowerCase();
+    return List.unmodifiable(
+      entries.where(
+        (entry) =>
+            (filter == allLabel || entry.category == filter) &&
+            (scope == 'Semua' ||
+                (scope == 'Aman' ? entry.isSafe : !entry.isSafe)) &&
+            (term.isEmpty || entry.url.toLowerCase().contains(term)),
+      ),
+    );
+  }
 }

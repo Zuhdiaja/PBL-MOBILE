@@ -12,14 +12,12 @@ void main() {
     await tester.tap(find.text('Riwayat').last);
     await tester.pumpAndSettle();
 
-    expect(find.text('Riwayat scan'), findsOneWidget);
-    expect(find.text('8 URL pernah diperiksa'), findsOneWidget);
+    expect(find.text('Riwayat pindai'), findsOneWidget);
+    expect(find.text('8 hasil'), findsOneWidget);
     expect(find.byType(HistoryRow), findsNWidgets(8));
 
-    await tapVisible(
-      tester,
-      find.widgetWithText(HistoryFilterChip, 'Phishing'),
-    );
+    await tapVisible(tester, find.text('Semua kategori'));
+    await tapVisible(tester, find.text('Phishing').last);
     expect(find.byType(HistoryRow), findsNWidgets(2));
 
     await tapVisible(tester, find.byType(HistoryRow).first);
@@ -34,9 +32,9 @@ void main() {
     await tester.tap(find.text('Statistik').last);
     await tester.pumpAndSettle();
 
-    expect(find.text('Ringkasan aktivitas pemeriksaan'), findsOneWidget);
-    expect(find.text('Aktivitas 7 hari'), findsOneWidget);
-    expect(find.text('Proporsi URL aman'), findsOneWidget);
+    expect(find.text('Total pemindaian'), findsOneWidget);
+    expect(find.text('Aktivitas tujuh hari'), findsOneWidget);
+    expect(find.text('Phishing'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
