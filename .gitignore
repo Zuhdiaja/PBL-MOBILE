@@ -22,3 +22,6 @@
 *.avif.json
 *.gif.json
 *.svg.json
+
+# Local mobile design reference.
+/LinkGuard-phone-mockups.zip
