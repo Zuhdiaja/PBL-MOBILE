@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart';
+import '../../../../presentation/load_controller.dart';
 
 import '../../domain/entities/auth_failure.dart';
 import '../../domain/entities/user_account.dart';
@@ -8,7 +8,7 @@ import '../../domain/usecases/sign_in.dart';
 import '../../domain/usecases/sign_out.dart';
 
 /// Holds the session and the state of the login and register forms.
-class AuthController extends ChangeNotifier {
+class AuthController extends LoadController {
   AuthController({
     required this.repository,
     required this.signIn,
@@ -33,10 +33,11 @@ class AuthController extends ChangeNotifier {
   bool get isSignedIn => _account != null;
 
   /// Reads any session the data source already holds.
-  void restore() {
-    _account = repository.currentAccount();
-    notifyListeners();
-  }
+  @override
+  Future<void> load() =>
+      loadValue(repository.currentAccount, (value) => _account = value);
+
+  Future<void> restore() => load();
 
   /// Attempts a sign in; returns true when the session opened.
   bool submitSignIn(SignInRequest request) {

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import '../entities/user_account.dart';
 
 /// Credentials submitted to the login form.
@@ -24,7 +26,7 @@ class RegisterRequest {
 /// Owns the session: signing in, registering, and signing out.
 abstract class AuthRepository {
   /// Account of the current session, or null when signed out.
-  UserAccount? currentAccount();
+  FutureOr<UserAccount?> currentAccount();
 
   /// Validates credentials and opens a session on success.
   UserAccount? signIn(SignInRequest request);

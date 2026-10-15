@@ -178,7 +178,7 @@ void main() {
       expect(notified, 0);
     });
 
-    test('restore adopts a session the repository already holds', () {
+    test('restore adopts a session the repository already holds', () async {
       final repository = _FakeAuthRepository()
         ..signIn(
           const SignInRequest(email: 'nadia@gmail.com', password: '123456'),
@@ -186,17 +186,17 @@ void main() {
       final controller = build(repository);
       addTearDown(controller.dispose);
 
-      controller.restore();
+      await controller.restore();
 
       expect(controller.isSignedIn, isTrue);
       expect(controller.account?.email, 'nadia@gmail.com');
     });
 
-    test('restore stays signed out without a stored session', () {
+    test('restore stays signed out without a stored session', () async {
       final controller = build(_FakeAuthRepository());
       addTearDown(controller.dispose);
 
-      controller.restore();
+      await controller.restore();
 
       expect(controller.isSignedIn, isFalse);
     });
@@ -218,19 +218,19 @@ void main() {
       expect(controller.stats.pendingReports, 0);
     });
 
-    test('load fills the stats and notifies listeners', () {
+    test('load fills the stats and notifies listeners', () async {
       final controller = build(_FakeAccountRepository());
       addTearDown(controller.dispose);
 
       var notified = 0;
       controller.addListener(() => notified++);
 
-      controller.load();
+      await controller.load();
 
       expect(controller.stats.totalScans, 8);
       expect(controller.stats.submittedReports, 3);
       expect(controller.stats.pendingReports, 1);
-      expect(notified, 1);
+      expect(notified, 2);
     });
   });
 
@@ -241,7 +241,7 @@ void main() {
           setReportNotifications: const SetReportNotifications(),
         );
 
-    test('load reads the stored preference', () {
+    test('load reads the stored preference', () async {
       final controller = build(
         _FakeAccountRepository()..notificationsEnabled = false,
       );
@@ -252,7 +252,7 @@ void main() {
       expect(controller.reportNotificationsEnabled, isFalse);
     });
 
-    test('toggling flips the preference and notifies listeners', () {
+    test('toggling flips the preference and notifies listeners', () async {
       final controller = build(_FakeAccountRepository());
       addTearDown(controller.dispose);
       controller.load();
@@ -267,7 +267,7 @@ void main() {
       expect(notified, 1);
     });
 
-    test('toggling twice restores the original value', () {
+    test('toggling twice restores the original value', () async {
       final repository = _FakeAccountRepository();
       final controller = build(repository);
       addTearDown(controller.dispose);

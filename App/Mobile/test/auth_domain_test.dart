@@ -205,8 +205,8 @@ void main() {
   group('LoadAccountStats', () {
     const loadStats = LoadAccountStats();
 
-    test('reads the counts through the repository', () {
-      final stats = loadStats(_FakeAccountRepository());
+    test('reads the counts through the repository', () async {
+      final stats = await loadStats(_FakeAccountRepository());
 
       expect(stats.totalScans, 8);
       expect(stats.submittedReports, 3);
