@@ -36,7 +36,7 @@ ScanResult _result(String id, {required bool isSafe}) => ScanResult(
 
 void main() {
   group('ScanResultsController', () {
-    test('loads results and derives the summary', () {
+    test('loads results and derives the summary', () async {
       final controller = ScanResultsController(
         repository: _FakeScanResultsRepository([
           _result('0', isSafe: true),
@@ -46,7 +46,7 @@ void main() {
       );
       addTearDown(controller.dispose);
 
-      controller.load();
+      await controller.load();
 
       expect(controller.results.length, 2);
       expect(controller.summary.totalCount, 2);
@@ -54,7 +54,7 @@ void main() {
       expect(controller.summary.attentionCount, 1);
     });
 
-    test('notifies listeners when results load', () {
+    test('notifies listeners when results load', () async {
       final controller = ScanResultsController(
         repository: _FakeScanResultsRepository([_result('0', isSafe: true)]),
         summarizeScanResults: const SummarizeScanResults(),
@@ -64,9 +64,9 @@ void main() {
       var notified = 0;
       controller.addListener(() => notified++);
 
-      controller.load();
+      await controller.load();
 
-      expect(notified, 1);
+      expect(notified, 2);
     });
 
     test('starts empty before the first load', () {

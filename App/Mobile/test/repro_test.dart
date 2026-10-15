@@ -40,8 +40,8 @@ void main() {
     ),
   };
 
-  test('dependencies expose example results', () {
-    dependencies.scanResults.load();
+  test('dependencies expose example results', () async {
+    await dependencies.scanResults.load();
     expect(dependencies.scanResults.summary.totalCount, greaterThan(0));
   });
 

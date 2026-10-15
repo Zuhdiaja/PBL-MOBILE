@@ -41,9 +41,11 @@ void main() {
 
   test(
     'home reads a repository snapshot instead of depending on demo data',
-    () {
+    () async {
       final repository = FakeRecentScansRepository();
       final controller = HomeController(repository);
+      addTearDown(controller.dispose);
+      await controller.load();
       repository.items.clear();
       expect(controller.recentScans.single.id, 'scan-1');
       expect(() => controller.recentScans.clear(), throwsUnsupportedError);

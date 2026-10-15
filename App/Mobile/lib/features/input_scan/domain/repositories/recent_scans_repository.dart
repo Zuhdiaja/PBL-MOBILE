@@ -1,5 +1,7 @@
+import 'dart:async';
+
 import '../entities/recent_scan.dart';
 
 abstract class RecentScansRepository {
-  List<RecentScan> getRecentScans();
+  FutureOr<List<RecentScan>> getRecentScans();
 }

@@ -27,18 +27,18 @@ void main() {
     'preview continues to existing results and returns to the URL draft',
     (tester) async {
       await openApp(tester);
-      await tapVisible(tester, find.text('Mulai scan'));
+      await tapVisible(tester, find.text('Mulai pindai'));
       await tester.enterText(
         find.byType(TextFormField),
         'https://contoh.com/draft',
       );
       await tapVisible(tester, find.text('Periksa URL'));
-      await tapVisible(tester, find.text('Lihat Hasil Scan'));
-      expect(find.text('Hasil scan'), findsOneWidget);
-      expect(find.text('HASIL SIMULASI'), findsOneWidget);
+      await tapVisible(tester, find.text('Lihat hasil contoh'));
+      expect(find.text('Hasil pindai'), findsOneWidget);
+      expect(find.textContaining('Hasil simulasi'), findsOneWidget);
       await tester.binding.handlePopRoute();
       await tester.pumpAndSettle();
-      expect(find.text('Scan URL'), findsOneWidget);
+      expect(find.text('Pindai URL'), findsOneWidget);
       expect(find.text('https://contoh.com/draft'), findsOneWidget);
       expect(find.text('Pratinjau pemeriksaan'), findsNothing);
       expect(tester.takeException(), isNull);
@@ -49,12 +49,12 @@ void main() {
     tester,
   ) async {
     await openApp(tester);
-    await tapVisible(tester, find.text('Bagikan link'));
+    await tapVisible(tester, find.text('Dari aplikasi lain'));
     await tapVisible(tester, find.text('Gunakan tautan contoh'));
     expect(find.text('https://contoh.com/artikel'), findsOneWidget);
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
-    await tapVisible(tester, find.text('Bagikan link'));
+    await tapVisible(tester, find.text('Dari aplikasi lain'));
     expect(find.text('Belum ada tautan'), findsOneWidget);
     expect(find.text('https://contoh.com/artikel'), findsNothing);
     expect(tester.takeException(), isNull);

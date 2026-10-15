@@ -4,7 +4,6 @@ import '../../../../theme/app_colors.dart';
 import '../../../../widgets/scan_components.dart';
 import '../../domain/entities/prediction_report.dart';
 import '../controllers/report_prediction_controller.dart';
-import '../widgets/scan_result_visuals.dart';
 
 class ReportPredictionScreen extends StatefulWidget {
   const ReportPredictionScreen({
@@ -25,8 +24,29 @@ class ReportPredictionScreen extends StatefulWidget {
 }
 
 class _ReportPredictionScreenState extends State<ReportPredictionScreen> {
+  @override
+  void initState() {
+    super.initState();
+    final c = widget.controller;
+    c.selectType(
+      c.result.isSafe ? ReportType.falseNegative : ReportType.falsePositive,
+    );
+    if (!c.result.isSafe && c.category.isEmpty) {
+      c.selectCategory(
+        c.categories.firstWhere(_isSafeCategory, orElse: () => ''),
+      );
+    }
+  }
+
+  static bool _isSafeCategory(String value) =>
+      value == 'Benign' || value.startsWith('Aman');
+
   void _submit() {
     FocusManager.instance.primaryFocus?.unfocus();
+    if (widget.controller.notes.text.trim().isEmpty) {
+      showScanMessage(context, 'Tambahkan catatan untuk menjelaskan koreksi.');
+      return;
+    }
     final failure = widget.controller.submit();
     if (failure != null) {
       showScanMessage(context, failure);
@@ -50,263 +70,121 @@ class _ReportPredictionScreenState extends State<ReportPredictionScreen> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    final result = widget.controller.result;
-    final color = ScanResultVisuals.statusColor(result);
-    final background = ScanResultVisuals.statusBackground(result);
-
-    return AnimatedBuilder(
-      animation: widget.controller,
-      builder: (context, _) => ScanSubpage(
-        title: 'Lapor hasil prediksi',
+  Widget build(BuildContext context) => AnimatedBuilder(
+    animation: widget.controller,
+    builder: (context, _) {
+      final c = widget.controller;
+      return ScanSubpage(
+        title: 'Koreksi hasil',
         onNavigate: widget.onNavigate,
         selectedIndex: 2,
         children: [
-          const Text(
-            'Bantu perbaiki kualitas klasifikasi dengan memberi koreksi pada hasil ini.',
-            style: bodyStyle,
+          Text(
+            c.result.url,
+            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
           ),
-          const SizedBox(height: 20),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: AppColors.softSurface,
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'URL yang dilaporkan',
-                  style: TextStyle(
-                    color: AppColors.muted,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  result.url,
-                  style: const TextStyle(
-                    color: AppColors.ink,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 5,
-                  ),
-                  decoration: BoxDecoration(
-                    color: background,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    result.category,
-                    style: TextStyle(
-                      color: color,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 24),
-          const Text(
-            'Jenis laporan',
-            style: TextStyle(
-              color: AppColors.ink,
-              fontSize: 14,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Row(
+          const SizedBox(height: 14),
+          Wrap(
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 10,
             children: [
-              Expanded(
-                child: _ReportTypeCard(
-                  title: 'False Positive',
-                  subtitle: 'Ditandai berbahaya, padahal aman.',
-                  icon: Icons.check_circle_outline_rounded,
-                  isSelected:
-                      widget.controller.type == ReportType.falsePositive,
-                  onTap: () =>
-                      widget.controller.selectType(ReportType.falsePositive),
-                ),
+              Text(
+                'Hasil saat ini',
+                style: TextStyle(fontSize: 13, color: context.colors.muted),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _ReportTypeCard(
-                  title: 'False Negative',
-                  subtitle: 'Ditandai aman, padahal berbahaya.',
-                  icon: Icons.warning_amber_rounded,
-                  isSelected:
-                      widget.controller.type == ReportType.falseNegative,
-                  onTap: () =>
-                      widget.controller.selectType(ReportType.falseNegative),
-                ),
-              ),
+              CategoryBadge(c.result.category),
             ],
           ),
-          const SizedBox(height: 24),
-          const Text(
-            'Kategori yang benar',
-            style: TextStyle(
-              color: AppColors.ink,
-              fontSize: 14,
-              fontWeight: FontWeight.w700,
-            ),
+          const SizedBox(height: 18),
+          Divider(color: context.colors.line),
+          const SizedBox(height: 18),
+          Text(
+            c.type == ReportType.falsePositive
+                ? 'Positif palsu'
+                : 'Negatif palsu',
+            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 10),
-          DropdownButtonFormField<String>(
-            initialValue: widget.controller.category.isEmpty
-                ? null
-                : widget.controller.category,
-            hint: const Text(
-              'Pilih kategori',
-              style: TextStyle(color: AppColors.muted, fontSize: 14),
-            ),
-            icon: const Icon(
-              Icons.keyboard_arrow_down_rounded,
-              color: AppColors.ink,
-            ),
-            decoration: InputDecoration(
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 14,
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(13),
-                borderSide: const BorderSide(color: AppColors.line),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(13),
-                borderSide: const BorderSide(color: AppColors.blue),
-              ),
-            ),
-            items: widget.controller.categories
-                .map(
-                  (category) => DropdownMenuItem(
-                    value: category,
-                    child: Text(
-                      category,
-                      style: const TextStyle(
-                        color: AppColors.ink,
-                        fontSize: 14,
-                      ),
-                    ),
-                  ),
-                )
-                .toList(),
-            onChanged: widget.controller.selectCategory,
-          ),
-          const SizedBox(height: 6),
-          const Text(
-            'Pilih kategori menurut penilaian Anda.',
-            style: TextStyle(color: AppColors.muted, fontSize: 12),
+          Text(
+            c.type == ReportType.falsePositive
+                ? 'Tautan ini seharusnya aman.'
+                : 'Tautan ini seharusnya perlu perhatian.',
+            style: TextStyle(fontSize: 13, color: context.colors.muted),
           ),
           const SizedBox(height: 24),
           const Text(
-            'Catatan laporan',
-            style: TextStyle(
-              color: AppColors.ink,
-              fontSize: 14,
-              fontWeight: FontWeight.w700,
+            'Kategori koreksi',
+            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 10),
+          if (c.type == ReportType.falsePositive)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(15),
+              decoration: BoxDecoration(
+                color: context.colors.paleSuccess,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.verified_user_outlined,
+                    color: context.colors.success,
+                    size: 23,
+                  ),
+                  const SizedBox(width: 12),
+                  Text(
+                    'Aman',
+                    style: TextStyle(
+                      color: context.colors.success,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            )
+          else
+            DropdownButtonFormField<String>(
+              initialValue: c.category.isEmpty ? null : c.category,
+              isExpanded: true,
+              hint: const Text('Pilih kategori'),
+              items: c.categories
+                  .where((value) => !_isSafeCategory(value))
+                  .map(
+                    (value) => DropdownMenuItem(
+                      value: value,
+                      child: Text(
+                        categoryLabel(value),
+                        style: const TextStyle(fontSize: 14),
+                      ),
+                    ),
+                  )
+                  .toList(),
+              onChanged: c.selectCategory,
             ),
+          const SizedBox(height: 24),
+          const Text(
+            'Catatan laporan (wajib)',
+            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
           ),
           const SizedBox(height: 10),
           TextFormField(
-            controller: widget.controller.notes,
+            controller: c.notes,
             maxLines: 4,
-            style: const TextStyle(color: AppColors.ink, fontSize: 14),
-            decoration: InputDecoration(
-              hintText: 'Jelaskan alasan atau informasi pendukung...',
-              hintStyle: const TextStyle(color: AppColors.muted, fontSize: 14),
-              contentPadding: const EdgeInsets.all(16),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(13),
-                borderSide: const BorderSide(color: AppColors.line),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(13),
-                borderSide: const BorderSide(color: AppColors.blue),
-              ),
+            style: TextStyle(fontSize: 14, color: context.colors.ink),
+            decoration: const InputDecoration(
+              hintText: 'Jelaskan alasan atau bukti pendukung…',
             ),
           ),
-          const SizedBox(height: 28),
+          const SizedBox(height: 24),
           ScanButton(
             label: 'Kirim laporan',
             icon: Icons.arrow_forward_rounded,
             onPressed: _submit,
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _ReportTypeCard extends StatelessWidget {
-  const _ReportTypeCard({
-    required this.title,
-    required this.subtitle,
-    required this.icon,
-    required this.isSelected,
-    required this.onTap,
-  });
-
-  final String title;
-  final String subtitle;
-  final IconData icon;
-  final bool isSelected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) => InkWell(
-    onTap: onTap,
-    borderRadius: BorderRadius.circular(16),
-    child: Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: isSelected ? AppColors.paleBlue : Colors.white,
-        border: Border.all(
-          color: isSelected ? AppColors.blue : AppColors.line,
-          width: isSelected ? 2 : 1,
-        ),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(
-            icon,
-            color: isSelected ? AppColors.blue : AppColors.muted,
-            size: 22,
-          ),
-          const SizedBox(height: 10),
-          Text(
-            title,
-            style: TextStyle(
-              color: isSelected ? AppColors.blue : AppColors.ink,
-              fontSize: 13,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            subtitle,
-            style: const TextStyle(
-              color: AppColors.muted,
-              fontSize: 11,
-              height: 1.4,
-            ),
-          ),
-        ],
-      ),
-    ),
+      );
+    },
   );
 }

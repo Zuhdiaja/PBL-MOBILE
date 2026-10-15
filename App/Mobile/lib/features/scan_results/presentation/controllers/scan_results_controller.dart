@@ -1,11 +1,11 @@
-import 'package:flutter/material.dart';
+import '../../../../presentation/load_controller.dart';
 
 import '../../domain/entities/scan_result.dart';
 import '../../domain/repositories/scan_results_repository.dart';
 import '../../domain/usecases/summarize_scan_results.dart';
 
 /// State for the list of results and the counts above it.
-class ScanResultsController extends ChangeNotifier {
+class ScanResultsController extends LoadController {
   ScanResultsController({
     required this.repository,
     required this.summarizeScanResults,
@@ -24,10 +24,11 @@ class ScanResultsController extends ChangeNotifier {
   List<ScanResult> get results => List.unmodifiable(_results);
   ScanResultSummary get summary => _summary;
 
-  void load() {
-    final loaded = repository.getScanResults();
-    _results = loaded;
-    _summary = summarizeScanResults(loaded);
-    notifyListeners();
+  @override
+  Future<void> load() {
+    return loadValue(repository.getScanResults, (loaded) {
+      _results = loaded;
+      _summary = summarizeScanResults(loaded);
+    });
   }
 }

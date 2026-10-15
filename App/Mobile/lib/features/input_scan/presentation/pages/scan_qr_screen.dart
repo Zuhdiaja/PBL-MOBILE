@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../widgets/scan_components.dart';
+import '../../../../theme/app_colors.dart';
 import '../controllers/scan_qr_controller.dart';
 import '../widgets/scan_preview_sheet.dart';
 
@@ -18,11 +19,9 @@ class ScanQrScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => ScanSubpage(
-    title: 'Scan QR Code',
+    title: 'Pindai kode QR',
     onNavigate: onNavigate,
     children: [
-      const PreviewBadge('PRATINJAU PEMINDAI'),
-      const SizedBox(height: 16),
       const Text(
         'Arahkan kamera ke QR Code berisi URL. Periksa tautannya sebelum dibuka.',
         style: bodyStyle,
@@ -37,8 +36,8 @@ class ScanQrScreen extends StatelessWidget {
             child: Container(
               clipBehavior: Clip.antiAlias,
               decoration: BoxDecoration(
-                color: const Color(0xFF14213F),
-                borderRadius: BorderRadius.circular(19),
+                color: context.colors.scanner,
+                borderRadius: BorderRadius.circular(14),
               ),
               child: LayoutBuilder(
                 builder: (context, constraints) {
@@ -84,7 +83,7 @@ class ScanQrScreen extends StatelessWidget {
       const SizedBox(height: 20),
       const Center(
         child: Text(
-          'Pratinjau area pemindaian QR Code',
+          'Tempatkan kode QR di dalam bingkai.',
           textAlign: TextAlign.center,
           style: bodyStyle,
         ),
@@ -101,6 +100,7 @@ class ScanQrScreen extends StatelessWidget {
           showScanPreview(
             context,
             result.preview!,
+            preparePreview: controller.prepareExamplePreview,
             onViewResults: onViewResults,
           );
         },

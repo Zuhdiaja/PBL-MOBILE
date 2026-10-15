@@ -75,6 +75,7 @@ class _MainShellState extends State<MainShell> {
     MaterialPageRoute<void>(
       builder: (_) => ScanDetailScreen(
         result: result,
+        loadResult: () => _scanResults.loadResult(result.id),
         onReport: _openReport,
         onNavigate: _selectTab,
       ),
@@ -145,40 +146,54 @@ class _MainShellState extends State<MainShell> {
       bottom: false,
       child: IndexedStack(
         index: _selectedIndex,
-        children: [
-          HomeScreen(
-            controller: _inputScan.home,
-            onNotifications: _openNotifications,
-            onRecentScan: (scan) =>
-                _openDetail(_scanResults.findResult(scan.id)),
-            onScan: _openScan,
-            onPaste: () => _openScan(paste: true),
-            onQr: _openQr,
-            onShare: _openShare,
-            onHistory: () => _selectTab(2),
-            onProfile: () => _selectTab(4),
-          ),
-          ScanUrlScreen(
-            controller: _inputScan.scanUrl,
-            onQr: _openQr,
-            onShare: _openShare,
-            onViewResults: _openResults,
-          ),
-          HistoryScreen(
-            controller: _history.history,
-            onOpenDetail: (entry) =>
-                _openDetail(_scanResults.findResult(entry.id)),
-          ),
-          StatsScreen(controller: _history.stats),
-          ProfilePage(
-            controller: widget.auth.profile,
-            account: widget.auth.auth.account ?? widget.auth.demoAccount,
-            onSettings: _openSettings,
-            onSignOut: _signOut,
-            onReportStatus: _openReportStatus,
-            onNotifications: _openNotifications,
-          ),
-        ],
+        children:
+            [
+                  HomeScreen(
+                    controller: _inputScan.home,
+                    name: (widget.auth.auth.account ?? widget.auth.demoAccount)
+                        .firstName,
+                    initials:
+                        (widget.auth.auth.account ?? widget.auth.demoAccount)
+                            .initials,
+                    onNotifications: _openNotifications,
+                    onRecentScan: (scan) =>
+                        _openDetail(_scanResults.findResult(scan.id)),
+                    onScan: _openScan,
+                    onPaste: () => _openScan(paste: true),
+                    onQr: _openQr,
+                    onShare: _openShare,
+                    onHistory: () => _selectTab(2),
+                    onProfile: () => _selectTab(4),
+                  ),
+                  ScanUrlScreen(
+                    controller: _inputScan.scanUrl,
+                    onQr: _openQr,
+                    onShare: _openShare,
+                    onViewResults: _openResults,
+                  ),
+                  HistoryScreen(
+                    controller: _history.history,
+                    onOpenDetail: (entry) =>
+                        _openDetail(_scanResults.findResult(entry.id)),
+                  ),
+                  StatsScreen(controller: _history.stats),
+                  ProfilePage(
+                    controller: widget.auth.profile,
+                    account:
+                        widget.auth.auth.account ?? widget.auth.demoAccount,
+                    onSettings: _openSettings,
+                    onSignOut: _signOut,
+                    onReportStatus: _openReportStatus,
+                    onNotifications: _openNotifications,
+                  ),
+                ].indexed
+                .map(
+                  (entry) => TickerMode(
+                    enabled: entry.$1 == _selectedIndex,
+                    child: entry.$2,
+                  ),
+                )
+                .toList(),
       ),
     ),
     bottomNavigationBar: AppBottomNavigation(
