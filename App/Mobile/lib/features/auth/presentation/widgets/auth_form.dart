@@ -98,25 +98,29 @@ class AuthForm extends StatelessWidget {
                     style: TextStyle(fontSize: 11, color: context.colors.muted),
                   ),
                   const SizedBox(height: 18),
-                  Row(
-                    children: [
-                      Expanded(child: Divider(color: context.colors.line)),
-                      Flexible(
-                        flex: 3,
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 10),
-                          child: Text(
-                            'atau dengan email',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              color: context.colors.muted,
-                              fontSize: 12,
+                  LayoutBuilder(
+                    builder: (context, constraints) => Row(
+                      children: [
+                        Expanded(child: Divider(color: context.colors.line)),
+                        ConstrainedBox(
+                          constraints: BoxConstraints(
+                            maxWidth: constraints.maxWidth * .7,
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 10),
+                            child: Text(
+                              'atau dengan email',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                color: context.colors.muted,
+                                fontSize: 12,
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                      Expanded(child: Divider(color: context.colors.line)),
-                    ],
+                        Expanded(child: Divider(color: context.colors.line)),
+                      ],
+                    ),
                   ),
                   const SizedBox(height: 20),
                   for (final field in fields) ...[
