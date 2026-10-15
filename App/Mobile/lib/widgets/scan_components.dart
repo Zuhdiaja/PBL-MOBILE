@@ -1,44 +1,74 @@
 import 'package:flutter/material.dart';
 
 import '../theme/app_colors.dart';
-import 'app_bottom_navigation.dart';
 
 const pageTitleStyle = TextStyle(
-  color: AppColors.ink,
   fontSize: 26,
-  fontWeight: FontWeight.w800,
-  letterSpacing: -0.8,
-  height: 1.2,
+  fontWeight: FontWeight.w600,
+  letterSpacing: -.8,
+  height: 1.25,
 );
-
 const sectionTitleStyle = TextStyle(
-  color: AppColors.ink,
-  fontSize: 20,
-  fontWeight: FontWeight.w800,
-  letterSpacing: -0.6,
+  fontSize: 18,
+  fontWeight: FontWeight.w600,
+  letterSpacing: -.4,
+  height: 1.4,
 );
-
-const bodyStyle = TextStyle(color: AppColors.muted, fontSize: 14, height: 1.6);
+const bodyStyle = TextStyle(fontSize: 14, height: 1.6);
 
 class ScanPage extends StatelessWidget {
   const ScanPage({super.key, required this.children});
-
   final List<Widget> children;
-
   @override
   Widget build(BuildContext context) => LayoutBuilder(
-    builder: (context, constraints) => SingleChildScrollView(
-      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-      padding: EdgeInsets.fromLTRB(
-        constraints.maxWidth < 360 ? 20 : 24,
-        24,
-        constraints.maxWidth < 360 ? 20 : 24,
-        28,
+    builder: (context, constraints) => Align(
+      alignment: Alignment.topCenter,
+      child: SizedBox(
+        width: constraints.maxWidth.clamp(0, 640),
+        child: SingleChildScrollView(
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+          padding: EdgeInsets.fromLTRB(
+            constraints.maxWidth < 360 ? 18 : 22,
+            24,
+            constraints.maxWidth < 360 ? 18 : 22,
+            28,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: children,
+          ),
+        ),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: children,
-      ),
+    ),
+  );
+}
+
+class LinkGuardBrand extends StatelessWidget {
+  const LinkGuardBrand({super.key, this.size = 22});
+  final double size;
+  @override
+  Widget build(BuildContext context) => FittedBox(
+    fit: BoxFit.scaleDown,
+    alignment: Alignment.centerLeft,
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(
+          Icons.verified_user_outlined,
+          size: size + 2,
+          color: context.colors.blue,
+        ),
+        const SizedBox(width: 9),
+        Text(
+          'LinkGuard',
+          style: TextStyle(
+            fontSize: size,
+            fontWeight: FontWeight.w700,
+            letterSpacing: -.8,
+            color: context.colors.ink,
+          ),
+        ),
+      ],
     ),
   );
 }
@@ -51,106 +81,65 @@ class ScanSubpage extends StatelessWidget {
     this.selectedIndex = 1,
     required this.children,
   });
-
   final String title;
   final ValueChanged<int>? onNavigate;
   final int selectedIndex;
   final List<Widget> children;
-
   @override
   Widget build(BuildContext context) => Scaffold(
     body: SafeArea(
-      bottom: false,
       child: ScanPage(
         children: [
           Row(
             children: [
-              IconButton.filledTonal(
+              IconButton(
                 tooltip: 'Kembali',
-                onPressed: () => Navigator.of(context).pop(),
-                style: IconButton.styleFrom(
-                  minimumSize: const Size(48, 48),
-                  backgroundColor: AppColors.softSurface,
-                  foregroundColor: AppColors.ink,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
+                onPressed: () => Navigator.of(context).maybePop(),
                 icon: const Icon(Icons.arrow_back_rounded, size: 22),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  title,
-                  style: pageTitleStyle.copyWith(fontSize: 23),
-                ),
-              ),
+              const SizedBox(width: 4),
+              Expanded(child: Text(title, style: sectionTitleStyle)),
             ],
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 28),
           ...children,
         ],
       ),
     ),
-    bottomNavigationBar: onNavigate != null
-        ? AppBottomNavigation(
-            selectedIndex: selectedIndex,
-            onDestinationSelected: (index) {
-              Navigator.of(context).pop();
-              onNavigate!(index);
-            },
-          )
-        : null,
   );
 }
 
 class PreviewBadge extends StatelessWidget {
   const PreviewBadge(this.label, {super.key});
-
   final String label;
-
   @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-    decoration: BoxDecoration(
-      color: AppColors.paleBlue,
-      borderRadius: BorderRadius.circular(7),
-    ),
-    child: Text(
-      label,
-      style: const TextStyle(
-        color: AppColors.blue,
-        fontSize: 10,
-        fontWeight: FontWeight.w700,
-        letterSpacing: 0.5,
-      ),
-    ),
+  Widget build(BuildContext context) => Text(
+    label,
+    style: TextStyle(color: context.colors.muted, fontSize: 11, height: 1.5),
   );
 }
 
 class InfoNote extends StatelessWidget {
   const InfoNote(this.text, {super.key});
-
   final String text;
-
   @override
   Widget build(BuildContext context) => Row(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      const Padding(
-        padding: EdgeInsets.only(top: 2),
+      Padding(
+        padding: const EdgeInsets.only(top: 3),
         child: Icon(
           Icons.info_outline_rounded,
-          color: AppColors.muted,
+          color: context.colors.muted,
           size: 16,
         ),
       ),
-      const SizedBox(width: 9),
+      const SizedBox(width: 8),
       Expanded(
         child: Text(
           text,
-          style: const TextStyle(
-            color: AppColors.muted,
+          style: TextStyle(
+            color: context.colors.muted,
             fontSize: 12,
             height: 1.6,
           ),
@@ -167,27 +156,20 @@ class ScanButton extends StatelessWidget {
     required this.onPressed,
     this.icon = Icons.crop_free_rounded,
   });
-
   final String label;
   final VoidCallback? onPressed;
   final IconData icon;
-
   @override
   Widget build(BuildContext context) => SizedBox(
     width: double.infinity,
     child: FilledButton.icon(
       onPressed: onPressed,
-      icon: Icon(icon, size: 21),
+      iconAlignment: IconAlignment.end,
+      icon: Icon(icon, size: 19),
       label: Text(label, textAlign: TextAlign.center),
       style: FilledButton.styleFrom(
-        minimumSize: const Size.fromHeight(54),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-        backgroundColor: AppColors.blue,
-        foregroundColor: Colors.white,
-        disabledBackgroundColor: AppColors.softSurface,
-        disabledForegroundColor: AppColors.muted,
-        textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(13)),
+        minimumSize: const Size.fromHeight(50),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
     ),
   );
@@ -202,13 +184,11 @@ class UrlField extends StatelessWidget {
     this.onChanged,
     this.label,
   });
-
   final TextEditingController controller;
   final VoidCallback onPaste;
   final FormFieldValidator<String>? validator;
   final ValueChanged<String>? onChanged;
   final String? label;
-
   @override
   Widget build(BuildContext context) => TextFormField(
     controller: controller,
@@ -219,49 +199,97 @@ class UrlField extends StatelessWidget {
     textInputAction: TextInputAction.done,
     autocorrect: false,
     enableSuggestions: false,
-    style: const TextStyle(color: AppColors.ink, fontSize: 16),
+    style: TextStyle(color: context.colors.ink, fontSize: 15),
     decoration: InputDecoration(
       hintText: 'https://contoh.com',
       labelText: label,
-      hintStyle: const TextStyle(color: AppColors.muted, fontSize: 16),
-      errorStyle: const TextStyle(fontSize: 12, height: 1.4),
-      errorMaxLines: 3,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 18),
-      prefixIcon: const Icon(
+      prefixIcon: Icon(
         Icons.link_rounded,
-        color: AppColors.muted,
+        color: context.colors.muted,
         size: 22,
       ),
-      suffixIcon: Padding(
-        padding: const EdgeInsets.all(5),
-        child: TextButton(
-          onPressed: onPaste,
-          style: TextButton.styleFrom(
-            backgroundColor: AppColors.softSurface,
-            foregroundColor: AppColors.blue,
-            minimumSize: const Size(56, 48),
-            padding: const EdgeInsets.symmetric(horizontal: 10),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10),
-            ),
-            textStyle: const TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          child: const Text('Tempel'),
-        ),
-      ),
-      enabledBorder: _border(AppColors.line),
-      focusedBorder: _border(AppColors.blue),
-      errorBorder: _border(AppColors.danger),
-      focusedErrorBorder: _border(AppColors.danger),
+      suffixIcon: TextButton(onPressed: onPaste, child: const Text('Tempel')),
     ),
   );
+}
 
-  OutlineInputBorder _border(Color color) => OutlineInputBorder(
-    borderRadius: BorderRadius.circular(13),
-    borderSide: BorderSide(color: color),
+class CategoryBadge extends StatelessWidget {
+  const CategoryBadge(this.category, {super.key});
+  final String category;
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+    decoration: BoxDecoration(
+      color: context.colors.statusBackground(category),
+      borderRadius: BorderRadius.circular(6),
+    ),
+    child: Text(
+      categoryLabel(category),
+      style: TextStyle(
+        fontSize: 10,
+        fontWeight: FontWeight.w600,
+        color: context.colors.status(category),
+      ),
+    ),
+  );
+}
+
+String categoryLabel(String category) => switch (category) {
+  'Benign' => 'Aman',
+  'Defacement' => 'Perusakan situs',
+  'Exploit' => 'Eksploitasi',
+  _ => category,
+};
+IconData categoryIcon(String category) => switch (category) {
+  'Aman' || 'Benign' => Icons.verified_user_outlined,
+  'Malware' => Icons.bug_report_outlined,
+  'Spam' => Icons.mail_outline_rounded,
+  'Defacement' => Icons.web_asset_off_rounded,
+  'Exploit' => Icons.security_rounded,
+  _ => Icons.warning_amber_rounded,
+};
+String displayHost(String url) =>
+    Uri.tryParse(url)?.host.isNotEmpty == true ? Uri.parse(url).host : url;
+
+class MethodRow extends StatelessWidget {
+  const MethodRow({
+    super.key,
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
+  final IconData icon;
+  final String title, subtitle;
+  final VoidCallback onTap;
+  @override
+  Widget build(BuildContext context) => Column(
+    children: [
+      ListTile(
+        contentPadding: EdgeInsets.zero,
+        minVerticalPadding: 12,
+        leading: Icon(icon, color: context.colors.blue, size: 24),
+        title: Text(
+          title,
+          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+        ),
+        subtitle: Text(
+          subtitle,
+          style: TextStyle(
+            fontSize: 12,
+            color: context.colors.muted,
+            height: 1.7,
+          ),
+        ),
+        trailing: Icon(
+          Icons.chevron_right_rounded,
+          size: 20,
+          color: context.colors.muted,
+        ),
+        onTap: onTap,
+      ),
+      Divider(height: 1, color: context.colors.line),
+    ],
   );
 }
 
@@ -270,3 +298,6 @@ void showScanMessage(BuildContext context, String text) {
     ..hideCurrentSnackBar()
     ..showSnackBar(SnackBar(content: Text(text)));
 }
+
+String displayTime(String time) =>
+    RegExp(r'\d{1,2}:\d{2}').firstMatch(time)?.group(0) ?? time;

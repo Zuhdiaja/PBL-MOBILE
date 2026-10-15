@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import '../features/scan_results/data/datasources/demo_prediction_report_data_source.dart';
 import '../features/scan_results/data/datasources/scan_results_data_source.dart';
 import '../features/scan_results/data/repositories/prediction_report_repository_impl.dart';
@@ -13,13 +15,16 @@ import '../features/scan_results/presentation/controllers/scan_results_controlle
 /// Concrete and legacy data stay here so feature widgets never import them.
 class ScanResultsDependencies {
   ScanResultsDependencies() {
-    final results = ScanResultsRepositoryImpl(_resultSource);
+    _resultsRepository = ScanResultsRepositoryImpl(_resultSource);
     scanResults = ScanResultsController(
-      repository: results,
+      repository: _resultsRepository,
       summarizeScanResults: const SummarizeScanResults(),
     );
     _reports = PredictionReportRepositoryImpl(DemoPredictionReportDataSource());
   }
+
+  late final ScanResultsRepositoryImpl _resultsRepository;
+  FutureOr<ScanResult> loadResult(String id) => _resultsRepository.findById(id);
 
   final _resultSource = ScanResultsDataSource();
   late final ScanResultsController scanResults;

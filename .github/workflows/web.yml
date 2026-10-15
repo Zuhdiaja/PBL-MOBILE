@@ -1,0 +1,62 @@
+name: Web and API
+on:
+  push:
+    branches: [main]
+    paths: ["App/Web/**", ".github/workflows/web.yml"]
+  pull_request:
+    branches: [main]
+    paths: ["App/Web/**", ".github/workflows/web.yml"]
+jobs:
+  dashboard:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.3
+      - name: Frontend checks
+        working-directory: App/Web/admin
+        run: |
+          bun install --frozen-lockfile
+          bun run lint
+          bun run format:check
+          bun run typecheck
+          bun run build
+      - name: Configure isolated services
+        working-directory: App/Web
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import secrets
+          Path('.env').write_text('SECRET_KEY=' + secrets.token_hex(32) + '\nPOSTGRES_PASSWORD=' + secrets.token_hex(24) + '\n')
+          PY
+          docker compose up -d --build --wait
+          docker compose exec -T postgres createdb -U linkguard linkguard_test
+          docker compose exec -T api flask --app app:create_app db check
+      - name: API tests on PostgreSQL
+        working-directory: App/Web
+        run: docker compose --profile test run --build --rm test
+      - name: Bootstrap E2E admin
+        working-directory: App/Web
+        run: docker compose exec -T api flask --app app:create_app create-admin --email e2e@example.com --name 'Admin E2E' --password e2e-only-password-2026
+      - name: Browser tests
+        working-directory: App/Web/admin
+        run: |
+          bunx playwright install --with-deps chromium
+          bun run test:e2e
+      - name: Service logs
+        if: failure()
+        working-directory: App/Web
+        run: docker compose logs --tail=150
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: dashboard-browser-evidence
+          path: |
+            App/Web/admin/playwright-report
+            App/Web/admin/test-results
+      - name: Stop services
+        if: always()
+        working-directory: App/Web
+        run: docker compose down

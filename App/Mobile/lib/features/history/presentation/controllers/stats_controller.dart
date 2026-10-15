@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart';
+import '../../../../presentation/load_controller.dart';
 
 import '../../domain/entities/activity_summary.dart';
 import '../../domain/repositories/history_repository.dart';
@@ -6,7 +6,7 @@ import '../../domain/repositories/report_status_repository.dart';
 import '../../domain/usecases/summarize_activity.dart';
 
 /// State for the activity figures on the statistics screen.
-class StatsController extends ChangeNotifier {
+class StatsController extends LoadController {
   StatsController({
     required this.historyRepository,
     required this.reportStatusRepository,
@@ -29,11 +29,10 @@ class StatsController extends ChangeNotifier {
 
   ActivitySummary get summary => _summary;
 
-  void load() {
-    _summary = summarizeActivity(
-      entries: historyRepository.getEntries(),
-      reportCount: reportStatusRepository.getReports().length,
-    );
-    notifyListeners();
-  }
+  @override
+  Future<void> load() => loadValue(() async {
+    final entries = await historyRepository.getEntries();
+    final reports = await reportStatusRepository.getReports();
+    return summarizeActivity(entries: entries, reportCount: reports.length);
+  }, (value) => _summary = value);
 }

@@ -51,8 +51,8 @@ class _RegisterPageState extends State<RegisterPage> {
     return ListenableBuilder(
       listenable: controller,
       builder: (context, _) => AuthForm(
-        title: 'Buat akun baru',
-        subtitle: 'Simpan riwayat scan dan pantau laporan keamanan Anda.',
+        title: 'Buat akun.',
+        subtitle: 'Simpan riwayat tautan Anda.',
         fields: [
           AuthField(
             label: 'Nama lengkap',
@@ -66,7 +66,7 @@ class _RegisterPageState extends State<RegisterPage> {
             keyboardType: TextInputType.emailAddress,
           ),
           AuthField(
-            label: 'Password',
+            label: 'Kata sandi',
             hint: 'Minimal 6 karakter',
             obscure: true,
             controller: _passwordController,

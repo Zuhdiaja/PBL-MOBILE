@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import '../entities/user_account.dart';
 import '../repositories/account_repository.dart';
 
@@ -5,5 +7,6 @@ import '../repositories/account_repository.dart';
 class LoadAccountStats {
   const LoadAccountStats();
 
-  AccountStats call(AccountRepository repository) => repository.readStats();
+  FutureOr<AccountStats> call(AccountRepository repository) =>
+      repository.readStats();
 }

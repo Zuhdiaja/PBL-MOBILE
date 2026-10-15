@@ -1,277 +1,240 @@
+import '../../../../widgets/loading_states.dart';
+
+import 'dart:async';
+
+import '../../../../widgets/load_view.dart';
+import '../controllers/scan_detail_controller.dart';
+
 import 'package:flutter/material.dart';
 
 import '../../../../theme/app_colors.dart';
 import '../../../../widgets/scan_components.dart';
 import '../../domain/entities/scan_result.dart';
-import '../widgets/scan_result_visuals.dart';
 
-class ScanDetailScreen extends StatelessWidget {
+class ScanDetailScreen extends StatefulWidget {
   const ScanDetailScreen({
     super.key,
     required this.result,
     required this.onReport,
     this.onNavigate,
+    this.loadResult,
   });
-
   final ScanResult result;
   final ValueChanged<ScanResult> onReport;
   final ValueChanged<int>? onNavigate;
+  final FutureOr<ScanResult> Function()? loadResult;
+  @override
+  State<ScanDetailScreen> createState() => _ScanDetailScreenState();
+}
+
+class _ScanDetailScreenState extends State<ScanDetailScreen> {
+  late final controller = ScanDetailController(
+    widget.loadResult ?? () => widget.result,
+  );
+  @override
+  void dispose() {
+    controller.dispose();
+    super.dispose();
+  }
 
   @override
-  Widget build(BuildContext context) {
-    final color = ScanResultVisuals.statusColor(result);
-    final background = ScanResultVisuals.statusBackground(result);
-
-    return ScanSubpage(
-      title: 'Detail hasil',
-      onNavigate: onNavigate,
-      selectedIndex: 2,
-      children: [
-        const PreviewBadge('HASIL SIMULASI'),
-        const SizedBox(height: 16),
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: background,
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+  Widget build(BuildContext context) => LoadView(
+    controller: controller,
+    kind: 'detail',
+    subpage: true,
+    loadingBuilder: (context) =>
+        LoadingScreen(kind: 'detail', url: widget.result.url),
+    builder: (context) {
+      final result = controller.result!;
+      final color = context.colors.status(result.category);
+      return ScanSubpage(
+        title: 'Detail hasil',
+        onNavigate: widget.onNavigate,
+        selectedIndex: 2,
+        children: [
+          Row(
             children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: const BoxDecoration(
-                      color: Colors.white,
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      Icons.verified_user_outlined,
-                      color: color,
-                      size: 22,
-                    ),
-                  ),
-                  Text(
-                    result.category,
-                    style: TextStyle(
-                      color: color,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 14),
-              const Text(
-                'HASIL KLASIFIKASI',
-                style: TextStyle(
-                  color: AppColors.muted,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 0.5,
+              Container(
+                padding: const EdgeInsets.all(9),
+                decoration: BoxDecoration(
+                  color: context.colors.statusBackground(result.category),
+                  borderRadius: BorderRadius.circular(10),
                 ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                result.category,
-                style: TextStyle(
+                child: Icon(
+                  categoryIcon(result.category),
                   color: color,
-                  fontSize: 26,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: -0.5,
+                  size: 23,
                 ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                result.url,
-                style: const TextStyle(
-                  color: AppColors.ink,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 16),
-        Row(
-          children: [
-            Expanded(
-              child: _MetricCard(
-                label: 'Tingkat risiko',
-                child: Text(
-                  result.riskLevel,
-                  style: TextStyle(
-                    color: color,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _MetricCard(
-                label: 'Confidence score',
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '${result.confidence}%',
-                      style: const TextStyle(
-                        color: AppColors.ink,
-                        fontSize: 20,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(4),
-                      child: LinearProgressIndicator(
-                        value: result.confidence / 100,
-                        minHeight: 6,
-                        backgroundColor: AppColors.line,
-                        color: AppColors.blue,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 24),
-        const Text(
-          'Rekomendasi keamanan',
-          style: TextStyle(
-            color: AppColors.ink,
-            fontSize: 16,
-            fontWeight: FontWeight.w800,
-          ),
-        ),
-        const SizedBox(height: 12),
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: AppColors.paleBlue,
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Icon(
-                Icons.shield_outlined,
-                color: AppColors.blue,
-                size: 22,
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
-                  result.resolvedRecommendation,
-                  style: const TextStyle(
-                    color: AppColors.ink,
-                    fontSize: 13,
-                    height: 1.5,
+                  categoryLabel(result.category),
+                  style: TextStyle(
+                    color: color,
+                    fontSize: 24,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
             ],
           ),
-        ),
-        const SizedBox(height: 24),
-        const Text(
-          'Indikator yang terdeteksi',
-          style: TextStyle(
-            color: AppColors.ink,
-            fontSize: 16,
-            fontWeight: FontWeight.w800,
+          const SizedBox(height: 14),
+          SelectableText(
+            result.url,
+            style: TextStyle(
+              color: context.colors.muted,
+              fontSize: 13,
+              height: 1.7,
+            ),
           ),
-        ),
-        const SizedBox(height: 12),
-        for (final indicator in result.resolvedIndicators)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 10),
+          const SizedBox(height: 20),
+          Divider(color: context.colors.line),
+          const SizedBox(height: 18),
+          const Text(
+            'Saran keamanan',
+            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            result.resolvedRecommendation,
+            style: TextStyle(
+              fontSize: 13,
+              color: context.colors.muted,
+              height: 1.8,
+            ),
+          ),
+          const SizedBox(height: 22),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: context.colors.surface,
+              borderRadius: BorderRadius.circular(14),
+            ),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(
-                  result.isSafe
-                      ? Icons.check_rounded
-                      : Icons.warning_amber_rounded,
-                  color: color,
-                  size: 20,
-                ),
-                const SizedBox(width: 10),
                 Expanded(
-                  child: Text(
-                    indicator,
-                    style: const TextStyle(
-                      color: AppColors.ink,
-                      fontSize: 13,
-                      height: 1.4,
-                    ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Tingkat risiko',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: context.colors.muted,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        result.riskLevel,
+                        style: TextStyle(
+                          color: color,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Keyakinan model',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: context.colors.muted,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        '${result.confidence}%',
+                        style: const TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
             ),
           ),
-        const SizedBox(height: 16),
-        const Divider(color: AppColors.line),
-        const SizedBox(height: 16),
-        _MetaRow(label: 'Waktu scan', value: result.scanTime),
-        const SizedBox(height: 10),
-        _MetaRow(label: 'Model klasifikasi', value: result.modelName),
-        const SizedBox(height: 10),
-        _MetaRow(label: 'Metode', value: result.method),
-        const SizedBox(height: 24),
-        ScanButton(
-          label: 'Lapor hasil prediksi',
-          icon: Icons.flag_outlined,
-          onPressed: () => onReport(result),
-        ),
-      ],
-    );
-  }
-}
-
-class _MetricCard extends StatelessWidget {
-  const _MetricCard({required this.label, required this.child});
-
-  final String label;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.all(16),
-    decoration: BoxDecoration(
-      color: Colors.white,
-      border: Border.all(color: AppColors.line),
-      borderRadius: BorderRadius.circular(16),
-    ),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(color: AppColors.muted, fontSize: 12),
-        ),
-        const SizedBox(height: 8),
-        child,
-      ],
-    ),
+          const SizedBox(height: 22),
+          const Text(
+            'Arti keyakinan model',
+            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Persentase ini menunjukkan keyakinan model terhadap kategori hasil. Angka ini bukan persentase keamanan atau jaminan bahwa tautan aman.',
+            style: TextStyle(
+              color: context.colors.muted,
+              fontSize: 12,
+              height: 1.8,
+            ),
+          ),
+          const SizedBox(height: 24),
+          const Text(
+            'Rincian pemeriksaan',
+            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 12),
+          for (final indicator in result.resolvedIndicators)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(
+                    result.isSafe
+                        ? Icons.check_rounded
+                        : Icons.warning_amber_rounded,
+                    size: 17,
+                    color: color,
+                  ),
+                  const SizedBox(width: 9),
+                  Expanded(
+                    child: Text(
+                      indicator,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: context.colors.muted,
+                        height: 1.7,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          const SizedBox(height: 12),
+          Divider(color: context.colors.line),
+          const SizedBox(height: 16),
+          _MetaRow(label: 'Waktu pemindaian', value: result.scanTime),
+          const SizedBox(height: 10),
+          _MetaRow(label: 'Model', value: result.modelName),
+          const SizedBox(height: 10),
+          _MetaRow(label: 'Metode', value: result.method),
+          const SizedBox(height: 22),
+          ScanButton(
+            label: 'Koreksi hasil',
+            icon: Icons.flag_outlined,
+            onPressed: () => widget.onReport(result),
+          ),
+          const SizedBox(height: 18),
+          const InfoNote('Hasil simulasi dari data contoh.'),
+        ],
+      );
+    },
   );
 }
 
 class _MetaRow extends StatelessWidget {
   const _MetaRow({required this.label, required this.value});
-
-  final String label;
-  final String value;
-
+  final String label, value;
   @override
   Widget build(BuildContext context) => Row(
     crossAxisAlignment: CrossAxisAlignment.start,
@@ -279,20 +242,16 @@ class _MetaRow extends StatelessWidget {
       Expanded(
         child: Text(
           label,
-          style: const TextStyle(color: AppColors.muted, fontSize: 12),
+          style: TextStyle(fontSize: 11, color: context.colors.muted),
         ),
       ),
-      const SizedBox(width: 12),
+      const SizedBox(width: 14),
       Expanded(
         flex: 2,
         child: Text(
           value,
           textAlign: TextAlign.right,
-          style: const TextStyle(
-            color: AppColors.ink,
-            fontSize: 12,
-            fontWeight: FontWeight.w700,
-          ),
+          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500),
         ),
       ),
     ],

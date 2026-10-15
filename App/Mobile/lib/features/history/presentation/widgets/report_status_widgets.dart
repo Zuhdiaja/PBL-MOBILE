@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../theme/app_colors.dart';
+import '../../../../widgets/scan_components.dart';
 import '../../domain/entities/report_status.dart';
 
 class ReportStatusCard extends StatelessWidget {
@@ -9,60 +10,43 @@ class ReportStatusCard extends StatelessWidget {
     required this.report,
     required this.onTap,
   });
-
   final ReportStatus report;
   final VoidCallback onTap;
-
   @override
   Widget build(BuildContext context) => InkWell(
     onTap: onTap,
-    borderRadius: BorderRadius.circular(16),
     child: Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(vertical: 16),
       decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border.all(color: AppColors.line),
-        borderRadius: BorderRadius.circular(16),
+        border: Border(bottom: BorderSide(color: context.colors.line)),
       ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 38,
-            height: 38,
-            decoration: BoxDecoration(
-              color: AppColors.paleBlue,
-              borderRadius: BorderRadius.circular(11),
-            ),
-            child: const Icon(
-              Icons.flag_outlined,
-              color: AppColors.blue,
-              size: 20,
-            ),
+          Icon(
+            Icons.description_outlined,
+            color: context.colors.muted,
+            size: 19,
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 11),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  report.url,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                  displayHost(report.url),
                   style: const TextStyle(
-                    color: AppColors.ink,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    height: 1.4,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
-                const SizedBox(height: 3),
+                const SizedBox(height: 7),
                 Text(
-                  '${report.type} · ${report.submittedTime}',
-                  style: const TextStyle(
-                    color: AppColors.muted,
-                    fontSize: 11,
-                    height: 1.4,
+                  '${report.type == 'False Positive' ? 'Positif palsu' : 'Negatif palsu'} · ${report.submittedTime}',
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: context.colors.muted,
+                    height: 1.7,
                   ),
                 ),
               ],
@@ -78,45 +62,40 @@ class ReportStatusCard extends StatelessWidget {
 
 class ReportStatusBadge extends StatelessWidget {
   const ReportStatusBadge({super.key, required this.stage});
-
   final ReportStage stage;
-
-  Color get _color => switch (stage) {
-    ReportStage.completed => AppColors.success,
-    ReportStage.review => AppColors.warning,
-    ReportStage.submitted => AppColors.blue,
-  };
-
-  Color get _background => switch (stage) {
-    ReportStage.completed => AppColors.paleSuccess,
-    ReportStage.review => AppColors.paleWarning,
-    ReportStage.submitted => AppColors.paleBlue,
-  };
-
   @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-    decoration: BoxDecoration(
-      color: _background,
-      borderRadius: BorderRadius.circular(6),
-    ),
-    child: Text(
-      stage.label,
-      style: TextStyle(
-        color: _color,
-        fontSize: 10,
-        fontWeight: FontWeight.w700,
+  Widget build(BuildContext context) {
+    final color = switch (stage) {
+      ReportStage.completed => context.colors.success,
+      ReportStage.review => context.colors.blue,
+      ReportStage.submitted => context.colors.warning,
+    };
+    final bg = switch (stage) {
+      ReportStage.completed => context.colors.paleSuccess,
+      ReportStage.review => context.colors.paleBlue,
+      ReportStage.submitted => context.colors.paleWarning,
+    };
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(6),
       ),
-    ),
-  );
+      child: Text(
+        stage == ReportStage.submitted ? 'Menunggu' : stage.label,
+        style: TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.w500,
+          color: color,
+        ),
+      ),
+    );
+  }
 }
 
 class ReportMetaRow extends StatelessWidget {
   const ReportMetaRow({super.key, required this.label, required this.value});
-
-  final String label;
-  final String value;
-
+  final String label, value;
   @override
   Widget build(BuildContext context) => Row(
     crossAxisAlignment: CrossAxisAlignment.start,
@@ -124,7 +103,7 @@ class ReportMetaRow extends StatelessWidget {
       Expanded(
         child: Text(
           label,
-          style: const TextStyle(color: AppColors.muted, fontSize: 12),
+          style: TextStyle(fontSize: 12, color: context.colors.muted),
         ),
       ),
       const SizedBox(width: 12),
@@ -133,11 +112,7 @@ class ReportMetaRow extends StatelessWidget {
         child: Text(
           value,
           textAlign: TextAlign.right,
-          style: const TextStyle(
-            color: AppColors.ink,
-            fontSize: 12,
-            fontWeight: FontWeight.w700,
-          ),
+          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
         ),
       ),
     ],
@@ -151,44 +126,27 @@ class ReportTimelineStep extends StatelessWidget {
     required this.done,
     required this.isLast,
   });
-
   final String label;
-  final bool done;
-  final bool isLast;
-
+  final bool done, isLast;
   @override
-  Widget build(BuildContext context) => IntrinsicHeight(
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(bottom: 20),
     child: Row(
       children: [
-        Column(
-          children: [
-            Icon(
-              done ? Icons.check_circle_rounded : Icons.radio_button_unchecked,
-              color: done ? AppColors.success : AppColors.muted,
-              size: 19,
-            ),
-            if (!isLast)
-              Expanded(
-                child: Container(
-                  width: 2,
-                  margin: const EdgeInsets.symmetric(vertical: 2),
-                  color: done ? AppColors.success : AppColors.line,
-                ),
-              ),
-          ],
+        Icon(
+          done
+              ? Icons.check_circle_outline_rounded
+              : Icons.radio_button_unchecked_rounded,
+          color: done ? context.colors.success : context.colors.muted,
+          size: 20,
         ),
-        const SizedBox(width: 10),
+        const SizedBox(width: 12),
         Expanded(
-          child: Padding(
-            padding: const EdgeInsets.only(bottom: 16),
-            child: Text(
-              label,
-              style: TextStyle(
-                color: done ? AppColors.ink : AppColors.muted,
-                fontSize: 13,
-                fontWeight: done ? FontWeight.w700 : FontWeight.w500,
-                height: 1.3,
-              ),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 13,
+              color: done ? context.colors.ink : context.colors.muted,
             ),
           ),
         ),

@@ -43,6 +43,7 @@ class _ScanUrlScreenState extends State<ScanUrlScreen> {
     showScanPreview(
       context,
       result.preview!,
+      preparePreview: widget.controller.preparePreview,
       onViewResults: widget.onViewResults,
     );
   }
@@ -52,23 +53,19 @@ class _ScanUrlScreenState extends State<ScanUrlScreen> {
     animation: widget.controller,
     builder: (context, _) => ScanPage(
       children: [
-        const Text('Scan URL', style: pageTitleStyle),
+        const Text('Pindai URL', style: pageTitleStyle),
         const SizedBox(height: 6),
-        const Text('Periksa satu atau beberapa tautan', style: bodyStyle),
-        const SizedBox(height: 22),
-        const PreviewBadge('MODE PRATINJAU'),
-        const SizedBox(height: 14),
-        const Text(
-          'Masukkan tautan yang ingin diperiksa. Maksimal 5 URL dalam satu scan.',
-          style: bodyStyle,
+        Text(
+          'Periksa satu atau beberapa tautan.',
+          style: bodyStyle.copyWith(color: context.colors.muted),
         ),
         const SizedBox(height: 24),
         Container(
           width: double.infinity,
-          padding: const EdgeInsets.all(18),
+          padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            border: Border.all(color: AppColors.line),
-            borderRadius: BorderRadius.circular(18),
+            color: context.colors.surface,
+            borderRadius: BorderRadius.circular(16),
           ),
           child: Form(
             key: _formKey,
@@ -81,19 +78,17 @@ class _ScanUrlScreenState extends State<ScanUrlScreen> {
                       child: Text(
                         'URL yang ingin diperiksa',
                         style: TextStyle(
-                          color: AppColors.ink,
                           fontSize: 13,
-                          fontWeight: FontWeight.w700,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                     ),
                     const SizedBox(width: 8),
                     Text(
                       '${_controllers.length}/${widget.controller.maxUrls} URL',
-                      style: const TextStyle(
-                        color: AppColors.muted,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: context.colors.muted,
                       ),
                     ),
                   ],
@@ -106,17 +101,16 @@ class _ScanUrlScreenState extends State<ScanUrlScreen> {
                         Expanded(
                           child: Text(
                             'URL ${i + 1}',
-                            style: const TextStyle(
-                              color: AppColors.muted,
+                            style: TextStyle(
                               fontSize: 12,
+                              color: context.colors.muted,
                             ),
                           ),
                         ),
                         IconButton(
                           tooltip: 'Hapus URL ${i + 1}',
                           onPressed: () => widget.controller.removeUrl(i),
-                          icon: const Icon(Icons.close_rounded, size: 19),
-                          color: AppColors.muted,
+                          icon: const Icon(Icons.close_rounded, size: 18),
                         ),
                       ],
                     ),
@@ -131,36 +125,19 @@ class _ScanUrlScreenState extends State<ScanUrlScreen> {
                 ],
                 SizedBox(
                   width: double.infinity,
-                  child: OutlinedButton.icon(
+                  child: TextButton.icon(
                     onPressed: widget.controller.canAddUrl
                         ? widget.controller.addUrl
                         : null,
-                    icon: const Icon(Icons.add_rounded, size: 21),
+                    icon: const Icon(Icons.add_rounded, size: 18),
                     label: Text(
                       widget.controller.canAddUrl
                           ? 'Tambah URL'
                           : 'Maksimal ${widget.controller.maxUrls} URL',
                     ),
-                    style: OutlinedButton.styleFrom(
-                      minimumSize: const Size.fromHeight(50),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 14,
-                      ),
-                      foregroundColor: AppColors.blue,
-                      backgroundColor: const Color(0xFFF8FAFF),
-                      side: const BorderSide(color: Color(0xFFBBCBEC)),
-                      textStyle: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
                   ),
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 12),
                 ScanButton(label: 'Periksa URL', onPressed: _scan),
               ],
             ),
@@ -168,114 +145,27 @@ class _ScanUrlScreenState extends State<ScanUrlScreen> {
         ),
         const SizedBox(height: 28),
         const Text('Metode lainnya', style: sectionTitleStyle),
-        const SizedBox(height: 14),
-        LayoutBuilder(
-          builder: (context, constraints) {
-            final methods = [
-              _ScanMethod(
-                icon: Icons.qr_code_rounded,
-                title: 'Scan QR Code',
-                subtitle: 'Tanpa buka tautan',
-                onTap: widget.onQr,
-              ),
-              _ScanMethod(
-                icon: Icons.share_outlined,
-                title: 'Dari aplikasi lain',
-                subtitle: 'Bagikan ke LinkGuard',
-                onTap: widget.onShare,
-              ),
-            ];
-            if (constraints.maxWidth < 330 ||
-                MediaQuery.textScalerOf(context).scale(14) > 17) {
-              return Column(
-                children: [methods[0], const SizedBox(height: 10), methods[1]],
-              );
-            }
-            return IntrinsicHeight(
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Expanded(child: methods[0]),
-                  const SizedBox(width: 10),
-                  Expanded(child: methods[1]),
-                ],
-              ),
-            );
-          },
+        const SizedBox(height: 10),
+        MethodRow(
+          icon: Icons.qr_code_rounded,
+          title: 'Pindai kode QR',
+          subtitle: 'Tanpa membuka tautan',
+          onTap: widget.onQr,
         ),
-        const SizedBox(height: 20),
-        const InfoNote(
-          'Tampilan pratinjau. Hasil pemeriksaan keamanan belum tersedia.',
+        MethodRow(
+          icon: Icons.share_outlined,
+          title: 'Dari aplikasi lain',
+          subtitle: 'Periksa tautan yang dibagikan',
+          onTap: widget.onShare,
+        ),
+        const SizedBox(height: 16),
+        const InfoNote('Maksimal 5 URL per pemindaian.'),
+        const SizedBox(height: 10),
+        Text(
+          'Mode pratinjau. Hasil pemeriksaan keamanan belum tersedia.',
+          style: TextStyle(color: context.colors.muted, fontSize: 11),
         ),
       ],
-    ),
-  );
-}
-
-class _ScanMethod extends StatelessWidget {
-  const _ScanMethod({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) => Material(
-    color: Colors.white,
-    shape: RoundedRectangleBorder(
-      side: const BorderSide(color: AppColors.line),
-      borderRadius: BorderRadius.circular(14),
-    ),
-    clipBehavior: Clip.antiAlias,
-    child: InkWell(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Row(
-          children: [
-            Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: AppColors.paleBlue,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Icon(icon, color: AppColors.blue, size: 21),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      color: AppColors.ink,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(height: 5),
-                  Text(
-                    subtitle,
-                    style: const TextStyle(
-                      color: AppColors.muted,
-                      fontSize: 11,
-                      height: 1.4,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
     ),
   );
 }

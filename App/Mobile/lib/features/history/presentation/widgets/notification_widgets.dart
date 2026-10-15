@@ -5,34 +5,30 @@ import '../../domain/entities/app_notification.dart';
 
 class NotificationRow extends StatelessWidget {
   const NotificationRow({super.key, required this.item, required this.unread});
-
   final AppNotification item;
   final bool unread;
-
-  IconData get _icon => switch (item.kind) {
-    NotificationKind.report => Icons.flag_rounded,
-    NotificationKind.danger => Icons.warning_amber_rounded,
-    NotificationKind.scan => Icons.verified_user_outlined,
-  };
-
   @override
   Widget build(BuildContext context) {
-    final color = unread ? AppColors.blue : AppColors.muted;
-    final background = unread ? AppColors.paleBlue : AppColors.softSurface;
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
+    final color = item.kind == NotificationKind.danger
+        ? context.colors.danger
+        : context.colors.success;
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 16),
+      decoration: BoxDecoration(
+        border: Border(bottom: BorderSide(color: context.colors.line)),
+      ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 38,
-            height: 38,
-            decoration: BoxDecoration(
-              color: background,
-              borderRadius: BorderRadius.circular(11),
+          Padding(
+            padding: const EdgeInsets.only(top: 3),
+            child: Icon(
+              item.kind == NotificationKind.danger
+                  ? Icons.warning_amber_rounded
+                  : Icons.verified_user_outlined,
+              color: color,
+              size: 20,
             ),
-            child: Icon(_icon, color: color, size: 20),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -44,41 +40,29 @@ class NotificationRow extends StatelessWidget {
                     Expanded(
                       child: Text(
                         item.title,
-                        style: TextStyle(
-                          color: unread ? AppColors.ink : AppColors.muted,
+                        style: const TextStyle(
                           fontSize: 13,
-                          fontWeight: unread
-                              ? FontWeight.w700
-                              : FontWeight.w600,
-                          height: 1.4,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                     ),
                     if (unread)
-                      Container(
-                        width: 8,
-                        height: 8,
-                        margin: const EdgeInsets.only(left: 8),
-                        decoration: const BoxDecoration(
-                          color: AppColors.blue,
-                          shape: BoxShape.circle,
-                        ),
-                      ),
+                      Icon(Icons.circle, color: context.colors.blue, size: 5),
                   ],
                 ),
-                const SizedBox(height: 3),
+                const SizedBox(height: 7),
                 Text(
                   item.body,
-                  style: const TextStyle(
-                    color: AppColors.muted,
+                  style: TextStyle(
+                    color: context.colors.muted,
                     fontSize: 12,
-                    height: 1.5,
+                    height: 1.7,
                   ),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 10),
                 Text(
                   item.time,
-                  style: const TextStyle(color: AppColors.muted, fontSize: 10),
+                  style: TextStyle(color: context.colors.muted, fontSize: 10),
                 ),
               ],
             ),

@@ -1,7 +1,10 @@
+import '../../../../widgets/loading_states.dart';
+import '../../../../widgets/load_view.dart';
+
 import 'package:flutter/material.dart';
 
 import '../../../../theme/app_colors.dart';
-import '../../../../widgets/section_label.dart';
+import '../../../../widgets/scan_components.dart';
 import '../../domain/entities/user_account.dart';
 import '../controllers/profile_controller.dart';
 import '../widgets/profile_widgets.dart';
@@ -34,85 +37,90 @@ class ProfilePage extends StatefulWidget {
 
 class _ProfilePageState extends State<ProfilePage> {
   @override
-  void initState() {
-    super.initState();
-    widget.controller.load();
-  }
-
-  @override
   Widget build(BuildContext context) {
     final controller = widget.controller;
-    return ListenableBuilder(
-      listenable: controller,
-      builder: (context, _) => SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Profil',
-              style: TextStyle(
-                color: AppColors.ink,
-                fontSize: 22,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-            const SizedBox(height: 4),
-            const Text(
-              'Akun dan preferensi Anda',
-              style: TextStyle(color: AppColors.muted, fontSize: 12),
-            ),
-            const SizedBox(height: 17),
-            ProfileHeader(account: widget.account),
-            const SizedBox(height: 9),
-            Row(
-              children: [
-                Expanded(
-                  child: AccountStatTile(
-                    value: '${controller.stats.totalScans}',
-                    label: 'Total scan',
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: AccountStatTile(
-                    value: '${controller.stats.submittedReports}',
-                    label: 'Laporan dikirim',
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 18),
-            const SectionLabel('AKTIVITAS'),
-            ProfileActionTile(
-              icon: Icons.description_outlined,
-              title: 'Status laporan',
-              trailing: ProfileCountBadge(
-                count: controller.stats.pendingReports,
-              ),
-              onTap: widget.onReportStatus,
-            ),
-            ProfileActionTile(
-              icon: Icons.notifications_none,
-              title: 'Notifikasi',
-              onTap: widget.onNotifications,
-            ),
-            const SizedBox(height: 15),
-            const SectionLabel('AKUN'),
-            ProfileActionTile(
-              icon: Icons.settings_outlined,
-              title: 'Pengaturan',
-              onTap: widget.onSettings,
-            ),
-            ProfileActionTile(
-              icon: Icons.logout,
-              title: 'Keluar akun',
-              danger: true,
-              onTap: widget.onSignOut,
-            ),
-          ],
+    return LoadView(
+      controller: controller,
+      kind: 'profile',
+      loadingBuilder: (context) => _page(context, pending: true),
+      errorBuilder: (context) => _page(context),
+      builder: (context) => _page(context),
+    );
+  }
+
+  Widget _page(BuildContext context, {bool pending = false}) {
+    final controller = widget.controller;
+    return ScanPage(
+      children: [
+        const Text('Profil', style: pageTitleStyle),
+        const SizedBox(height: 24),
+        ProfileHeader(account: widget.account),
+        const SizedBox(height: 24),
+        ProfileActionTile(
+          icon: Icons.settings_outlined,
+          title: 'Pengaturan',
+          onTap: widget.onSettings,
         ),
-      ),
+        ProfileActionTile(
+          icon: Icons.description_outlined,
+          title: 'Status laporan',
+          trailing: pending
+              ? const SkeletonBox(width: 24, height: 20)
+              : ProfileCountBadge(count: controller.stats.pendingReports),
+          onTap: widget.onReportStatus,
+        ),
+        ProfileActionTile(
+          icon: Icons.notifications_none_rounded,
+          title: 'Notifikasi',
+          onTap: widget.onNotifications,
+        ),
+        const SizedBox(height: 22),
+        if (pending)
+          LoadingPulse(
+            child: Semantics(
+              label: 'Memuat jumlah aktivitas',
+              liveRegion: true,
+              child: const Row(
+                children: [
+                  SkeletonBox(width: 84, height: 22),
+                  SizedBox(width: 28),
+                  SkeletonBox(width: 84, height: 22),
+                ],
+              ),
+            ),
+          )
+        else if (controller.loadError != null)
+          LoadFailure(message: controller.loadError!, onRetry: controller.load)
+        else
+          Wrap(
+            spacing: 28,
+            runSpacing: 12,
+            children: [
+              AccountStatTile(
+                value: '${controller.stats.totalScans}',
+                label: 'pemindaian',
+              ),
+              AccountStatTile(
+                value: '${controller.stats.submittedReports}',
+                label: 'laporan',
+              ),
+            ],
+          ),
+        const SizedBox(height: 32),
+        ProfileActionTile(
+          icon: Icons.logout_rounded,
+          title: 'Keluar akun',
+          danger: true,
+          onTap: widget.onSignOut,
+        ),
+        const SizedBox(height: 26),
+        Center(
+          child: Text(
+            'LinkGuard',
+            style: TextStyle(color: context.colors.muted, fontSize: 12),
+          ),
+        ),
+      ],
     );
   }
 }

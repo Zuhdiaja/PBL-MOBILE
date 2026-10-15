@@ -60,8 +60,8 @@ class _LoginPageState extends State<LoginPage> {
     return ListenableBuilder(
       listenable: controller,
       builder: (context, _) => AuthForm(
-        title: 'Selamat datang kembali',
-        subtitle: 'Masuk untuk melihat riwayat pemeriksaan dan status laporan.',
+        title: 'Masuk.',
+        subtitle: 'Lanjutkan untuk melihat riwayat Anda.',
         fields: [
           AuthField(
             label: 'Email',
@@ -70,7 +70,7 @@ class _LoginPageState extends State<LoginPage> {
             keyboardType: TextInputType.emailAddress,
           ),
           AuthField(
-            label: 'Password',
+            label: 'Kata sandi',
             hint: 'Minimal 6 karakter',
             obscure: true,
             controller: _passwordController,

@@ -60,6 +60,7 @@ class _ShareLinkScreenState extends State<ShareLinkScreen> {
     showScanPreview(
       context,
       result.preview!,
+      preparePreview: _state.preparePreview,
       onViewResults: widget.onViewResults,
     );
   }
@@ -67,213 +68,81 @@ class _ShareLinkScreenState extends State<ShareLinkScreen> {
   @override
   Widget build(BuildContext context) => AnimatedBuilder(
     animation: _state,
-    builder: (context, _) {
-      final url = _state.url;
-      final domain = _state.host;
-
-      return ScanSubpage(
-        title: 'Bagikan ke LinkGuard',
-        onNavigate: widget.onNavigate,
-        children: [
-          const Text(
-            'Terima tautan dari aplikasi lain, lalu periksa sebelum membukanya.',
-            style: bodyStyle,
-          ),
-          const SizedBox(height: 24),
-          const Text(
-            'Cara membagikan tautan',
-            style: TextStyle(
-              color: AppColors.ink,
-              fontSize: 16,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 16),
-          const _ShareStep(
-            number: '1',
-            title: 'Pilih tautan',
-            description: 'Dari WhatsApp, Telegram, browser, atau email.',
-          ),
-          const _ShareStep(
-            number: '2',
-            title: 'Bagikan ke LinkGuard',
-            description: 'Ketuk Bagikan, lalu pilih aplikasi LinkGuard.',
-          ),
-          const _ShareStep(
-            number: '3',
-            title: 'Tinjau dan periksa',
-            description: 'Pastikan URL sesuai, lalu ketuk Periksa URL.',
-          ),
-          const SizedBox(height: 12),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              border: Border.all(color: AppColors.line),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      width: 38,
-                      height: 38,
-                      decoration: BoxDecoration(
-                        color: AppColors.paleBlue,
-                        borderRadius: BorderRadius.circular(11),
-                      ),
-                      child: const Icon(
-                        Icons.share_outlined,
-                        size: 22,
-                        color: AppColors.blue,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            domain ?? 'Belum ada tautan',
-                            style: const TextStyle(
-                              color: AppColors.ink,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            _state.usingExample
-                                ? 'Contoh tautan dari aplikasi lain'
-                                : url.isNotEmpty
-                                ? 'Tautan yang kamu masukkan'
-                                : 'Coba pratinjau tautan yang diterima.',
-                            style: const TextStyle(
-                              color: AppColors.muted,
-                              fontSize: 12,
-                              height: 1.5,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                TextButton.icon(
-                  onPressed: _useExample,
-                  icon: const Icon(Icons.link_rounded, size: 19),
-                  label: const Text('Gunakan tautan contoh'),
-                  style: TextButton.styleFrom(
-                    minimumSize: const Size(48, 48),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 4,
-                      vertical: 12,
-                    ),
-                    textStyle: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 22),
-          const Text(
-            'URL yang dibagikan',
-            style: TextStyle(
-              color: AppColors.ink,
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 10),
-          Form(
-            key: _formKey,
-            child: UrlField(
-              controller: _state.field,
-              onPaste: _paste,
-              validator: validateUrl,
-              onChanged: (_) => _state.markEdited(),
-            ),
-          ),
-          const SizedBox(height: 16),
-          ScanButton(
-            label: 'Periksa URL',
-            onPressed: url.isEmpty ? null : _scan,
-          ),
-          const SizedBox(height: 18),
-          const InfoNote(
-            'Ini pratinjau alur berbagi. Penerimaan tautan dari aplikasi lain belum terhubung.',
-          ),
-        ],
-      );
-    },
-  );
-}
-
-class _ShareStep extends StatelessWidget {
-  const _ShareStep({
-    required this.number,
-    required this.title,
-    required this.description,
-  });
-
-  final String number;
-  final String title;
-  final String description;
-
-  @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(bottom: 16),
-    child: Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    builder: (context, _) => ScanSubpage(
+      title: 'Bagikan ke LinkGuard',
+      onNavigate: widget.onNavigate,
       children: [
-        Container(
-          width: 26,
-          height: 26,
-          alignment: Alignment.center,
-          decoration: const BoxDecoration(
-            color: AppColors.paleBlue,
-            shape: BoxShape.circle,
-          ),
-          child: Text(
-            number,
-            style: const TextStyle(
-              color: AppColors.blue,
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-            ),
+        Text(
+          'Saat menerima tautan dari WhatsApp, Telegram, atau email, pilih LinkGuard pada menu Bagikan.',
+          style: TextStyle(
+            fontSize: 13,
+            color: context.colors.muted,
+            height: 1.8,
           ),
         ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: const TextStyle(
-                  color: AppColors.ink,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                ),
+        const SizedBox(height: 22),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(Icons.share_outlined, color: context.colors.blue, size: 24),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Tautan dari aplikasi lain',
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Tempel tautan yang ingin diperiksa.',
+                    style: TextStyle(fontSize: 12, color: context.colors.muted),
+                  ),
+                ],
               ),
-              const SizedBox(height: 3),
-              Text(
-                description,
-                style: const TextStyle(
-                  color: AppColors.muted,
-                  fontSize: 12,
-                  height: 1.5,
-                ),
-              ),
-            ],
+            ),
+          ],
+        ),
+        const SizedBox(height: 20),
+        Divider(color: context.colors.line),
+        const SizedBox(height: 18),
+        const Text(
+          'URL yang dibagikan',
+          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+        ),
+        const SizedBox(height: 10),
+        Form(
+          key: _formKey,
+          child: UrlField(
+            controller: _state.field,
+            onPaste: _paste,
+            validator: validateUrl,
+            onChanged: (_) => _state.markEdited(),
           ),
+        ),
+        const SizedBox(height: 16),
+        ScanButton(
+          label: 'Periksa URL',
+          onPressed: _state.url.isEmpty ? null : _scan,
+        ),
+        const SizedBox(height: 16),
+        TextButton.icon(
+          onPressed: _useExample,
+          icon: const Icon(Icons.link_rounded, size: 18),
+          label: const Text(
+            'Gunakan tautan contoh',
+            style: TextStyle(fontSize: 12),
+          ),
+        ),
+        if (_state.url.isEmpty)
+          Text(
+            'Belum ada tautan',
+            style: TextStyle(color: context.colors.muted, fontSize: 11),
+          ),
+        const SizedBox(height: 20),
+        const InfoNote(
+          'Ini pratinjau alur berbagi. Penerimaan tautan dari aplikasi lain belum terhubung.',
         ),
       ],
     ),

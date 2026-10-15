@@ -92,21 +92,21 @@ void main() {
       expect(controller.visibleEntries, isEmpty);
     });
 
-    test('loads the entries and their filter options', () {
+    test('loads the entries and their filter options', () async {
       final controller = build();
       addTearDown(controller.dispose);
 
-      controller.load();
+      await controller.load();
 
       expect(controller.entries.length, 2);
       expect(controller.filters, ['Semua', 'Phishing', 'Benign']);
       expect(controller.visibleEntries.length, 2);
     });
 
-    test('narrowing the filter notifies and hides other categories', () {
+    test('narrowing the filter notifies and hides other categories', () async {
       final controller = build();
       addTearDown(controller.dispose);
-      controller.load();
+      await controller.load();
 
       var notified = 0;
       controller.addListener(() => notified++);
@@ -117,10 +117,10 @@ void main() {
       expect(controller.visibleEntries.map((item) => item.id), ['0']);
     });
 
-    test('selecting the current filter does not notify again', () {
+    test('selecting the current filter does not notify again', () async {
       final controller = build();
       addTearDown(controller.dispose);
-      controller.load();
+      await controller.load();
 
       var notified = 0;
       controller.addListener(() => notified++);
@@ -132,7 +132,7 @@ void main() {
   });
 
   group('StatsController', () {
-    test('derives the summary from the entries and report count', () {
+    test('derives the summary from the entries and report count', () async {
       final controller = StatsController(
         historyRepository: _FakeHistoryRepository([
           _entry('0', category: 'Phishing', isSafe: false),
@@ -145,7 +145,7 @@ void main() {
       );
       addTearDown(controller.dispose);
 
-      controller.load();
+      await controller.load();
 
       expect(controller.summary.totalCount, 2);
       expect(controller.summary.safeCount, 1);
@@ -166,7 +166,7 @@ void main() {
   });
 
   group('ReportStatusController', () {
-    test('loads the reports and exposes the timeline builder', () {
+    test('loads the reports and exposes the timeline builder', () async {
       final controller = ReportStatusController(
         repository: _FakeReportStatusRepository([
           _report('contoh.example.test', ReportStage.completed),
@@ -175,7 +175,7 @@ void main() {
       );
       addTearDown(controller.dispose);
 
-      controller.load();
+      await controller.load();
 
       expect(controller.reports.length, 1);
       expect(
@@ -194,20 +194,20 @@ void main() {
       ]),
     );
 
-    test('counts only the unread notifications', () {
+    test('counts only the unread notifications', () async {
       final controller = build();
       addTearDown(controller.dispose);
 
-      controller.load();
+      await controller.load();
 
       expect(controller.notifications.length, 3);
       expect(controller.unreadCount, 2);
     });
 
-    test('marking all as read clears every unread mark', () {
+    test('marking all as read clears every unread mark', () async {
       final controller = build();
       addTearDown(controller.dispose);
-      controller.load();
+      await controller.load();
 
       var notified = 0;
       controller.addListener(() => notified++);

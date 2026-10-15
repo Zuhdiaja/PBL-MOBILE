@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../../../theme/app_colors.dart';
+import '../../../../widgets/scan_components.dart';
 
-/// Describes one input in the login or register form.
 class AuthField {
   const AuthField({
     required this.label,
@@ -11,15 +11,12 @@ class AuthField {
     this.controller,
     this.keyboardType,
   });
-
-  final String label;
-  final String hint;
+  final String label, hint;
   final bool obscure;
   final TextEditingController? controller;
   final TextInputType? keyboardType;
 }
 
-/// Shared layout for the login and register screens.
 class AuthForm extends StatelessWidget {
   const AuthForm({
     super.key,
@@ -34,302 +31,225 @@ class AuthForm extends StatelessWidget {
     this.errorMessage,
     this.isSubmitting = false,
   });
-
-  final String title;
-  final String subtitle;
+  final String title, subtitle, actionLabel, footerPrompt, footerAction;
   final List<AuthField> fields;
-  final String actionLabel;
-  final String footerPrompt;
-  final String footerAction;
-  final VoidCallback onFooterTap;
-  final VoidCallback onSubmit;
-
-  /// Message shown under the fields when the last attempt failed.
+  final VoidCallback onFooterTap, onSubmit;
   final String? errorMessage;
-
-  /// Disables the action button while a request is in flight.
   final bool isSubmitting;
-
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const _Brand(),
-              const SizedBox(height: 22),
-              const _ShieldArtwork(),
-              const SizedBox(height: 18),
-              Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 23,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.ink,
-                  height: 1.2,
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                subtitle,
-                style: const TextStyle(fontSize: 12, color: AppColors.muted),
-              ),
-              const SizedBox(height: 22),
-              for (final field in fields) ...[
-                _LabeledField(field: field),
-                const SizedBox(height: 11),
-              ],
-              if (errorMessage != null) ...[
-                _ErrorBanner(message: errorMessage!),
-                const SizedBox(height: 11),
-              ],
-              SizedBox(
-                width: double.infinity,
-                height: 46,
-                child: FilledButton.icon(
-                  onPressed: isSubmitting ? null : onSubmit,
-                  iconAlignment: IconAlignment.end,
-                  icon: const Icon(Icons.arrow_forward_rounded, size: 17),
-                  label: Text(
-                    actionLabel,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
+  Widget build(BuildContext context) => Scaffold(
+    body: SafeArea(
+      child: Align(
+        alignment: Alignment.topCenter,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 480),
+          child: SingleChildScrollView(
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+            padding: const EdgeInsets.fromLTRB(22, 32, 22, 24),
+            child: AutofillGroup(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const LinkGuardBrand(size: 23),
+                  const SizedBox(height: 36),
+                  Text(title, style: Theme.of(context).textTheme.headlineLarge),
+                  const SizedBox(height: 12),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      fontSize: 14,
+                      height: 1.6,
+                      color: context.colors.muted,
                     ),
                   ),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: AppColors.blue,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(9),
+                  const SizedBox(height: 24),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton(
+                      onPressed: null,
+                      child: Wrap(
+                        alignment: WrapAlignment.center,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        spacing: 12,
+                        children: [
+                          Image.asset(
+                            'assets/images/google-g.png',
+                            width: 20,
+                            height: 20,
+                            excludeFromSemantics: true,
+                          ),
+                          Text(
+                            actionLabel == 'Daftar'
+                                ? 'Daftar dengan Google'
+                                : 'Lanjutkan dengan Google',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: context.colors.ink,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                    elevation: 5,
-                    shadowColor: AppColors.blue.withValues(alpha: 0.25),
                   ),
-                ),
-              ),
-              const SizedBox(height: 13),
-              Center(
-                child: Wrap(
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  spacing: 6,
-                  children: [
-                    Text(
-                      footerPrompt,
-                      style: const TextStyle(
-                        fontSize: 11,
-                        color: AppColors.muted,
-                      ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Login Google belum terhubung.',
+                    style: TextStyle(fontSize: 11, color: context.colors.muted),
+                  ),
+                  const SizedBox(height: 18),
+                  LayoutBuilder(
+                    builder: (context, constraints) => Row(
+                      children: [
+                        Expanded(child: Divider(color: context.colors.line)),
+                        ConstrainedBox(
+                          constraints: BoxConstraints(
+                            maxWidth: constraints.maxWidth * .7,
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 10),
+                            child: Text(
+                              'atau dengan email',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                color: context.colors.muted,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ),
+                        ),
+                        Expanded(child: Divider(color: context.colors.line)),
+                      ],
                     ),
-                    TextButton(
-                      onPressed: onFooterTap,
-                      style: TextButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 2),
-                        minimumSize: Size.zero,
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      ),
-                      child: Text(
-                        footerAction,
-                        style: const TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
+                  ),
+                  const SizedBox(height: 20),
+                  for (final field in fields) ...[
+                    _LabeledField(
+                      key: ValueKey(field.label),
+                      field: field,
+                      onSubmitted: onSubmit,
+                    ),
+                    const SizedBox(height: 18),
+                  ],
+                  if (errorMessage != null) ...[
+                    Semantics(
+                      liveRegion: true,
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: context.colors.paleDanger,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text(
+                          errorMessage!,
+                          style: TextStyle(
+                            color: context.colors.danger,
+                            fontSize: 12,
+                          ),
                         ),
                       ),
                     ),
+                    const SizedBox(height: 14),
                   ],
-                ),
+                  ScanButton(
+                    label: isSubmitting ? 'Memproses…' : actionLabel,
+                    onPressed: isSubmitting ? null : onSubmit,
+                    icon: Icons.arrow_forward_rounded,
+                  ),
+                  const SizedBox(height: 24),
+                  Center(
+                    child: Wrap(
+                      alignment: WrapAlignment.center,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      spacing: 3,
+                      children: [
+                        Text(
+                          footerPrompt,
+                          style: TextStyle(
+                            color: context.colors.muted,
+                            fontSize: 12,
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: onFooterTap,
+                          child: Text(
+                            footerAction,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(height: 22),
-              const Center(
-                child: Text(
-                  'Gunakan akun contoh untuk mencoba tampilan aplikasi.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 9, color: Color(0xFFA5B0C1)),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _ErrorBanner extends StatelessWidget {
-  const _ErrorBanner({required this.message});
-
-  final String message;
-
-  @override
-  Widget build(BuildContext context) => Container(
-    width: double.infinity,
-    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-    decoration: BoxDecoration(
-      color: const Color(0xFFFDECEC),
-      borderRadius: BorderRadius.circular(9),
-    ),
-    child: Row(
-      children: [
-        const Icon(Icons.error_outline, size: 15, color: Color(0xFFC83D42)),
-        const SizedBox(width: 7),
-        Expanded(
-          child: Text(
-            message,
-            style: const TextStyle(
-              color: Color(0xFFC83D42),
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
             ),
           ),
         ),
-      ],
+      ),
     ),
   );
 }
 
-class _Brand extends StatelessWidget {
-  const _Brand();
-
-  @override
-  Widget build(BuildContext context) {
-    return FittedBox(
-      fit: BoxFit.scaleDown,
-      alignment: Alignment.centerLeft,
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 27,
-            height: 27,
-            decoration: BoxDecoration(
-              color: AppColors.blue,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: const Icon(
-              Icons.verified_user_outlined,
-              size: 18,
-              color: Colors.white,
-            ),
-          ),
-          const SizedBox(width: 7),
-          const Text(
-            'linkguard',
-            style: TextStyle(
-              color: AppColors.ink,
-              fontSize: 15,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(width: 4),
-          const Text(
-            '.',
-            style: TextStyle(
-              color: AppColors.blue,
-              fontSize: 18,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ShieldArtwork extends StatelessWidget {
-  const _ShieldArtwork();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 112,
-      width: double.infinity,
-      clipBehavior: Clip.hardEdge,
-      decoration: BoxDecoration(
-        color: AppColors.paleBlue,
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          for (final diameter in [150.0, 110.0, 70.0])
-            Container(
-              width: diameter,
-              height: diameter,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(color: const Color(0xFFC9DBFB)),
-              ),
-            ),
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              color: AppColors.blue,
-              borderRadius: BorderRadius.circular(15),
-              boxShadow: [
-                BoxShadow(
-                  color: AppColors.blue.withValues(alpha: 0.22),
-                  blurRadius: 16,
-                  offset: const Offset(0, 7),
-                ),
-              ],
-            ),
-            child: const Icon(
-              Icons.verified_user_outlined,
-              color: Colors.white,
-              size: 25,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _LabeledField extends StatelessWidget {
-  const _LabeledField({required this.field});
-
+class _LabeledField extends StatefulWidget {
+  const _LabeledField({
+    super.key,
+    required this.field,
+    required this.onSubmitted,
+  });
   final AuthField field;
-
+  final VoidCallback onSubmitted;
   @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          field.label,
-          style: const TextStyle(
-            color: AppColors.ink,
-            fontSize: 11,
-            fontWeight: FontWeight.w700,
-          ),
+  State<_LabeledField> createState() => _LabeledFieldState();
+}
+
+class _LabeledFieldState extends State<_LabeledField> {
+  bool _visible = false;
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(
+        widget.field.label,
+        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+      ),
+      const SizedBox(height: 8),
+      TextField(
+        controller: widget.field.controller,
+        obscureText: widget.field.obscure && !_visible,
+        keyboardType: widget.field.keyboardType,
+        textInputAction: widget.field.obscure
+            ? TextInputAction.done
+            : TextInputAction.next,
+        onSubmitted: widget.field.obscure ? (_) => widget.onSubmitted() : null,
+        autofillHints: widget.field.obscure
+            ? const [AutofillHints.password]
+            : widget.field.keyboardType == TextInputType.emailAddress
+            ? const [AutofillHints.email]
+            : const [AutofillHints.name],
+        style: TextStyle(fontSize: 15, color: context.colors.ink),
+        decoration: InputDecoration(
+          hintText: widget.field.hint,
+          suffixIcon: widget.field.obscure
+              ? IconButton(
+                  tooltip: _visible
+                      ? 'Sembunyikan kata sandi'
+                      : 'Tampilkan kata sandi',
+                  onPressed: () => setState(() => _visible = !_visible),
+                  icon: Icon(
+                    _visible
+                        ? Icons.visibility_off_outlined
+                        : Icons.visibility_outlined,
+                    size: 21,
+                    color: context.colors.muted,
+                  ),
+                )
+              : null,
         ),
-        const SizedBox(height: 5),
-        SizedBox(
-          height: 43,
-          child: TextField(
-            controller: field.controller,
-            obscureText: field.obscure,
-            keyboardType: field.keyboardType,
-            decoration: InputDecoration(
-              hintText: field.hint,
-              hintStyle: const TextStyle(color: AppColors.muted, fontSize: 13),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 12),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(9),
-                borderSide: const BorderSide(color: AppColors.line),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(9),
-                borderSide: const BorderSide(color: AppColors.blue),
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
+      ),
+    ],
+  );
 }

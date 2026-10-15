@@ -56,6 +56,19 @@ flutter:
   # included with your application, so that you can use the icons in
   # the material Icons class.
   uses-material-design: true
+  assets:
+    - assets/images/google-g.png
+  fonts:
+    - family: Manrope
+      fonts:
+        - asset: assets/fonts/manrope-regular.ttf
+          weight: 400
+        - asset: assets/fonts/manrope-medium.ttf
+          weight: 500
+        - asset: assets/fonts/manrope-semibold.ttf
+          weight: 600
+        - asset: assets/fonts/manrope-bold.ttf
+          weight: 700
 
   # To add assets to your application, add an assets section, like this:
   # assets:

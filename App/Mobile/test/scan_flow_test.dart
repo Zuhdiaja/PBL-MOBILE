@@ -3,7 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:pbl_semester5/app/auth_dependencies.dart';
-import 'package:pbl_semester5/main.dart';
+import 'package:pbl_semester5/theme/app_theme.dart';
+import 'package:pbl_semester5/widgets/scan_components.dart';
 import 'package:pbl_semester5/screens/main_shell.dart';
 
 Future<void> openApp(
@@ -44,7 +45,7 @@ class _MyAppTestShellState extends State<MyAppTestShell> {
 
   @override
   Widget build(BuildContext context) => MaterialApp(
-    theme: (const MyApp().build(context) as MaterialApp).theme,
+    theme: linkGuardTheme(Brightness.light),
     builder: (context, child) => MediaQuery(
       data: MediaQuery.of(context)
           .copyWith(textScaler: TextScaler.linear(widget.textScale)),
@@ -67,20 +68,11 @@ void main() {
     tester,
   ) async {
     await openApp(tester, size: const Size(426, 952));
-    await tapVisible(tester, find.text('Mulai scan'));
-    final qrCard = find
-        .ancestor(
-          of: find.text('Scan QR Code'),
-          matching: find.byType(Material),
-        )
-        .first;
-    final shareCard = find
-        .ancestor(
-          of: find.text('Dari aplikasi lain'),
-          matching: find.byType(Material),
-        )
-        .first;
-    expect(tester.getSize(qrCard), tester.getSize(shareCard));
+    await tapVisible(tester, find.text('Mulai pindai'));
+    final qrRow = find.widgetWithText(MethodRow, 'Pindai kode QR');
+    final shareRow = find.widgetWithText(MethodRow, 'Dari aplikasi lain');
+    expect(tester.getSize(qrRow).height, greaterThanOrEqualTo(48));
+    expect(tester.getSize(shareRow).height, greaterThanOrEqualTo(48));
     expect(tester.takeException(), isNull);
   });
 
@@ -91,8 +83,8 @@ void main() {
     expect(find.text('Halo, Nadia'), findsOneWidget);
     expect(find.textContaining('Mockup v1.0'), findsNothing);
 
-    await tapVisible(tester, find.text('Scan QR'));
-    expect(find.text('Scan QR Code'), findsOneWidget);
+    await tapVisible(tester, find.text('Pindai QR'));
+    expect(find.text('Pindai kode QR'), findsOneWidget);
     await tapVisible(tester, find.text('Pindai contoh QR'));
     expect(find.text('Pratinjau pemeriksaan'), findsOneWidget);
     expect(find.text('https://contoh.com'), findsOneWidget);
@@ -103,18 +95,20 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Halo, Nadia'), findsOneWidget);
 
-    await tapVisible(tester, find.text('Bagikan link'));
+    await tapVisible(tester, find.text('Dari aplikasi lain'));
     expect(find.text('Bagikan ke LinkGuard').first, findsOneWidget);
-    await tester.tap(find.text('Scan').last);
+    await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
-    expect(find.text('Scan URL'), findsOneWidget);
+    await tester.tap(find.text('Pindai').last);
+    await tester.pumpAndSettle();
+    expect(find.text('Pindai URL'), findsOneWidget);
   });
 
   testWidgets(
     'URL form enforces five fields, validates, and preserves drafts across tabs',
     (tester) async {
       await openApp(tester);
-      await tapVisible(tester, find.text('Mulai scan'));
+      await tapVisible(tester, find.text('Mulai pindai'));
       await tester.enterText(find.byType(TextFormField), 'bukan-url');
       await tapVisible(tester, find.text('Periksa URL'));
       expect(find.textContaining('Gunakan URL lengkap'), findsOneWidget);
@@ -123,7 +117,7 @@ void main() {
       await tester.enterText(find.byType(TextFormField), 'https://contoh.com');
       await tester.tap(find.text('Beranda').last);
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Scan').last);
+      await tester.tap(find.text('Pindai').last);
       await tester.pumpAndSettle();
       expect(
         tester
@@ -138,8 +132,8 @@ void main() {
       }
       expect(find.byType(TextFormField), findsNWidgets(5));
       expect(find.text('5/5 URL'), findsOneWidget);
-      final maxButton = tester.widget<OutlinedButton>(
-        find.widgetWithText(OutlinedButton, 'Maksimal 5 URL'),
+      final maxButton = tester.widget<TextButton>(
+        find.widgetWithText(TextButton, 'Maksimal 5 URL'),
       );
       expect(maxButton.onPressed, isNull);
 
@@ -178,7 +172,8 @@ void main() {
         ),
       );
       await openApp(tester);
-      await tapVisible(tester, find.text('Tempel URL'));
+      await tapVisible(tester, find.text('Mulai pindai'));
+      await tapVisible(tester, find.text('Tempel'));
       expect(find.text(clipboard), findsOneWidget);
       clipboard = '';
       await tapVisible(tester, find.text('Tempel'));
@@ -194,13 +189,12 @@ void main() {
     'sharing previews an editable example and validates before continuing',
     (tester) async {
       await openApp(tester);
-      await tapVisible(tester, find.text('Bagikan link'));
+      await tapVisible(tester, find.text('Dari aplikasi lain'));
       final emptyButton = tester.widget<FilledButton>(
         find.widgetWithText(FilledButton, 'Periksa URL'),
       );
       expect(emptyButton.onPressed, isNull);
       await tapVisible(tester, find.text('Gunakan tautan contoh'));
-      expect(find.text('contoh.com'), findsOneWidget);
       expect(find.text('https://contoh.com/artikel'), findsOneWidget);
 
       await tester.enterText(find.byType(TextFormField), 'tautan-salah');
@@ -229,7 +223,7 @@ void main() {
     ) async {
       await openApp(tester, size: size, textScale: 1.3);
       expect(tester.takeException(), isNull);
-      await tester.tap(find.text('Scan').last);
+      await tester.tap(find.text('Pindai').last);
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
       tester.view.viewInsets = const FakeViewPadding(bottom: 250);
@@ -239,7 +233,7 @@ void main() {
       tester.view.resetViewInsets();
       await tester.pumpAndSettle();
 
-      await tapVisible(tester, find.text('Scan QR Code'));
+      await tapVisible(tester, find.text('Pindai kode QR'));
       expect(tester.takeException(), isNull);
       await tester.binding.handlePopRoute();
       await tester.pumpAndSettle();

@@ -39,5 +39,8 @@ class InputScanDependencies {
   late final ScanQrController scanQr;
   late final ShareLinkController Function() createShareLink;
 
-  void dispose() => scanUrl.dispose();
+  void dispose() {
+    home.dispose();
+    scanUrl.dispose();
+  }
 }
