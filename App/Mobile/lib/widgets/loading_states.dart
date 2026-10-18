@@ -482,7 +482,7 @@ class SplashScreen extends StatelessWidget {
                     width: 72,
                     height: 72,
                     decoration: BoxDecoration(
-                      border: Border.all(color: const Color(0xFF9BBCFF)),
+                      border: Border.all(color: AppColors.scannerAccent),
                       borderRadius: BorderRadius.circular(22),
                     ),
                     child: const Icon(
@@ -503,7 +503,10 @@ class SplashScreen extends StatelessWidget {
                   const SizedBox(height: 12),
                   const Text(
                     'Periksa sebelum membuka.',
-                    style: TextStyle(color: Color(0xFFC6D7EF), fontSize: 13),
+                    style: TextStyle(
+                      color: AppColors.scannerCopy,
+                      fontSize: 13,
+                    ),
                   ),
                   const SizedBox(height: 48),
                   if (onComplete != null)
@@ -525,7 +528,7 @@ class SplashScreen extends StatelessWidget {
                               busy && !MediaQuery.disableAnimationsOf(context)
                               ? null
                               : value,
-                          color: const Color(0xFF9BBCFF),
+                          color: AppColors.scannerAccent,
                           backgroundColor: Colors.white12,
                         ),
                       ),

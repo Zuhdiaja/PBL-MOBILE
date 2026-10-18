@@ -2,11 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../../../../theme/app_colors.dart';
 
-const _splashCopyColor = Color(0xFFC6D7EF);
-const _splashAccentColor = Color(0xFF9BBCFF);
-const _artworkTint = Color(0xFFF1F5FC);
-const _artworkLine = Color(0xFFE3EAF4);
-
 class OnboardingPage extends StatefulWidget {
   const OnboardingPage({super.key, required this.onComplete});
 
@@ -88,7 +83,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
                     Text(
                       slide.eyebrow,
                       style: TextStyle(
-                        color: _splashAccentColor,
+                        color: AppColors.scannerAccent,
                         fontSize: 11,
                         fontWeight: FontWeight.w700,
                         letterSpacing: 1.4,
@@ -116,7 +111,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
                         slide.description,
                         key: ValueKey(slide.description),
                         style: TextStyle(
-                          color: _splashCopyColor,
+                          color: AppColors.scannerCopy,
                           fontSize: 14,
                           height: 1.6,
                         ),
@@ -170,7 +165,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
         style: TextButton.styleFrom(
           minimumSize: const Size(48, 40),
           padding: const EdgeInsets.symmetric(horizontal: 6),
-          foregroundColor: _splashAccentColor,
+          foregroundColor: AppColors.scannerAccent,
         ),
         child: const Text('Lewati'),
       ),
@@ -186,7 +181,9 @@ class _OnboardingPageState extends State<OnboardingPage> {
           width: index == _currentIndex ? 24 : 7,
           height: 7,
           decoration: BoxDecoration(
-            color: index == _currentIndex ? _splashAccentColor : Colors.white24,
+            color: index == _currentIndex
+                ? AppColors.scannerAccent
+                : Colors.white24,
             borderRadius: BorderRadius.circular(10),
           ),
         ),
@@ -195,7 +192,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
         Text(
           '${(_currentIndex + 1).toString().padLeft(2, '0')} / ${_slides.length.toString().padLeft(2, '0')}',
           style: TextStyle(
-            color: _splashCopyColor,
+            color: AppColors.scannerCopy,
             fontSize: 12,
             fontWeight: FontWeight.w600,
             letterSpacing: .6,
@@ -306,12 +303,14 @@ class _OnboardingArtwork extends StatelessWidget {
     width: double.infinity,
     clipBehavior: Clip.antiAlias,
     decoration: BoxDecoration(
-      color: Colors.white,
+      color: context.colors.artworkSurface,
       borderRadius: BorderRadius.circular(28),
-      border: Border.all(color: _artworkLine),
+      border: Border.all(color: context.colors.artworkLine),
       boxShadow: [
         BoxShadow(
-          color: Colors.black.withValues(alpha: .08),
+          color: Colors.black.withValues(
+            alpha: context.colors.dark ? .35 : .08,
+          ),
           blurRadius: 24,
           offset: const Offset(0, 10),
         ),
@@ -343,7 +342,7 @@ class _OnboardingArtwork extends StatelessWidget {
           width: 150,
           height: 150,
           decoration: BoxDecoration(
-            color: _artworkTint,
+            color: context.colors.artworkTint,
             shape: BoxShape.circle,
           ),
           child: Icon(
@@ -395,9 +394,9 @@ class _OnboardingArtwork extends StatelessWidget {
     key: const ValueKey('onboarding-status-card'),
     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
     decoration: BoxDecoration(
-      color: Colors.white,
+      color: context.colors.artworkSurface,
       borderRadius: BorderRadius.circular(16),
-      border: Border.all(color: _artworkLine),
+      border: Border.all(color: context.colors.artworkLine),
       boxShadow: [
         BoxShadow(
           color: context.colors.scanner.withValues(alpha: .08),
