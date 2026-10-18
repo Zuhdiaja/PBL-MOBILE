@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'app/auth_dependencies.dart';
 import 'features/auth/presentation/pages/login_page.dart';
 import 'features/auth/presentation/pages/register_page.dart';
+import 'features/onboarding/presentation/pages/onboarding_page.dart';
 import 'screens/main_shell.dart';
 import 'theme/app_colors.dart';
 import 'theme/app_theme.dart';
@@ -77,8 +78,27 @@ class _LaunchGateState extends State<_LaunchGate> {
   @override
   Widget build(BuildContext context) => StartupGate(
     controller: _auth.auth,
-    child: _AuthGate(auth: _auth),
+    child: _WelcomeGate(auth: _auth),
   );
+}
+
+class _WelcomeGate extends StatefulWidget {
+  const _WelcomeGate({required this.auth});
+  final AuthDependencies auth;
+
+  @override
+  State<_WelcomeGate> createState() => _WelcomeGateState();
+}
+
+class _WelcomeGateState extends State<_WelcomeGate> {
+  bool _onboardingComplete = false;
+
+  @override
+  Widget build(BuildContext context) => _onboardingComplete
+      ? _AuthGate(auth: widget.auth)
+      : OnboardingPage(
+          onComplete: () => setState(() => _onboardingComplete = true),
+        );
 }
 
 /// Swaps between login and the app shell using the launch gate’s session.

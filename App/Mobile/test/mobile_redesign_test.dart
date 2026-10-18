@@ -16,6 +16,8 @@ Future<void> signIn(WidgetTester tester) async {
   addTearDown(tester.view.resetDevicePixelRatio);
   await tester.pumpWidget(const MyApp());
   await tester.pumpAndSettle();
+  await tester.tap(find.text('Lewati'));
+  await tester.pumpAndSettle();
   await tester.enterText(find.byType(TextField).at(1), '123456');
   await tapVisible(tester, find.widgetWithText(FilledButton, 'Masuk'));
 }
@@ -59,6 +61,8 @@ void main() {
     tester,
   ) async {
     await tester.pumpWidget(const MyApp());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Lewati'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField).at(1), 'a-long-password');
     expect(
