@@ -10,6 +10,13 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:pbl_semester5/main.dart';
 
+Future<void> openLogin(WidgetTester tester) async {
+  await tester.pumpWidget(const MyApp());
+  await tester.pumpAndSettle();
+  await tester.tap(find.text('Lewati'));
+  await tester.pumpAndSettle();
+}
+
 void main() {
   testWidgets('login fits a narrow viewport without layout overflow', (
     WidgetTester tester,
@@ -19,8 +26,7 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    await tester.pumpWidget(const MyApp());
-    await tester.pumpAndSettle();
+    await openLogin(tester);
 
     expect(find.text('LinkGuard'), findsOneWidget);
     expect(tester.takeException(), isNull);
@@ -29,8 +35,7 @@ void main() {
   testWidgets('demo credentials sign in and invalid credentials are rejected', (
     WidgetTester tester,
   ) async {
-    await tester.pumpWidget(const MyApp());
-    await tester.pumpAndSettle();
+    await openLogin(tester);
 
     expect(find.byType(TextField), findsNWidgets(2));
     await tester.enterText(find.byType(TextField).at(0), 'wrong@email.com');
@@ -52,8 +57,7 @@ void main() {
   testWidgets('auth flow opens profile settings and returns', (
     WidgetTester tester,
   ) async {
-    await tester.pumpWidget(const MyApp());
-    await tester.pumpAndSettle();
+    await openLogin(tester);
 
     expect(find.text('Masuk.'), findsOneWidget);
     await tester.ensureVisible(find.text('Daftar sekarang'));
