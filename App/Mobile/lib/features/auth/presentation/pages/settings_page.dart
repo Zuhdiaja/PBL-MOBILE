@@ -42,25 +42,30 @@ class _SettingsPageState extends State<SettingsPage> {
         const SizedBox(height: 16),
         SizedBox(
           width: double.infinity,
-          child: SegmentedButton<bool>(
+          child: SegmentedButton<ThemeMode>(
             showSelectedIcon: false,
             segments: const [
               ButtonSegment(
-                value: false,
+                value: ThemeMode.system,
+                icon: Icon(Icons.brightness_auto_outlined, size: 19),
+                label: Text('Sistem'),
+              ),
+              ButtonSegment(
+                value: ThemeMode.light,
                 icon: Icon(Icons.light_mode_outlined, size: 19),
                 label: Text('Terang'),
               ),
               ButtonSegment(
-                value: true,
+                value: ThemeMode.dark,
                 icon: Icon(Icons.dark_mode_outlined, size: 19),
                 label: Text('Gelap'),
               ),
             ],
-            selected: {context.colors.dark},
+            selected: {
+              AppThemeScope.maybeOf(context)?.mode ?? ThemeMode.system,
+            },
             onSelectionChanged: (values) {
-              AppThemeScope.maybeOf(context)?.value = values.first
-                  ? ThemeMode.dark
-                  : ThemeMode.light;
+              AppThemeScope.maybeOf(context)?.select(values.first);
             },
             style: ButtonStyle(
               minimumSize: const WidgetStatePropertyAll(Size(48, 50)),
