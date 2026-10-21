@@ -10,12 +10,12 @@ class AppBottomNavigation extends StatelessWidget {
   });
   final int selectedIndex;
   final ValueChanged<int> onDestinationSelected;
-  static const labels = ['Beranda', 'Pindai', 'Riwayat', 'Statistik', 'Profil'];
+  static const labels = ['Beranda', 'Statistik', 'Pindai', 'Riwayat', 'Profil'];
   static const icons = [
     Icons.home_outlined,
+    Icons.bar_chart_rounded,
     Icons.crop_free_rounded,
     Icons.history_rounded,
-    Icons.bar_chart_rounded,
     Icons.person_outline_rounded,
   ];
   @override
@@ -38,45 +38,19 @@ class AppBottomNavigation extends StatelessWidget {
                   label: labels[i],
                   child: ExcludeSemantics(
                     child: Material(
-                      color: selectedIndex == i
+                      color: i != 2 && selectedIndex == i
                           ? context.colors.paleBlue
                           : Colors.transparent,
                       borderRadius: BorderRadius.circular(14),
                       child: InkWell(
                         borderRadius: BorderRadius.circular(14),
                         onTap: () => onDestinationSelected(i),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                            vertical: 8,
-                            horizontal: 1,
-                          ),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                icons[i],
-                                size: 24,
-                                color: selectedIndex == i
-                                    ? context.colors.blue
-                                    : context.colors.muted,
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                labels[i],
-                                maxLines: 1,
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  fontWeight: selectedIndex == i
-                                      ? FontWeight.w600
-                                      : FontWeight.w500,
-                                  color: selectedIndex == i
-                                      ? context.colors.blue
-                                      : context.colors.muted,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
+                        overlayColor: i == 2
+                            ? const WidgetStatePropertyAll(Colors.transparent)
+                            : null,
+                        child: i == 2
+                            ? _scanDestination(context)
+                            : _destination(context, i),
                       ),
                     ),
                   ),
@@ -85,6 +59,87 @@ class AppBottomNavigation extends StatelessWidget {
           ],
         ),
       ),
+    ),
+  );
+
+  Widget _destination(BuildContext context, int index) {
+    final isSelected = selectedIndex == index;
+    final color = isSelected ? context.colors.blue : context.colors.muted;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 1),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icons[index], size: 24, color: color),
+          const SizedBox(height: 4),
+          _label(index, color, isSelected),
+        ],
+      ),
+    );
+  }
+
+  Widget _scanDestination(BuildContext context) {
+    final isSelected = selectedIndex == 2;
+    final color = isSelected ? context.colors.blue : context.colors.muted;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 1),
+      child: SizedBox(
+        height: 46,
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Positioned(
+              right: 0,
+              bottom: 0,
+              left: 0,
+              child: Center(child: _label(2, color, isSelected)),
+            ),
+            Positioned(
+              top: -20,
+              right: 0,
+              left: 0,
+              child: Center(
+                child: Material(
+                  color: context.colors.ink,
+                  elevation: 3,
+                  shape: const CircleBorder(),
+                  clipBehavior: Clip.antiAlias,
+                  child: InkWell(
+                    customBorder: const CircleBorder(),
+                    onTap: () => onDestinationSelected(2),
+                    child: Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: context.colors.surface,
+                          width: 3,
+                        ),
+                      ),
+                      child: Icon(
+                        icons[2],
+                        size: 25,
+                        color: context.colors.onPrimary,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _label(int index, Color color, bool isSelected) => Text(
+    labels[index],
+    maxLines: 1,
+    style: TextStyle(
+      fontSize: 10,
+      fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+      color: color,
     ),
   );
 }
