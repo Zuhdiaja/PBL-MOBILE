@@ -53,7 +53,7 @@ void main() {
     );
     expect(
       tester.element(find.byType(TextFormField)).colors.paper,
-      const Color(0xFF101D2D),
+      Colors.black,
     );
     expect(tester.takeException(), isNull);
   });

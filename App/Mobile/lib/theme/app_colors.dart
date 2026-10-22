@@ -26,20 +26,20 @@ class AppColors {
 class AppPalette {
   const AppPalette(this.dark);
   final bool dark;
-  Color get paper => dark ? const Color(0xFF101D2D) : const Color(0xFFF7F9FC);
-  Color get surface => dark ? const Color(0xFF182638) : Colors.white;
-  Color get ink => dark ? const Color(0xFFE9EFF9) : AppColors.ink;
-  Color get muted => dark ? const Color(0xFFA9B8CE) : AppColors.muted;
-  Color get line => dark ? const Color(0xFF304157) : AppColors.line;
+  Color get paper => dark ? Colors.black : const Color(0xFFF7F9FC);
+  Color get surface => dark ? const Color(0xFF121212) : Colors.white;
+  Color get ink => dark ? const Color(0xFFF3F3F3) : AppColors.ink;
+  Color get muted => dark ? const Color(0xFFA6A6A6) : AppColors.muted;
+  Color get line => dark ? const Color(0xFF2C2C2C) : AppColors.line;
   Color get blue => dark ? const Color(0xFF9BBCFF) : AppColors.blue;
-  Color get paleBlue => dark ? const Color(0xFF233B60) : AppColors.paleBlue;
+  Color get paleBlue => dark ? const Color(0xFF242424) : AppColors.paleBlue;
   Color get softSurface =>
-      dark ? const Color(0xFF203249) : AppColors.softSurface;
+      dark ? const Color(0xFF1A1A1A) : AppColors.softSurface;
   Color get fieldBorder =>
-      dark ? const Color(0xFF627996) : const Color(0xFF7C8BA3);
-  Color get onPrimary => dark ? const Color(0xFF10203A) : Colors.white;
+      dark ? const Color(0xFF6B6B6B) : const Color(0xFF7C8BA3);
+  Color get onPrimary => dark ? const Color(0xFF0A0A0A) : Colors.white;
   Color get danger => dark ? const Color(0xFFFFA5B4) : AppColors.danger;
-  Color get paleDanger => dark ? const Color(0xFF3C2634) : AppColors.paleDanger;
+  Color get paleDanger => dark ? const Color(0xFF3C262C) : AppColors.paleDanger;
   Color get success => dark ? const Color(0xFF86DAB5) : AppColors.success;
   Color get paleSuccess =>
       dark ? const Color(0xFF193A32) : AppColors.paleSuccess;
@@ -47,19 +47,19 @@ class AppPalette {
   Color get paleWarning =>
       dark ? const Color(0xFF3D3222) : AppColors.paleWarning;
   Color get skeleton =>
-      dark ? const Color(0xFF2A3C52) : const Color(0xFFE0E7F0);
+      dark ? const Color(0xFF262626) : const Color(0xFFE0E7F0);
   Color get scanner => dark ? const Color(0xFF1A3962) : const Color(0xFF173D70);
 
   /// Permukaan kartu ilustrasi dan kartu ringkasan di atas latar scanner.
-  Color get artworkSurface => dark ? const Color(0xFF182638) : Colors.white;
+  Color get artworkSurface => dark ? const Color(0xFF121212) : Colors.white;
 
   /// Garis tepi kartu ilustrasi dan kartu ringkasan.
   Color get artworkLine =>
-      dark ? const Color(0xFF304157) : const Color(0xFFE3EAF4);
+      dark ? const Color(0xFF2C2C2C) : const Color(0xFFE3EAF4);
 
   /// Latar plat ikon di dalam kartu ilustrasi.
   Color get artworkTint =>
-      dark ? const Color(0xFF233B60) : const Color(0xFFF1F5FC);
+      dark ? const Color(0xFF1E1E1E) : const Color(0xFFF1F5FC);
   Color status(String category) => (category == 'Aman' || category == 'Benign')
       ? success
       : (category == 'Spam' || category == 'Defacement')
