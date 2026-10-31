@@ -106,3 +106,34 @@ export type UsersResponse = {
   row_count: number;
   page_count: number;
 };
+
+export type ReportStageStatus = "submitted" | "review" | "completed" | "rejected";
+export type PredictionReport = {
+  id: number;
+  url: string;
+  report_type: "False Positive" | "False Negative";
+  reported_category: string;
+  status: ReportStageStatus;
+  notes: string | null;
+  admin_notes: string | null;
+  reporter_email: string | null;
+  dataset_id: string | null;
+  dataset_synced: boolean;
+  created_at: string;
+  updated_at: string;
+};
+export type ReportsSummary = {
+  total: number;
+  submitted: number;
+  review: number;
+  completed: number;
+  synced: number;
+};
+export type ReportsResponse = {
+  items: PredictionReport[];
+  page: number;
+  page_size: number;
+  page_count: number;
+  row_count: number;
+  summary: ReportsSummary;
+};
