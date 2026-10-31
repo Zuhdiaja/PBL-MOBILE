@@ -15,6 +15,12 @@ class AppColors {
   static const paleWarning = Color(0xFFFFF3DD);
   static const success = Color(0xFF267553);
   static const paleSuccess = Color(0xFFE7F3EC);
+
+  /// Warna kopian di atas latar scanner, sama pada mode terang dan gelap.
+  static const scannerCopy = Color(0xFFC6D7EF);
+
+  /// Aksen utama di atas latar scanner, sama pada mode terang dan gelap.
+  static const scannerAccent = Color(0xFF9BBCFF);
 }
 
 class AppPalette {
@@ -43,6 +49,17 @@ class AppPalette {
   Color get skeleton =>
       dark ? const Color(0xFF2A3C52) : const Color(0xFFE0E7F0);
   Color get scanner => dark ? const Color(0xFF1A3962) : const Color(0xFF173D70);
+
+  /// Permukaan kartu ilustrasi dan kartu ringkasan di atas latar scanner.
+  Color get artworkSurface => dark ? const Color(0xFF182638) : Colors.white;
+
+  /// Garis tepi kartu ilustrasi dan kartu ringkasan.
+  Color get artworkLine =>
+      dark ? const Color(0xFF304157) : const Color(0xFFE3EAF4);
+
+  /// Latar plat ikon di dalam kartu ilustrasi.
+  Color get artworkTint =>
+      dark ? const Color(0xFF233B60) : const Color(0xFFF1F5FC);
   Color status(String category) => (category == 'Aman' || category == 'Benign')
       ? success
       : (category == 'Spam' || category == 'Defacement')

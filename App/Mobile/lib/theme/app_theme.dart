@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
 
 import 'app_colors.dart';
+import 'theme_controller.dart';
 
-class AppThemeScope extends InheritedNotifier<ValueNotifier<ThemeMode>> {
+class AppThemeScope extends InheritedNotifier<ThemeController> {
   const AppThemeScope({
     super.key,
-    required ValueNotifier<ThemeMode> controller,
+    required ThemeController controller,
     required super.child,
   }) : super(notifier: controller);
-  static ValueNotifier<ThemeMode>? maybeOf(BuildContext context) =>
+  static ThemeController? maybeOf(BuildContext context) =>
       context.dependOnInheritedWidgetOfExactType<AppThemeScope>()?.notifier;
 }
 

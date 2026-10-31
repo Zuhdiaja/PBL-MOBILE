@@ -2,23 +2,38 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'app/auth_dependencies.dart';
+import 'app/theme_dependencies.dart';
 import 'features/auth/presentation/pages/login_page.dart';
 import 'features/auth/presentation/pages/register_page.dart';
+import 'features/onboarding/presentation/pages/onboarding_page.dart';
 import 'screens/main_shell.dart';
 import 'theme/app_colors.dart';
 import 'theme/app_theme.dart';
+import 'theme/theme_controller.dart';
+import 'theme/theme_preference_store.dart';
 import 'widgets/startup_gate.dart';
 
-void main() => runApp(const MyApp());
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  final theme = ThemeDependencies();
+  await theme.controller.load();
+  runApp(MyApp(theme: theme.controller));
+}
 
 class MyApp extends StatefulWidget {
-  const MyApp({super.key});
+  const MyApp({super.key, this.theme});
+
+  /// App-wide theme choice. When omitted the app follows the device theme
+  /// without persistence, which keeps widget tests plugin-free.
+  final ThemeController? theme;
+
   @override
   State<MyApp> createState() => _MyAppState();
 }
 
 class _MyAppState extends State<MyApp> {
-  final _theme = ValueNotifier(ThemeMode.system);
+  late final _theme = widget.theme ?? ThemeController(MemoryThemeStore());
+
   @override
   void dispose() {
     _theme.dispose();
@@ -28,15 +43,15 @@ class _MyAppState extends State<MyApp> {
   @override
   Widget build(BuildContext context) => AppThemeScope(
     controller: _theme,
-    child: ValueListenableBuilder<ThemeMode>(
-      valueListenable: _theme,
+    child: ListenableBuilder(
+      listenable: _theme,
       child: const _LaunchGate(),
-      builder: (context, mode, child) => MaterialApp(
+      builder: (context, child) => MaterialApp(
         title: 'LinkGuard',
         debugShowCheckedModeBanner: false,
         theme: linkGuardTheme(Brightness.light),
         darkTheme: linkGuardTheme(Brightness.dark),
-        themeMode: mode,
+        themeMode: _theme.mode,
         builder: (context, child) => AnnotatedRegion<SystemUiOverlayStyle>(
           value: SystemUiOverlayStyle(
             statusBarColor: Colors.transparent,
@@ -77,8 +92,27 @@ class _LaunchGateState extends State<_LaunchGate> {
   @override
   Widget build(BuildContext context) => StartupGate(
     controller: _auth.auth,
-    child: _AuthGate(auth: _auth),
+    child: _WelcomeGate(auth: _auth),
   );
+}
+
+class _WelcomeGate extends StatefulWidget {
+  const _WelcomeGate({required this.auth});
+  final AuthDependencies auth;
+
+  @override
+  State<_WelcomeGate> createState() => _WelcomeGateState();
+}
+
+class _WelcomeGateState extends State<_WelcomeGate> {
+  bool _onboardingComplete = false;
+
+  @override
+  Widget build(BuildContext context) => _onboardingComplete
+      ? _AuthGate(auth: widget.auth)
+      : OnboardingPage(
+          onComplete: () => setState(() => _onboardingComplete = true),
+        );
 }
 
 /// Swaps between login and the app shell using the launch gate’s session.
