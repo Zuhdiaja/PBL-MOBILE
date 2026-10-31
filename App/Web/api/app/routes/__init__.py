@@ -15,7 +15,7 @@ from app.models import Admin, Dataset, DatasetRow, DatasetState, ImportJob
 from app.services.importer import reconcile, import_csv, import_failed
 
 api = Blueprint("api", __name__)
-PUBLIC = {"api.csrf", "api.login", "api.health"}
+PUBLIC = {"api.csrf", "api.login", "api.health", "api.reports_submit"}
 DUMMY_HASH = generate_password_hash("unused-constant-time-password", method="scrypt")
 
 
@@ -26,7 +26,7 @@ def error(code, message, status=400):
 def authenticate():
     if request.blueprint != "api":
         return
-    if request.method in {"POST", "PUT", "PATCH", "DELETE"}:
+    if request.method in {"POST", "PUT", "PATCH", "DELETE"} and request.endpoint not in {"api.reports_submit"}:
         token = request.headers.get("X-CSRF-Token", "")
         if not session.get("csrf") or not hmac.compare_digest(token.encode(), session["csrf"].encode()):
             return error("csrf_invalid", "Sesi formulir kedaluwarsa. Muat ulang halaman.", 403)
@@ -239,5 +239,6 @@ def rows():
         rows=[dict(row_number=row.row_number, values=row.values) for row in result])
 
 
-# Register account management on this authenticated blueprint.
+# Register account management and report endpoints on this authenticated blueprint.
 from app.routes import users as _users
+from app.routes import reports as _reports
