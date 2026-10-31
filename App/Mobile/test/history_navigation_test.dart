@@ -1,10 +1,32 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pbl_semester5/features/history/presentation/widgets/history_widgets.dart';
 import 'package:pbl_semester5/features/history/presentation/widgets/report_status_widgets.dart';
+import 'package:pbl_semester5/theme/app_colors.dart';
 
 import 'scan_flow_test.dart' show openApp, tapVisible;
 
 void main() {
+  testWidgets('scan navigation button uses the LinkGuard blue', (tester) async {
+    await openApp(tester);
+
+    final scanButton = tester.widget<Material>(
+      find.byKey(const ValueKey('scan-navigation-button')),
+    );
+    expect(scanButton.color, AppColors.blue);
+    expect(
+      tester
+          .widget<Icon>(
+            find.descendant(
+              of: find.byKey(const ValueKey('scan-navigation-button')),
+              matching: find.byIcon(Icons.crop_free_rounded),
+            ),
+          )
+          .color,
+      Colors.white,
+    );
+  });
+
   testWidgets('history tab filters the sample entries and opens the detail', (
     tester,
   ) async {

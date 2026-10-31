@@ -100,7 +100,8 @@ class AppBottomNavigation extends StatelessWidget {
               left: 0,
               child: Center(
                 child: Material(
-                  color: context.colors.ink,
+                  key: const ValueKey('scan-navigation-button'),
+                  color: AppColors.blue,
                   elevation: 3,
                   shape: const CircleBorder(),
                   clipBehavior: Clip.antiAlias,
