@@ -146,11 +146,15 @@ def reports_update(report_id):
 
 @api.post("/reports/<int:report_id>/sync-dataset")
 def reports_sync_dataset(report_id):
-    report = db.session.get(PredictionReport, report_id)
+    # Lock the report so two requests for the same report cannot both sync.
+    report = db.session.get(PredictionReport, report_id, with_for_update=True)
     if not report:
         return error("not_found", "Laporan tidak ditemukan.", 404)
+    if report.dataset_synced:
+        return error("already_synced", "Laporan ini sudah disinkronkan ke dataset.", 409)
 
-    state = db.session.scalar(db.select(DatasetState).where(DatasetState.id == 1).with_for_update(read=True))
+    # Exclusive lock: this path writes Dataset.row_count, so FOR SHARE is unsafe.
+    state = db.session.scalar(db.select(DatasetState).where(DatasetState.id == 1).with_for_update())
     if not state or not state.active_id:
         return error("no_active_dataset", "Belum ada dataset aktif untuk integrasi data.", 400)
 
@@ -202,9 +206,15 @@ def reports_sync_dataset(report_id):
 
 @api.delete("/reports/<int:report_id>")
 def reports_delete(report_id):
-    report = db.session.get(PredictionReport, report_id)
+    report = db.session.get(PredictionReport, report_id, with_for_update=True)
     if not report:
         return error("not_found", "Laporan tidak ditemukan.", 404)
+    if report.dataset_synced:
+        return error(
+            "report_synced",
+            "Laporan sudah tersinkron ke dataset. Impor ulang dataset bila baris ini harus dihapus.",
+            409,
+        )
 
     db.session.delete(report)
     db.session.commit()

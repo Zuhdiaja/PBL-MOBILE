@@ -133,3 +133,79 @@ def test_admin_delete_report(authenticated):
     # Ensure not found
     get_res = client.get(f"/api/v1/reports/{report_id}", headers=headers)
     assert get_res.status_code == 404
+
+
+def _activate_dataset(app):
+    with app.app_context():
+        dataset = Dataset(
+            id="idempotent-dataset-uuid",
+            filename="murl_sample.csv",
+            columns=["url", "label", "source"],
+            row_count=10,
+        )
+        db.session.add(dataset)
+        state = db.session.get(DatasetState, 1) or DatasetState(id=1)
+        state.active_id = dataset.id
+        db.session.add(state)
+        db.session.commit()
+
+
+def test_sync_dataset_is_idempotent(app, authenticated):
+    client, headers = authenticated
+    _activate_dataset(app)
+
+    res = client.post(
+        "/api/v1/reports/submit",
+        json={"url": "twice-sync.test", "type": "False Negative", "category": "Phishing"},
+    )
+    report_id = res.json["report"]["id"]
+
+    first = client.post(f"/api/v1/reports/{report_id}/sync-dataset", headers=headers)
+    assert first.status_code == 200
+    assert first.json["row_number"] == 11
+
+    second = client.post(f"/api/v1/reports/{report_id}/sync-dataset", headers=headers)
+    assert second.status_code == 409
+    assert second.json["error"]["code"] == "already_synced"
+
+    # The dataset must not grow on the rejected retry.
+    with app.app_context():
+        dataset = db.session.get(Dataset, "idempotent-dataset-uuid")
+        assert dataset.row_count == 11
+        rows = db.session.scalars(
+            db.select(DatasetRow).where(DatasetRow.dataset_id == "idempotent-dataset-uuid")
+        ).all()
+        assert len(rows) == 1
+        assert rows[0].row_number == 11
+
+
+def test_cannot_delete_synced_report(app, authenticated):
+    client, headers = authenticated
+    _activate_dataset(app)
+
+    res = client.post(
+        "/api/v1/reports/submit",
+        json={"url": "keep-me.test", "type": "False Positive", "category": "Benign"},
+    )
+    report_id = res.json["report"]["id"]
+
+    sync_res = client.post(f"/api/v1/reports/{report_id}/sync-dataset", headers=headers)
+    assert sync_res.status_code == 200
+
+    del_res = client.delete(f"/api/v1/reports/{report_id}", headers=headers)
+    assert del_res.status_code == 409
+    assert del_res.json["error"]["code"] == "report_synced"
+
+    # The report and its dataset row both survive.
+    get_res = client.get(f"/api/v1/reports/{report_id}", headers=headers)
+    assert get_res.status_code == 200
+    assert get_res.json["report"]["dataset_synced"] is True
+
+    with app.app_context():
+        row = db.session.scalar(
+            db.select(DatasetRow).where(
+                DatasetRow.dataset_id == "idempotent-dataset-uuid",
+                DatasetRow.row_number == 11,
+            )
+        )
+        assert row is not None
