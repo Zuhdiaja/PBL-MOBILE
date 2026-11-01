@@ -7,6 +7,24 @@ from app.routes import api, body, error
 
 VALID_STATUSES = {"submitted", "review", "completed", "rejected"}
 VALID_TYPES = {"False Positive", "False Negative"}
+VALID_CATEGORIES = {"Benign", "Phishing", "Malware", "Spam", "Defacement", "Exploit"}
+CATEGORY_ALIASES = {
+    "aman": "Benign",
+    "aman / benign": "Benign",
+    "benign": "Benign",
+    "phishing": "Phishing",
+    "malware": "Malware",
+    "spam": "Spam",
+    "defacement": "Defacement",
+    "exploit": "Exploit",
+}
+MAX_NOTES = 2000
+MAX_SEARCH = 200
+
+
+def normalize_category(value):
+    """Map a submitted label onto a canonical class name, or None."""
+    return CATEGORY_ALIASES.get(value.strip().lower())
 
 
 @api.post("/reports/submit")
@@ -16,7 +34,7 @@ def reports_submit():
     url = data.get("url")
     report_type = data.get("type") or data.get("report_type")
     category = data.get("category") or data.get("reported_category")
-    notes = data.get("notes") or ""
+    notes = data.get("notes")
     email = data.get("reporter_email")
 
     if not isinstance(url, str) or not 1 <= len(url.strip()) <= 2048:
@@ -25,14 +43,20 @@ def reports_submit():
         return error("invalid_type", "Jenis laporan harus 'False Positive' atau 'False Negative'.")
     if not isinstance(category, str) or not 1 <= len(category.strip()) <= 64:
         return error("invalid_category", "Kategori laporan tidak valid.")
+    notes = "" if notes is None else notes
+    if not isinstance(notes, str):
+        return error("invalid_notes", "Catatan laporan tidak valid.")
+    notes = notes.strip()
+    if len(notes) > MAX_NOTES:
+        return error("invalid_notes", f"Catatan maksimal {MAX_NOTES} karakter.")
     if email is not None and (not isinstance(email, str) or len(email) > 254):
         return error("invalid_email", "Email pelapor tidak valid.")
 
     report = PredictionReport(
         url=url.strip(),
         report_type=report_type.strip(),
-        reported_category=category.strip(),
-        notes=notes.strip() if isinstance(notes, str) else "",
+        reported_category=normalize_category(category) or category.strip(),
+        notes=notes,
         reporter_email=email.strip().lower() if email else None,
         status="submitted",
         created_at=now(),
@@ -77,11 +101,13 @@ def reports_list():
     if report_type and report_type != "all":
         query = query.where(PredictionReport.report_type == report_type)
     if search:
-        pattern = f"%{search.strip()}%"
+        term = search.strip()[:MAX_SEARCH]
+        escaped = term.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        pattern = f"%{escaped}%"
         query = query.where(
-            PredictionReport.url.ilike(pattern) |
-            PredictionReport.notes.ilike(pattern) |
-            PredictionReport.reported_category.ilike(pattern)
+            PredictionReport.url.ilike(pattern, escape="\\") |
+            PredictionReport.notes.ilike(pattern, escape="\\") |
+            PredictionReport.reported_category.ilike(pattern, escape="\\")
         )
 
     filtered_count = db.session.scalar(db.select(func.count()).select_from(query.subquery())) or 0
@@ -140,12 +166,17 @@ def reports_update(report_id):
         report.status = status
 
     if admin_notes is not None:
-        report.admin_notes = admin_notes.strip() if isinstance(admin_notes, str) else ""
+        if not isinstance(admin_notes, str):
+            return error("invalid_notes", "Catatan administrator tidak valid.")
+        admin_notes = admin_notes.strip()
+        if len(admin_notes) > MAX_NOTES:
+            return error("invalid_notes", f"Catatan maksimal {MAX_NOTES} karakter.")
+        report.admin_notes = admin_notes
 
     if category is not None:
         if not isinstance(category, str) or not 1 <= len(category.strip()) <= 64:
             return error("invalid_category", "Kategori laporan tidak valid.")
-        report.reported_category = category.strip()
+        report.reported_category = normalize_category(category) or category.strip()
 
     report.updated_at = now()
     db.session.commit()
@@ -171,6 +202,32 @@ def reports_sync_dataset(report_id):
         return error("no_active_dataset", "Dataset aktif tidak ditemukan.", 404)
 
     columns = [col.lower().strip() for col in (active.columns or [])]
+
+    # The dataset must have a URL column; guessing one silently overwrites data.
+    if not any("url" in col for col in columns):
+        return error("unsupported_dataset", "Dataset aktif tidak memiliki kolom URL.", 409)
+
+    # Only canonical class names may reach the training data.
+    label = normalize_category(report.reported_category)
+    if not label:
+        return error(
+            "invalid_category",
+            "Kategori laporan harus salah satu: " + ", ".join(sorted(VALID_CATEGORIES)) + ".",
+            409,
+        )
+    if report.report_type == "False Positive" and label != "Benign":
+        return error(
+            "inconsistent_report",
+            "Laporan 'False Positive' harus memakai kategori Benign.",
+            409,
+        )
+    if report.report_type == "False Negative" and label == "Benign":
+        return error(
+            "inconsistent_report",
+            "Laporan 'False Negative' tidak boleh memakai kategori Benign.",
+            409,
+        )
+
     url_idx = 0
     cat_idx = 1 if len(columns) > 1 else 0
 
@@ -184,7 +241,7 @@ def reports_sync_dataset(report_id):
     if url_idx < len(values):
         values[url_idx] = report.url
     if cat_idx < len(values):
-        values[cat_idx] = report.reported_category
+        values[cat_idx] = label
 
     # Truncate or extend to match dataset column count
     if columns:

@@ -55,6 +55,8 @@ const statusLabels: Record<ReportStageStatus, string> = {
   rejected: "Ditolak",
 };
 
+const categories = ["Benign", "Phishing", "Malware", "Spam", "Defacement", "Exploit"];
+
 export default function ReportsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -590,12 +592,24 @@ export default function ReportsPage() {
 
               <div className="space-y-2">
                 <Label htmlFor="category">Kategori Verifikasi</Label>
-                <Input
+                <select
                   id="category"
+                  className="w-full rounded-md border bg-background px-3 py-2 text-sm"
                   value={editCategory}
                   onChange={(e) => setEditCategory(e.target.value)}
-                  placeholder="e.g. Benign, Phishing, Malware, Spam"
-                />
+                >
+                  {editCategory && !categories.includes(editCategory) && (
+                    <option value={editCategory}>{editCategory} (belum baku)</option>
+                  )}
+                  {categories.map((value) => (
+                    <option key={value} value={value}>
+                      {value}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-xs text-muted-foreground">
+                  Hanya kategori baku yang dapat disinkronkan ke dataset.
+                </p>
               </div>
 
               <div className="space-y-2">

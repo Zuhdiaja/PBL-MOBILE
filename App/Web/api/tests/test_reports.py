@@ -266,3 +266,148 @@ def test_summary_counts_rejected_and_filter_works(authenticated):
     filtered = client.get("/api/v1/reports?status=rejected", headers=headers).json
     assert filtered["row_count"] == 1
     assert filtered["items"][0]["id"] == keep
+
+
+def test_notes_length_is_bounded(authenticated):
+    client, headers = authenticated
+    res = client.post(
+        "/api/v1/reports/submit",
+        json={"url": "long-notes.test", "type": "False Positive", "category": "Benign", "notes": "x" * 2001},
+    )
+    assert res.status_code == 400
+    assert res.json["error"]["code"] == "invalid_notes"
+
+    ok = client.post(
+        "/api/v1/reports/submit",
+        json={"url": "ok-notes.test", "type": "False Positive", "category": "Benign", "notes": "x" * 2000},
+    )
+    assert ok.status_code == 201
+
+    report_id = ok.json["report"]["id"]
+    too_long = client.patch(
+        f"/api/v1/reports/{report_id}",
+        json={"admin_notes": "y" * 2001},
+        headers=headers,
+    )
+    assert too_long.status_code == 400
+    assert too_long.json["error"]["code"] == "invalid_notes"
+
+    non_string = client.post(
+        "/api/v1/reports/submit",
+        json={"url": "bad-notes.test", "type": "False Positive", "category": "Benign", "notes": ["a"]},
+    )
+    assert non_string.status_code == 400
+    assert non_string.json["error"]["code"] == "invalid_notes"
+
+
+def test_search_treats_wildcards_literally(authenticated):
+    client, headers = authenticated
+    client.post(
+        "/api/v1/reports/submit",
+        json={"url": "plain-alpha.test", "type": "False Positive", "category": "Benign"},
+    )
+    client.post(
+        "/api/v1/reports/submit",
+        json={"url": "discount-100%.test", "type": "False Negative", "category": "Phishing"},
+    )
+
+    wildcard = client.get("/api/v1/reports?search=%25", headers=headers).json
+    assert wildcard["row_count"] == 1
+    assert wildcard["items"][0]["url"] == "discount-100%.test"
+
+
+    long_term = client.get(f"/api/v1/reports?search={'z' * 500}", headers=headers)
+    assert long_term.status_code == 200
+    assert long_term.json["row_count"] == 0
+
+
+def test_submit_normalizes_known_category_aliases(authenticated):
+    client, headers = authenticated
+    res = client.post(
+        "/api/v1/reports/submit",
+        json={"url": "alias.test", "type": "False Positive", "category": "Aman / Benign"},
+    )
+    assert res.status_code == 201
+    assert res.json["report"]["reported_category"] == "Benign"
+
+
+def test_sync_rejects_unknown_category(app, authenticated):
+    client, headers = authenticated
+    _activate_dataset(app)
+
+    res = client.post(
+        "/api/v1/reports/submit",
+        json={"url": "other-cat.test", "type": "False Negative", "category": "Lainnya"},
+    )
+    report_id = res.json["report"]["id"]
+    assert res.json["report"]["reported_category"] == "Lainnya"
+
+    sync = client.post(f"/api/v1/reports/{report_id}/sync-dataset", headers=headers)
+    assert sync.status_code == 409
+    assert sync.json["error"]["code"] == "invalid_category"
+
+
+def test_sync_requires_category_consistent_with_report_type(app, authenticated):
+    client, headers = authenticated
+    _activate_dataset(app)
+
+    wrong = client.post(
+        "/api/v1/reports/submit",
+        json={"url": "mismatch-fp.test", "type": "False Positive", "category": "Phishing"},
+    ).json["report"]["id"]
+    res = client.post(f"/api/v1/reports/{wrong}/sync-dataset", headers=headers)
+    assert res.status_code == 409
+    assert res.json["error"]["code"] == "inconsistent_report"
+
+    wrong_fn = client.post(
+        "/api/v1/reports/submit",
+        json={"url": "mismatch-fn.test", "type": "False Negative", "category": "Benign"},
+    ).json["report"]["id"]
+    res = client.post(f"/api/v1/reports/{wrong_fn}/sync-dataset", headers=headers)
+    assert res.status_code == 409
+    assert res.json["error"]["code"] == "inconsistent_report"
+
+    good = client.post(
+        "/api/v1/reports/submit",
+        json={"url": "match-fn.test", "type": "False Negative", "category": "Malware"},
+    ).json["report"]["id"]
+    ok = client.post(f"/api/v1/reports/{good}/sync-dataset", headers=headers)
+    assert ok.status_code == 200
+
+    with app.app_context():
+        row = db.session.scalar(
+            db.select(DatasetRow).where(
+                DatasetRow.dataset_id == "idempotent-dataset-uuid",
+                DatasetRow.row_number == ok.json["row_number"],
+            )
+        )
+        assert row.values[1] == "Malware"
+
+
+def test_sync_requires_url_column(app, authenticated):
+    client, headers = authenticated
+
+    with app.app_context():
+        dataset = Dataset(
+            id="no-url-dataset-uuid",
+            filename="features.csv",
+            columns=["label", "domain", "source"],
+            row_count=3,
+        )
+        db.session.add(dataset)
+        state = db.session.get(DatasetState, 1) or DatasetState(id=1)
+        state.active_id = dataset.id
+        db.session.add(state)
+        db.session.commit()
+
+    report_id = client.post(
+        "/api/v1/reports/submit",
+        json={"url": "no-url.test", "type": "False Negative", "category": "Phishing"},
+    ).json["report"]["id"]
+
+    res = client.post(f"/api/v1/reports/{report_id}/sync-dataset", headers=headers)
+    assert res.status_code == 409
+    assert res.json["error"]["code"] == "unsupported_dataset"
+
+    with app.app_context():
+        assert db.session.get(Dataset, "no-url-dataset-uuid").row_count == 3
