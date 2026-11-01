@@ -127,6 +127,7 @@ export type ReportsSummary = {
   submitted: number;
   review: number;
   completed: number;
+  rejected: number;
   synced: number;
 };
 export type ReportsResponse = {

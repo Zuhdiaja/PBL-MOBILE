@@ -62,6 +62,8 @@ export default function ReportsPage() {
   const currentTab = searchParams.get("status") || "all";
   const currentPage = parseInt(searchParams.get("page") || "1", 10) || 1;
   const currentSearch = searchParams.get("search") || "";
+  const rawSize = Number(searchParams.get("page_size") || 25);
+  const currentPageSize = [25, 50, 100].includes(rawSize) ? rawSize : 25;
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -72,6 +74,7 @@ export default function ReportsPage() {
     submitted: 0,
     review: 0,
     completed: 0,
+    rejected: 0,
     synced: 0,
   });
   const [pageCount, setPageCount] = useState(1);
@@ -97,6 +100,7 @@ export default function ReportsPage() {
       const params = new URLSearchParams();
       if (currentTab !== "all") params.set("status", currentTab);
       if (currentPage > 1) params.set("page", String(currentPage));
+      if (currentPageSize !== 25) params.set("page_size", String(currentPageSize));
       if (currentSearch) params.set("search", currentSearch);
 
       const res = await api<ReportsResponse>(`/reports?${params.toString()}`);
@@ -109,17 +113,27 @@ export default function ReportsPage() {
     } finally {
       setLoading(false);
     }
-  }, [currentTab, currentPage, currentSearch]);
+  }, [currentTab, currentPage, currentPageSize, currentSearch]);
 
   useEffect(() => {
     void fetchReports();
   }, [fetchReports]);
 
-  function updateQuery(nextStatus?: string, nextPage?: number, nextSearch?: string) {
+  function updateQuery(
+    nextStatus?: string,
+    nextPage?: number,
+    nextSearch?: string,
+    nextSize?: number,
+  ) {
     const params = new URLSearchParams(searchParams);
     if (nextStatus !== undefined) {
       if (nextStatus === "all") params.delete("status");
       else params.set("status", nextStatus);
+      params.delete("page");
+    }
+    if (nextSize !== undefined) {
+      if (nextSize === 25) params.delete("page_size");
+      else params.set("page_size", String(nextSize));
       params.delete("page");
     }
     if (nextPage !== undefined) {
@@ -288,11 +302,22 @@ export default function ReportsPage() {
           onValueChange={(val) => updateQuery(val, 1)}
           className="w-full sm:w-auto"
         >
-          <TabsList className="grid grid-cols-4 w-full sm:w-auto">
-            <TabsTrigger value="all">Semua ({summary.total})</TabsTrigger>
-            <TabsTrigger value="submitted">Diproses ({summary.submitted})</TabsTrigger>
-            <TabsTrigger value="review">Ditinjau ({summary.review})</TabsTrigger>
-            <TabsTrigger value="completed">Selesai ({summary.completed})</TabsTrigger>
+          <TabsList className="grid grid-cols-5 w-full text-xs sm:w-auto sm:text-sm">
+            <TabsTrigger value="all">
+              Semua<span className="hidden sm:inline"> ({summary.total})</span>
+            </TabsTrigger>
+            <TabsTrigger value="submitted">
+              Diproses<span className="hidden sm:inline"> ({summary.submitted})</span>
+            </TabsTrigger>
+            <TabsTrigger value="review">
+              Ditinjau<span className="hidden sm:inline"> ({summary.review})</span>
+            </TabsTrigger>
+            <TabsTrigger value="completed">
+              Selesai<span className="hidden sm:inline"> ({summary.completed})</span>
+            </TabsTrigger>
+            <TabsTrigger value="rejected">
+              Ditolak<span className="hidden sm:inline"> ({summary.rejected})</span>
+            </TabsTrigger>
           </TabsList>
         </Tabs>
 
@@ -354,7 +379,7 @@ export default function ReportsPage() {
                 {reports.map((report, idx) => (
                   <TableRow key={report.id}>
                     <TableCell className="font-mono text-xs text-muted-foreground">
-                      {(currentPage - 1) * 25 + idx + 1}
+                      {(currentPage - 1) * currentPageSize + idx + 1}
                     </TableCell>
                     <TableCell className="max-w-xs truncate font-mono text-xs font-medium">
                       {report.url}
@@ -368,7 +393,9 @@ export default function ReportsPage() {
                             : "border-amber-500/40 text-amber-600 dark:text-amber-400"
                         }
                       >
-                        {report.report_type === "False Positive" ? "Positif Palsu" : "Negatif Palsu"}
+                        {report.report_type === "False Positive"
+                          ? "Positif Palsu"
+                          : "Negatif Palsu"}
                       </Badge>
                     </TableCell>
                     <TableCell>
@@ -451,44 +478,64 @@ export default function ReportsPage() {
         )}
 
         {/* Pagination Footer */}
-        {pageCount > 1 && (
-          <div className="flex items-center justify-between border-t p-4 text-xs text-muted-foreground">
+        {reports.length > 0 && (
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t p-4 text-xs text-muted-foreground">
             <div>
-              Menampilkan {(currentPage - 1) * 25 + 1}–{Math.min(currentPage * 25, rowCount)} dari{" "}
-              {number.format(rowCount)} laporan
+              Menampilkan {(currentPage - 1) * currentPageSize + 1}–
+              {Math.min(currentPage * currentPageSize, rowCount)} dari {number.format(rowCount)}{" "}
+              laporan
             </div>
-            <div className="flex items-center gap-1">
-              <Button
-                variant="outline"
-                size="icon"
-                className="size-8"
-                disabled={currentPage <= 1}
-                onClick={() => updateQuery(undefined, currentPage - 1)}
+            <div className="flex items-center gap-2">
+              <Label htmlFor="page-size" className="text-xs">
+                Baris per halaman
+              </Label>
+              <select
+                id="page-size"
+                className="h-8 rounded-md border bg-background px-2 text-xs"
+                value={currentPageSize}
+                disabled={loading}
+                onChange={(e) => updateQuery(undefined, 1, undefined, Number(e.target.value))}
               >
-                <ChevronLeft className="size-4" />
-              </Button>
-              <span className="px-2 font-medium">
-                {currentPage} / {pageCount}
-              </span>
-              <Button
-                variant="outline"
-                size="icon"
-                className="size-8"
-                disabled={currentPage >= pageCount}
-                onClick={() => updateQuery(undefined, currentPage + 1)}
-              >
-                <ChevronRight className="size-4" />
-              </Button>
+                {[25, 50, 100].map((n) => (
+                  <option key={n} value={n}>
+                    {n}
+                  </option>
+                ))}
+              </select>
+              {pageCount > 1 && (
+                <>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="size-8"
+                    aria-label="Halaman sebelumnya"
+                    disabled={currentPage <= 1}
+                    onClick={() => updateQuery(undefined, currentPage - 1)}
+                  >
+                    <ChevronLeft className="size-4" />
+                  </Button>
+                  <span className="px-2 font-medium">
+                    {currentPage} / {pageCount}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="size-8"
+                    aria-label="Halaman berikutnya"
+                    disabled={currentPage >= pageCount}
+                    onClick={() => updateQuery(undefined, currentPage + 1)}
+                  >
+                    <ChevronRight className="size-4" />
+                  </Button>
+                </>
+              )}
             </div>
           </div>
         )}
       </div>
 
       {/* Dialog Review & Tindak Lanjut */}
-      <Dialog
-        open={dialogMode === "review"}
-        onOpenChange={(open) => !open && setDialogMode(null)}
-      >
+      <Dialog open={dialogMode === "review"} onOpenChange={(open) => !open && setDialogMode(null)}>
         <DialogContent className="max-w-lg">
           <DialogTitle>Tinjau Laporan Prediksi</DialogTitle>
           <DialogDescription>
@@ -566,11 +613,7 @@ export default function ReportsPage() {
           )}
 
           <DialogFooter className="mt-4 gap-2">
-            <Button
-              variant="outline"
-              disabled={actionBusy}
-              onClick={() => setDialogMode(null)}
-            >
+            <Button variant="outline" disabled={actionBusy} onClick={() => setDialogMode(null)}>
               Batal
             </Button>
             <Button disabled={actionBusy} onClick={() => void handleSaveReview()}>
@@ -581,10 +624,7 @@ export default function ReportsPage() {
       </Dialog>
 
       {/* Dialog Konfirmasi Sinkronisasi Dataset */}
-      <Dialog
-        open={dialogMode === "sync"}
-        onOpenChange={(open) => !open && setDialogMode(null)}
-      >
+      <Dialog open={dialogMode === "sync"} onOpenChange={(open) => !open && setDialogMode(null)}>
         <DialogContent className="max-w-md">
           <DialogTitle className="flex items-center gap-2 text-blue-600 dark:text-blue-400">
             <Layers className="size-5" />
@@ -603,19 +643,13 @@ export default function ReportsPage() {
               </div>
               <div>
                 <span className="text-muted-foreground">Kategori Target: </span>
-                <span className="font-medium text-primary">
-                  {selectedReport.reported_category}
-                </span>
+                <span className="font-medium text-primary">{selectedReport.reported_category}</span>
               </div>
             </div>
           )}
 
           <DialogFooter className="mt-4 gap-2">
-            <Button
-              variant="outline"
-              disabled={actionBusy}
-              onClick={() => setDialogMode(null)}
-            >
+            <Button variant="outline" disabled={actionBusy} onClick={() => setDialogMode(null)}>
               Batal
             </Button>
             <Button
@@ -630,10 +664,7 @@ export default function ReportsPage() {
       </Dialog>
 
       {/* Dialog Konfirmasi Hapus */}
-      <Dialog
-        open={dialogMode === "delete"}
-        onOpenChange={(open) => !open && setDialogMode(null)}
-      >
+      <Dialog open={dialogMode === "delete"} onOpenChange={(open) => !open && setDialogMode(null)}>
         <DialogContent className="max-w-sm">
           <DialogTitle className="text-destructive flex items-center gap-2">
             <AlertCircle className="size-5" />
@@ -644,11 +675,7 @@ export default function ReportsPage() {
           </DialogDescription>
 
           <DialogFooter className="mt-4 gap-2">
-            <Button
-              variant="outline"
-              disabled={actionBusy}
-              onClick={() => setDialogMode(null)}
-            >
+            <Button variant="outline" disabled={actionBusy} onClick={() => setDialogMode(null)}>
               Batal
             </Button>
             <Button

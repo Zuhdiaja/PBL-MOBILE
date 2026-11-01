@@ -209,3 +209,60 @@ def test_cannot_delete_synced_report(app, authenticated):
             )
         )
         assert row is not None
+
+
+def test_reports_pagination_rejects_unknown_page_size(authenticated):
+    client, headers = authenticated
+    res = client.get("/api/v1/reports?page_size=13", headers=headers)
+    assert res.status_code == 400
+    assert res.json["error"]["code"] == "invalid_pagination"
+
+
+def test_reports_honour_page_size(authenticated):
+    client, headers = authenticated
+    for index in range(30):
+        client.post(
+            "/api/v1/reports/submit",
+            json={"url": f"page-size-{index}.test", "type": "False Positive", "category": "Benign"},
+        )
+
+    res = client.get("/api/v1/reports?page_size=50", headers=headers)
+    assert res.status_code == 200
+    assert res.json["page_size"] == 50
+    assert len(res.json["items"]) == 30
+    assert res.json["page_count"] == 1
+
+    first_page = client.get("/api/v1/reports?page_size=25", headers=headers).json
+    assert first_page["page_size"] == 25
+    assert len(first_page["items"]) == 25
+    assert first_page["page_count"] == 2
+
+
+def test_reports_reject_unknown_status(authenticated):
+    client, headers = authenticated
+    res = client.get("/api/v1/reports?status=bogus", headers=headers)
+    assert res.status_code == 400
+    assert res.json["error"]["code"] == "invalid_status"
+
+
+def test_summary_counts_rejected_and_filter_works(authenticated):
+    client, headers = authenticated
+    keep = client.post(
+        "/api/v1/reports/submit",
+        json={"url": "reject-me.test", "type": "False Negative", "category": "Phishing"},
+    ).json["report"]["id"]
+    client.post(
+        "/api/v1/reports/submit",
+        json={"url": "keep-open.test", "type": "False Positive", "category": "Benign"},
+    )
+
+    client.patch(f"/api/v1/reports/{keep}", json={"status": "rejected"}, headers=headers)
+
+    listing = client.get("/api/v1/reports", headers=headers).json
+    assert listing["summary"]["rejected"] == 1
+    assert listing["summary"]["submitted"] == 1
+    assert listing["summary"]["total"] == 2
+
+    filtered = client.get("/api/v1/reports?status=rejected", headers=headers).json
+    assert filtered["row_count"] == 1
+    assert filtered["items"][0]["id"] == keep

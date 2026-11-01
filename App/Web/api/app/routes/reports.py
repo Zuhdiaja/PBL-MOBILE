@@ -56,13 +56,19 @@ def reports_list():
         return error("invalid_pagination", "Halaman tidak valid.")
 
     if size not in (25, 50, 100):
-        size = 25
+        return error("invalid_pagination", "Halaman atau jumlah laporan tidak valid.")
+
+    if status and status != "all" and status not in VALID_STATUSES:
+        return error("invalid_status", "Status laporan tidak valid.")
+    if report_type and report_type != "all" and report_type not in VALID_TYPES:
+        return error("invalid_type", "Jenis laporan tidak valid.")
 
     # Compute global summary
     total = db.session.scalar(db.select(func.count(PredictionReport.id))) or 0
     submitted = db.session.scalar(db.select(func.count(PredictionReport.id)).where(PredictionReport.status == "submitted")) or 0
     review = db.session.scalar(db.select(func.count(PredictionReport.id)).where(PredictionReport.status == "review")) or 0
     completed = db.session.scalar(db.select(func.count(PredictionReport.id)).where(PredictionReport.status == "completed")) or 0
+    rejected = db.session.scalar(db.select(func.count(PredictionReport.id)).where(PredictionReport.status == "rejected")) or 0
     synced = db.session.scalar(db.select(func.count(PredictionReport.id)).where(PredictionReport.dataset_synced.is_(True))) or 0
 
     query = db.select(PredictionReport)
@@ -80,6 +86,7 @@ def reports_list():
 
     filtered_count = db.session.scalar(db.select(func.count()).select_from(query.subquery())) or 0
     pages = max(1, math.ceil(filtered_count / size))
+    # Clamp instead of rejecting: deleting the last row of a page must not error.
     if page < 1:
         page = 1
     elif page > pages and filtered_count > 0:
@@ -102,6 +109,7 @@ def reports_list():
             submitted=submitted,
             review=review,
             completed=completed,
+            rejected=rejected,
             synced=synced,
         ),
     )
