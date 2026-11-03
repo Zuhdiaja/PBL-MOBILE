@@ -17,14 +17,36 @@ CATEGORY_ALIASES = {
     "spam": "Spam",
     "defacement": "Defacement",
     "exploit": "Exploit",
+    "legitimate": "Benign",
 }
 MAX_NOTES = 2000
 MAX_SEARCH = 200
+
+# Label spellings per active dataset, keyed by (dataset id, label column index).
+# Imports create a fresh dataset id, so an entry can never go stale.
+_LABEL_CACHE = {}
 
 
 def normalize_category(value):
     """Map a submitted label onto a canonical class name, or None."""
     return CATEGORY_ALIASES.get(value.strip().lower())
+
+
+def dataset_labels(dataset_id, column_index):
+    """Map lower-case label -> spelling used by this dataset."""
+    key = (dataset_id, column_index)
+    cached = _LABEL_CACHE.get(key)
+    if cached is None:
+        values = db.session.scalars(
+            db.select(DatasetRow.values[column_index].astext)
+            .where(DatasetRow.dataset_id == dataset_id)
+            .distinct()
+        ).all()
+        cached = {value.lower(): value for value in values if value}
+        if len(_LABEL_CACHE) > 32:
+            _LABEL_CACHE.clear()
+        _LABEL_CACHE[key] = cached
+    return cached
 
 
 @api.post("/reports/submit")
@@ -228,20 +250,43 @@ def reports_sync_dataset(report_id):
             409,
         )
 
-    url_idx = 0
-    cat_idx = 1 if len(columns) > 1 else 0
+    url_idx = None
+    cat_idx = None
 
     for i, col in enumerate(columns):
-        if "url" in col:
+        if url_idx is None and "url" in col:
             url_idx = i
-        elif any(k in col for k in ("label", "category", "class", "type")):
+        elif cat_idx is None and any(
+            k in col for k in ("label", "category", "class", "type")
+        ):
             cat_idx = i
 
+    if url_idx is None:
+        return error("unsupported_dataset", "Dataset aktif tidak memiliki kolom URL.", 409)
+
+    # Never write the label into the URL column when no label column was found.
+    if cat_idx is None:
+        cat_idx = next((i for i in range(len(columns)) if i != url_idx), None)
+    if cat_idx is None:
+        return error(
+            "unsupported_dataset",
+            "Dataset aktif tidak memiliki kolom kategori.",
+            409,
+        )
+
     values = ["" for _ in range(max(len(columns), 2))]
-    if url_idx < len(values):
-        values[url_idx] = report.url
+    values[url_idx] = report.url
     if cat_idx < len(values):
-        values[cat_idx] = label
+        # Use the spelling this dataset already uses, so no duplicate class appears.
+        labels = dataset_labels(active.id, cat_idx)
+        spelled = labels.get(label.lower())
+        if not spelled:
+            return error(
+                "unsupported_dataset",
+                "Dataset aktif tidak memiliki kategori " + label + ".",
+                409,
+            )
+        values[cat_idx] = spelled
 
     # Truncate or extend to match dataset column count
     if columns:

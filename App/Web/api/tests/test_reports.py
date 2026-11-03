@@ -89,17 +89,11 @@ def test_admin_sync_dataset(app, authenticated):
 
     # Setup an active dataset
     with app.app_context():
-        dataset = Dataset(
-            id="test-dataset-uuid",
-            filename="murl_sample.csv",
-            columns=["url", "label", "source"],
-            row_count=10,
+        _seed_dataset(
+            "test-dataset-uuid",
+            ["url", "label", "source"],
+            ["benign", "phishing"],
         )
-        db.session.add(dataset)
-        state = db.session.get(DatasetState, 1) or DatasetState(id=1)
-        state.active_id = dataset.id
-        db.session.add(state)
-        db.session.commit()
 
     # Sync now
     sync_res = client.post(f"/api/v1/reports/{report_id}/sync-dataset", headers=headers)
@@ -109,14 +103,14 @@ def test_admin_sync_dataset(app, authenticated):
     assert data["dataset_synced"] is True
     assert data["dataset_id"] == "test-dataset-uuid"
 
-    # Verify row inserted into dataset_rows
+    # Verify row inserted into dataset_rows, using the spelling the dataset already uses.
     with app.app_context():
         row = db.session.scalar(
             db.select(DatasetRow).where(DatasetRow.dataset_id == "test-dataset-uuid", DatasetRow.row_number == 11)
         )
         assert row is not None
         assert row.values[0] == "bad-phish.test"
-        assert row.values[1] == "Phishing"
+        assert row.values[1] == "phishing"
 
 
 def test_admin_delete_report(authenticated):
@@ -135,19 +129,35 @@ def test_admin_delete_report(authenticated):
     assert get_res.status_code == 404
 
 
+def _seed_dataset(dataset_id, columns, labels, count=10):
+    """Create an active dataset with rows whose label column uses the given spellings."""
+    dataset = Dataset(
+        id=dataset_id,
+        filename="murl_sample.csv",
+        columns=columns,
+        row_count=count,
+    )
+    db.session.add(dataset)
+    for row_number in range(1, count + 1):
+        values = ["seed-%d.test" % row_number for _ in columns]
+        if labels:
+            values[1] = labels[(row_number - 1) % len(labels)]
+        db.session.add(
+            DatasetRow(dataset_id=dataset_id, row_number=row_number, values=values)
+        )
+    state = db.session.get(DatasetState, 1) or DatasetState(id=1)
+    state.active_id = dataset_id
+    db.session.add(state)
+    db.session.commit()
+
+
 def _activate_dataset(app):
     with app.app_context():
-        dataset = Dataset(
-            id="idempotent-dataset-uuid",
-            filename="murl_sample.csv",
-            columns=["url", "label", "source"],
-            row_count=10,
+        _seed_dataset(
+            "idempotent-dataset-uuid",
+            ["url", "label", "source"],
+            ["benign", "phishing", "malware"],
         )
-        db.session.add(dataset)
-        state = db.session.get(DatasetState, 1) or DatasetState(id=1)
-        state.active_id = dataset.id
-        db.session.add(state)
-        db.session.commit()
 
 
 def test_sync_dataset_is_idempotent(app, authenticated):
@@ -175,8 +185,9 @@ def test_sync_dataset_is_idempotent(app, authenticated):
         rows = db.session.scalars(
             db.select(DatasetRow).where(DatasetRow.dataset_id == "idempotent-dataset-uuid")
         ).all()
-        assert len(rows) == 1
-        assert rows[0].row_number == 11
+        # 10 seeded rows plus the single synced report; the retry added nothing.
+        assert len(rows) == 11
+        assert max(row.row_number for row in rows) == 11
 
 
 def test_cannot_delete_synced_report(app, authenticated):
@@ -381,7 +392,7 @@ def test_sync_requires_category_consistent_with_report_type(app, authenticated):
                 DatasetRow.row_number == ok.json["row_number"],
             )
         )
-        assert row.values[1] == "Malware"
+        assert row.values[1] == "malware"
 
 
 def test_sync_requires_url_column(app, authenticated):
@@ -411,3 +422,137 @@ def test_sync_requires_url_column(app, authenticated):
 
     with app.app_context():
         assert db.session.get(Dataset, "no-url-dataset-uuid").row_count == 3
+
+
+def test_sync_uses_dataset_label_spelling(app, authenticated):
+    client, headers = authenticated
+    with app.app_context():
+        _seed_dataset(
+            "spelling-dataset-uuid",
+            ["url", "label", "source"],
+            ["benign", "phishing", "Exploit"],
+        )
+
+    lower = client.post(
+        "/api/v1/reports/submit",
+        json={"url": "spell-lower.test", "type": "False Negative", "category": "Phishing"},
+    ).json["report"]["id"]
+    upper = client.post(
+        "/api/v1/reports/submit",
+        json={"url": "spell-upper.test", "type": "False Negative", "category": "Exploit"},
+    ).json["report"]["id"]
+
+    first = client.post(f"/api/v1/reports/{lower}/sync-dataset", headers=headers)
+    second = client.post(f"/api/v1/reports/{upper}/sync-dataset", headers=headers)
+    assert first.status_code == 200
+    assert second.status_code == 200
+
+    with app.app_context():
+        rows = db.session.scalars(
+            db.select(DatasetRow)
+            .where(DatasetRow.dataset_id == "spelling-dataset-uuid", DatasetRow.row_number > 10)
+            .order_by(DatasetRow.row_number)
+        ).all()
+        assert [row.values[1] for row in rows] == ["phishing", "Exploit"]
+
+
+def test_sync_writes_benign_for_safe_reports(app, authenticated):
+    client, headers = authenticated
+    _activate_dataset(app)
+
+    report_id = client.post(
+        "/api/v1/reports/submit",
+        json={"url": "safe-claim.test", "type": "False Positive", "category": "Benign"},
+    ).json["report"]["id"]
+
+    res = client.post(f"/api/v1/reports/{report_id}/sync-dataset", headers=headers)
+    assert res.status_code == 200
+
+    with app.app_context():
+        row = db.session.scalar(
+            db.select(DatasetRow).where(
+                DatasetRow.dataset_id == "idempotent-dataset-uuid",
+                DatasetRow.row_number == res.json["row_number"],
+            )
+        )
+        assert row.values[1] == "benign"
+
+
+def test_legitimate_alias_maps_to_benign(app, authenticated):
+    client, headers = authenticated
+    _activate_dataset(app)
+
+    submitted = client.post(
+        "/api/v1/reports/submit",
+        json={"url": "legit-claim.test", "type": "False Positive", "category": "legitimate"},
+    )
+    assert submitted.status_code == 201
+    assert submitted.json["report"]["reported_category"] == "Benign"
+
+    res = client.post(
+        f"/api/v1/reports/{submitted.json['report']['id']}/sync-dataset",
+        headers=headers,
+    )
+    assert res.status_code == 200
+
+    with app.app_context():
+        row = db.session.scalar(
+            db.select(DatasetRow).where(
+                DatasetRow.dataset_id == "idempotent-dataset-uuid",
+                DatasetRow.row_number == res.json["row_number"],
+            )
+        )
+        assert row.values[1] == "benign"
+
+
+def test_sync_rejects_category_missing_from_dataset(app, authenticated):
+    client, headers = authenticated
+    with app.app_context():
+        _seed_dataset(
+            "narrow-dataset-uuid",
+            ["url", "label"],
+            ["benign", "phishing"],
+        )
+
+    report_id = client.post(
+        "/api/v1/reports/submit",
+        json={"url": "no-malware-class.test", "type": "False Negative", "category": "Malware"},
+    ).json["report"]["id"]
+
+    res = client.post(f"/api/v1/reports/{report_id}/sync-dataset", headers=headers)
+    assert res.status_code == 409
+    assert res.json["error"]["code"] == "unsupported_dataset"
+
+
+def test_label_cache_is_scoped_per_dataset(app, authenticated):
+    client, headers = authenticated
+
+    with app.app_context():
+        _seed_dataset("first-dataset-uuid", ["url", "label"], ["benign", "phishing"])
+    first = client.post(
+        "/api/v1/reports/submit",
+        json={"url": "cache-first.test", "type": "False Negative", "category": "Phishing"},
+    ).json["report"]["id"]
+    assert client.post(f"/api/v1/reports/{first}/sync-dataset", headers=headers).status_code == 200
+
+    with app.app_context():
+        _seed_dataset("second-dataset-uuid", ["url", "label"], ["Benign", "Phishing"])
+    second = client.post(
+        "/api/v1/reports/submit",
+        json={"url": "cache-second.test", "type": "False Negative", "category": "Phishing"},
+    ).json["report"]["id"]
+    assert client.post(f"/api/v1/reports/{second}/sync-dataset", headers=headers).status_code == 200
+
+    with app.app_context():
+        first_row = db.session.scalar(
+            db.select(DatasetRow).where(
+                DatasetRow.dataset_id == "first-dataset-uuid", DatasetRow.row_number == 11
+            )
+        )
+        second_row = db.session.scalar(
+            db.select(DatasetRow).where(
+                DatasetRow.dataset_id == "second-dataset-uuid", DatasetRow.row_number == 11
+            )
+        )
+        assert first_row.values[1] == "phishing"
+        assert second_row.values[1] == "Phishing"
