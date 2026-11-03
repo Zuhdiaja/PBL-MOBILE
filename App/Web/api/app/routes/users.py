@@ -118,6 +118,8 @@ def users_update(kind, user_id):
             return error("password_required", "Atur password akun sebelum mengaktifkannya.", 409)
         if user.active != active:
             user.session_version += 1
+    elif user.active != active:
+        user.token_version += 1
     user.name, user.active = name.strip(), active
     db.session.commit()
     return jsonify(user=managed(user, kind), message="Akun diperbarui.")
@@ -144,5 +146,7 @@ def users_password(kind, user_id):
     user.password_hash = generate_password_hash(password, method="scrypt")
     if kind == "admin":
         user.session_version += 1
+    else:
+        user.token_version += 1
     db.session.commit()
     return jsonify(user=managed(user, kind), message="Password akun diperbarui.")

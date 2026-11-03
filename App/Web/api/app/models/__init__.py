@@ -30,8 +30,10 @@ class MobileUser(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     email = db.Column(db.String(254), unique=True, nullable=False)
     name = db.Column(db.String(120), nullable=False)
-    password_hash = db.Column(db.Text, nullable=False)
+    password_hash = db.Column(db.Text)
+    google_sub = db.Column(db.String(255), unique=True)
     active = db.Column(db.Boolean, nullable=False, default=True)
+    token_version = db.Column(db.Integer, nullable=False, default=1)
     created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=now)
 
 

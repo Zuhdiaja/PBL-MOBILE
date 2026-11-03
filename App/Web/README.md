@@ -40,9 +40,21 @@ Menu **Pengguna** memiliki tab **Admin dashboard** dan **Pengguna mobile**. Kedu
 
 Semua admin aktif memiliki izin pengelolaan yang sama. Akun sendiri tidak dapat dinonaktifkan atau diatur ulang passwordnya lewat menu ini; gunakan Profil untuk mengubah password dengan password lama. Perubahan status atau pengaturan ulang password admin membatalkan sesi akun tersebut. Perubahan admin diserialisasi dalam transaksi PostgreSQL untuk menjaga akses saat dua admin saling menonaktifkan.
 
-Akun mobile disimpan terpisah di PostgreSQL dan tidak mempunyai akses dashboard. **Autentikasi Flutter saat ini masih memakai data demo di memori dan belum terhubung ke akun ini.** Status serta password mobile yang dikelola di sini baru akan berlaku pada aplikasi setelah integrasi API autentikasi mobile dibuat. Tidak ada endpoint registrasi web publik. Login Google ditujukan untuk pengguna mobile, bukan admin web; integrasi autentikasi mobile termasuk Google belum diimplementasikan. Endpoint Google admin lama tidak tersedia.
+Akun mobile disimpan terpisah di PostgreSQL dan tidak mempunyai akses dashboard. **Aplikasi Flutter saat ini masih memakai data demo di memori; API autentikasi mobile sudah tersedia di `/api/v1/mobile/auth`, tetapi belum dipakai aplikasi.** Status serta password mobile yang dikelola di sini berlaku pada API tersebut; reset password atau perubahan status membatalkan token bearer yang aktif. Tidak ada endpoint registrasi web publik. Login Google hanya untuk pengguna mobile: backend memverifikasi ID token Google dan membuat akun mobile otomatis pada login pertama. Endpoint Google admin tetap tidak tersedia.
 
 Login desktop memakai dua kolom (form dan penjelasan akses); layar di bawah 1024px memakai satu kolom.
+
+## Autentikasi mobile
+
+API mobile berada di `/api/v1/mobile/auth` dan memakai bearer token, bukan cookie dashboard. Aktifkan login Google dengan mengisi `GOOGLE_MOBILE_CLIENT_IDS` (client ID OAuth Web, Android, dan iOS, dipisah koma); kosong berarti login Google dimatikan. `MOBILE_TOKEN_TTL` mengatur masa berlaku token dalam detik, default 30 hari.
+
+```sh
+curl -X POST http://localhost:3000/api/v1/mobile/auth/register \
+  -H 'Content-Type: application/json' \
+  -d '{"name":"Nadia","email":"nadia@example.com","password":"password-nadia-2026"}'
+```
+
+Respons berisi `user`, `token`, `token_type`, dan `expires_in`; token hanya dikembalikan sekali. Kirim token sebagai `Authorization: Bearer <token>` ke `/auth/me` atau `/auth/logout`. Endpoint ini hanya menyentuh `mobile_users`, sehingga token mobile tidak dapat membuka `/users`, `/dataset`, atau `/profile` admin.
 
 ## Dataset
 
