@@ -43,6 +43,11 @@ mengeluarkan ID token. Tanpa itu tombol Google tetap nonaktif dan keterangan
 | Emulator Android | `flutter run --dart-define=GOOGLE_WEB_CLIENT_ID=<web-client-id>` |
 | HP fisik Android | `flutter run --dart-define=API_BASE_URL=http://<ip-laptop>:3000 --dart-define=GOOGLE_WEB_CLIENT_ID=<web-client-id>` |
 
+Ganti `<web-client-id>` dan `<ip-laptop>` dengan nilai sebenarnya **tanpa tanda
+kurung sudut**, misalnya
+`--dart-define=GOOGLE_WEB_CLIENT_ID=1234567890-abc.apps.googleusercontent.com`.
+Menyalin placeholder apa adanya akan membuat shell menolak perintahnya.
+
 Catatan per platform:
 
 - **Chrome**: alamat harus persis `http://localhost:8080` dan origin itu
