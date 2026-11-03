@@ -24,16 +24,23 @@ class RegisterRequest {
 }
 
 /// Owns the session: signing in, registering, and signing out.
+///
+/// Implementations throw [AuthFailure] for rejections the user can act on,
+/// such as wrong credentials or a duplicate email.
 abstract class AuthRepository {
   /// Account of the current session, or null when signed out.
   FutureOr<UserAccount?> currentAccount();
 
   /// Validates credentials and opens a session on success.
-  UserAccount? signIn(SignInRequest request);
+  Future<UserAccount?> signIn(SignInRequest request);
 
   /// Creates an account and opens a session for it.
-  UserAccount register(RegisterRequest request);
+  Future<UserAccount> register(RegisterRequest request);
+
+  /// Opens a session from Google tokens, creating the account on first use.
+  /// Mobile supplies [idToken]; the web flow supplies [accessToken].
+  Future<UserAccount> signInWithGoogle({String? idToken, String? accessToken});
 
   /// Clears the current session.
-  void signOut();
+  Future<void> signOut();
 }

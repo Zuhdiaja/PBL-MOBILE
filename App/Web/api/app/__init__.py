@@ -33,6 +33,13 @@ def create_app(config=None):
         PRIVATE_STORAGE=os.environ.get("PRIVATE_STORAGE", str(Path(app.instance_path) / "private")),
         RATELIMIT_STORAGE_URI=redis_url,
         IMPORT_TIMEOUT=3600,
+        GOOGLE_MOBILE_CLIENT_IDS=[client.strip() for client in
+                                  os.environ.get("GOOGLE_MOBILE_CLIENT_IDS", "").split(",")
+                                  if client.strip()],
+        MOBILE_TOKEN_TTL=int(os.environ.get("MOBILE_TOKEN_TTL", str(30 * 24 * 3600))),
+        MOBILE_CORS_ORIGINS=[origin.strip() for origin in
+                             os.environ.get("MOBILE_CORS_ORIGINS", "").split(",")
+                             if origin.strip()],
     )
     if config:
         app.config.update(config)
@@ -45,7 +52,9 @@ def create_app(config=None):
     app.extensions["queue"] = Queue("imports", connection=app.config["SESSION_REDIS"],
                                      default_timeout=app.config["IMPORT_TIMEOUT"])
     from app.routes import api, authenticate
+    from app.routes.mobile_auth import mobile
     app.register_blueprint(api, url_prefix="/api/v1")
+    app.register_blueprint(mobile, url_prefix="/api/v1/mobile")
     app.before_request(authenticate)
 
     @app.errorhandler(HTTPException)

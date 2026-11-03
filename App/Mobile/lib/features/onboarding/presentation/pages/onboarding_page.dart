@@ -13,440 +13,213 @@ class OnboardingPage extends StatefulWidget {
 
 class _OnboardingPageState extends State<OnboardingPage> {
   static const _slides = [
-    _OnboardingSlide(
-      eyebrow: 'PERIKSA DULU',
-      title: 'Kenali tautan sebelum dibuka.',
-      description: 'Tempel URL untuk memeriksa indikasi risiko sebelum Anda mengunjunginya.',
-      icon: Icons.link_rounded,
-      cardTitle: 'Pemeriksaan tautan',
-      cardSubtitle: 'Analisis dimulai',
+    (
+      title: 'Kenali tautan\nsebelum dibuka.',
+      description: 'Mulai dari satu tautan. Tempel URL dan tinjau informasi pemeriksaannya di LinkGuard.',
+      image: 'inspect',
     ),
-    _OnboardingSlide(
-      eyebrow: 'LEBIH WASPADA',
-      title: 'Deteksi ancaman lebih awal.',
-      description: 'Kenali tautan mencurigakan seperti phishing, malware, dan ancaman lainnya.',
-      icon: Icons.verified_user_outlined,
-      cardTitle: 'Perlindungan aktif',
-      cardSubtitle: 'Tautan diperiksa',
+    (
+      title: 'Jangan buru-buru.\nKenali risikonya.',
+      description: 'Waspadai phishing dan tautan mencurigakan. Luangkan waktu untuk memeriksa sebelum melanjutkan.',
+      image: 'shield',
     ),
-    _OnboardingSlide(
-      eyebrow: 'SEMUA TERCATAT',
-      title: 'Pantau hasil pindai Anda.',
-      description: 'Lihat kembali riwayat pemeriksaan dan ringkasan keamanan kapan saja.',
-      icon: Icons.manage_search_rounded,
-      cardTitle: 'Riwayat tersimpan',
-      cardSubtitle: 'Aktivitas mudah dipantau',
+    (
+      title: 'Pemeriksaan lalu,\nmudah ditelusuri.',
+      description: 'Temukan kembali hasil pemeriksaan melalui riwayat. Mulai jelajahi LinkGuard dari sini.',
+      image: 'history',
     ),
   ];
 
-  int _currentIndex = 0;
+  final _pages = PageController();
+  int _index = 0;
+  bool _completed = false;
 
-  void _next() {
-    if (_currentIndex == _slides.length - 1) {
-      widget.onComplete();
-      return;
-    }
-    setState(() => _currentIndex++);
+  @override
+  void dispose() {
+    _pages.dispose();
+    super.dispose();
   }
 
-  void _back() {
-    if (_currentIndex > 0) setState(() => _currentIndex--);
+  void _complete() {
+    if (_completed) return;
+    _completed = true;
+    widget.onComplete();
+  }
+
+  void _goTo(int index) {
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _pages.jumpToPage(index);
+    } else {
+      _pages.animateToPage(
+        index,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOutCubic,
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final slide = _slides[_currentIndex];
-    return Scaffold(
-      backgroundColor: context.colors.scanner,
-      body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) => SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(22, 12, 22, 20),
+    final colors = context.colors;
+    return PopScope<void>(
+      canPop: _index == 0,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop && _index > 0) _goTo(_index - 1);
+      },
+      child: Scaffold(
+        backgroundColor: colors.paper,
+        body: SafeArea(
+          child: Center(
             child: ConstrainedBox(
-              constraints: BoxConstraints(
-                minHeight: constraints.maxHeight - 32,
-              ),
-              child: IntrinsicHeight(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _header(context, constraints.maxWidth),
-                    const SizedBox(height: 18),
-                    _OnboardingArtwork(
-                      slide: slide,
-                      index: _currentIndex,
-                      height: (constraints.maxHeight * .39)
-                          .clamp(230, 330)
-                          .toDouble(),
+              constraints: const BoxConstraints(maxWidth: 600),
+              child: Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 4,
                     ),
-                    const SizedBox(height: 24),
-                    Text(
-                      slide.eyebrow,
-                      style: TextStyle(
-                        color: AppColors.scannerAccent,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 1.4,
-                      ),
-                    ),
-                    const SizedBox(height: 9),
-                    AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 220),
-                      child: Text(
-                        slide.title,
-                        key: ValueKey(slide.title),
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 30,
-                          fontWeight: FontWeight.w700,
-                          height: 1.16,
-                          letterSpacing: -1,
+                    child: Row(
+                      children: [
+                        SizedBox(
+                          width:
+                              MediaQuery.sizeOf(context).width < 220 &&
+                                  _index == 0
+                              ? 0
+                              : 48,
+                          height: 48,
+                          child: _index == 0
+                              ? Icon(
+                                  Icons.verified_user_outlined,
+                                  color: colors.blue,
+                                )
+                              : IconButton(
+                                  tooltip: 'Kembali',
+                                  onPressed: () => _goTo(_index - 1),
+                                  icon: const Icon(Icons.arrow_back_rounded),
+                                ),
                         ),
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 220),
-                      child: Text(
-                        slide.description,
-                        key: ValueKey(slide.description),
-                        style: TextStyle(
-                          color: AppColors.scannerCopy,
-                          fontSize: 14,
-                          height: 1.6,
+                        Expanded(
+                          child: MediaQuery.sizeOf(context).width < 260
+                              ? const SizedBox.shrink()
+                              : Text(
+                                  'LinkGuard',
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .titleMedium,
+                                ),
                         ),
-                      ),
+                        TextButton(
+                          onPressed: _complete,
+                          style: TextButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 6),
+                          ),
+                          child: const Text('Lewati'),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 20),
-                    _pageIndicator(context, constraints.maxWidth),
-                    const Spacer(),
-                    const SizedBox(height: 16),
-                    _navigationButtons(context, constraints.maxWidth),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _header(BuildContext context, double width) => Row(
-    children: [
-      if (width >= 350) ...[
-        Container(
-          width: 38,
-          height: 38,
-          decoration: BoxDecoration(
-            color: AppColors.blue,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Icon(
-            Icons.verified_user_outlined,
-            color: Colors.white,
-            size: 21,
-          ),
-        ),
-        const SizedBox(width: 10),
-        Text(
-          'LinkGuard',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 17,
-            fontWeight: FontWeight.w700,
-            letterSpacing: -.4,
-          ),
-        ),
-      ],
-      const Spacer(),
-      TextButton(
-        onPressed: widget.onComplete,
-        style: TextButton.styleFrom(
-          minimumSize: const Size(48, 40),
-          padding: const EdgeInsets.symmetric(horizontal: 6),
-          foregroundColor: AppColors.scannerAccent,
-        ),
-        child: const Text('Lewati'),
-      ),
-    ],
-  );
-
-  Widget _pageIndicator(BuildContext context, double width) => Row(
-    children: [
-      for (var index = 0; index < _slides.length; index++)
-        AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          margin: const EdgeInsets.only(right: 6),
-          width: index == _currentIndex ? 24 : 7,
-          height: 7,
-          decoration: BoxDecoration(
-            color: index == _currentIndex
-                ? AppColors.scannerAccent
-                : Colors.white24,
-            borderRadius: BorderRadius.circular(10),
-          ),
-        ),
-      if (width >= 240) ...[
-        const Spacer(),
-        Text(
-          '${(_currentIndex + 1).toString().padLeft(2, '0')} / ${_slides.length.toString().padLeft(2, '0')}',
-          style: TextStyle(
-            color: AppColors.scannerCopy,
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-            letterSpacing: .6,
-          ),
-        ),
-      ],
-    ],
-  );
-
-  Widget _navigationButtons(BuildContext context, double width) {
-    final compact = width < 340;
-    final iconOnly = width < 220;
-    return Row(
-      children: [
-        if (compact)
-          IconButton.outlined(
-            onPressed: _currentIndex == 0 ? null : _back,
-            tooltip: 'Kembali',
-            constraints: const BoxConstraints.tightFor(width: 48, height: 48),
-            style: IconButton.styleFrom(
-              foregroundColor: Colors.white,
-              disabledForegroundColor: Colors.white54,
-              side: const BorderSide(color: Colors.white30),
-            ),
-            icon: const Icon(Icons.arrow_back_rounded),
-          )
-        else
-          OutlinedButton.icon(
-            onPressed: _currentIndex == 0 ? null : _back,
-            icon: const Icon(Icons.arrow_back_rounded, size: 18),
-            label: const Text('Kembali'),
-            style: OutlinedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              side: BorderSide(color: context.colors.line),
-              foregroundColor: Colors.white,
-              disabledForegroundColor: Colors.white54,
-              backgroundColor: Colors.transparent,
-            ),
-          ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: FilledButton(
-            onPressed: _next,
-            style: FilledButton.styleFrom(
-              backgroundColor: AppColors.blue,
-              foregroundColor: Colors.white,
-              padding: iconOnly
-                  ? EdgeInsets.zero
-                  : const EdgeInsets.symmetric(horizontal: 10, vertical: 14),
-              minimumSize: iconOnly ? const Size(48, 48) : null,
-            ),
-            child: iconOnly
-                ? const Icon(Icons.arrow_forward_rounded, size: 18)
-                : Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        _currentIndex == _slides.length - 1
-                            ? 'Mulai'
-                            : compact
-                            ? 'Next'
-                            : 'Berikutnya',
-                      ),
-                      const SizedBox(width: 8),
-                      const Icon(Icons.arrow_forward_rounded, size: 18),
-                    ],
                   ),
+                  Expanded(
+                    child: PageView.builder(
+                      key: const ValueKey('onboarding-pages'),
+                      controller: _pages,
+                      itemCount: _slides.length,
+                      onPageChanged: (index) => setState(() => _index = index),
+                      itemBuilder: (context, index) {
+                        final slide = _slides[index];
+                        return LayoutBuilder(
+                          builder: (context, size) => SingleChildScrollView(
+                            key: PageStorageKey(index),
+                            padding: const EdgeInsets.fromLTRB(24, 8, 24, 20),
+                            child: Column(
+                              children: [
+                                SizedBox(
+                                  height: (size.maxHeight * .64).clamp(
+                                    240.0,
+                                    440.0,
+                                  ),
+                                  width: double.infinity,
+                                  child: ExcludeSemantics(
+                                    child: Image.asset(
+                                      'assets/images/onboarding/${slide.image}.webp',
+                                      key: ValueKey(
+                                        'onboarding-artwork-$index',
+                                      ),
+                                      fit: BoxFit.contain,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 24),
+                                Semantics(
+                                  header: true,
+                                  child: Text(
+                                    slide.title,
+                                    textAlign: TextAlign.center,
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .headlineLarge,
+                                  ),
+                                ),
+                                const SizedBox(height: 14),
+                                Text(
+                                  slide.description,
+                                  textAlign: TextAlign.center,
+                                  style: Theme.of(context).textTheme.bodyMedium
+                                      ?.copyWith(color: colors.muted),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                  Semantics(
+                    liveRegion: true,
+                    label: 'Halaman ${_index + 1} dari ${_slides.length}',
+                    child: ExcludeSemantics(
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: List.generate(
+                          _slides.length,
+                          (index) => Container(
+                            width: index == _index ? 24 : 8,
+                            height: 8,
+                            margin: const EdgeInsets.symmetric(horizontal: 4),
+                            decoration: BoxDecoration(
+                              color: index == _index
+                                  ? colors.blue
+                                  : colors.line,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(24, 24, 24, 20),
+                    child: SizedBox(
+                      width: double.infinity,
+                      child: FilledButton(
+                        onPressed: () => _index == _slides.length - 1
+                            ? _complete()
+                            : _goTo(_index + 1),
+                        child: Text(
+                          _index == _slides.length - 1
+                              ? 'Mulai sekarang'
+                              : 'Berikutnya',
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
         ),
-      ],
+      ),
     );
   }
-}
-
-class _OnboardingSlide {
-  const _OnboardingSlide({
-    required this.eyebrow,
-    required this.title,
-    required this.description,
-    required this.icon,
-    required this.cardTitle,
-    required this.cardSubtitle,
-  });
-
-  final String eyebrow;
-  final String title;
-  final String description;
-  final IconData icon;
-  final String cardTitle;
-  final String cardSubtitle;
-}
-
-class _OnboardingArtwork extends StatelessWidget {
-  const _OnboardingArtwork({
-    required this.slide,
-    required this.index,
-    required this.height,
-  });
-
-  final _OnboardingSlide slide;
-  final int index;
-  final double height;
-
-  @override
-  Widget build(BuildContext context) => Container(
-    key: const ValueKey('onboarding-artwork'),
-    height: height,
-    width: double.infinity,
-    clipBehavior: Clip.antiAlias,
-    decoration: BoxDecoration(
-      color: context.colors.artworkSurface,
-      borderRadius: BorderRadius.circular(28),
-      border: Border.all(color: context.colors.artworkLine),
-      boxShadow: [
-        BoxShadow(
-          color: Colors.black.withValues(
-            alpha: context.colors.dark ? .35 : .08,
-          ),
-          blurRadius: 24,
-          offset: const Offset(0, 10),
-        ),
-      ],
-    ),
-    child: Stack(
-      alignment: Alignment.center,
-      children: [
-        Positioned(top: -70, right: -55, child: _outlineCircle(context, 230)),
-        Positioned(
-          bottom: -140,
-          left: -70,
-          child: _outlineCircle(context, 270),
-        ),
-        Positioned(
-          top: 24,
-          left: 24,
-          child: Text(
-            'LINK SAFETY',
-            style: TextStyle(
-              color: context.colors.muted,
-              fontSize: 10,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 1.8,
-            ),
-          ),
-        ),
-        Container(
-          width: 150,
-          height: 150,
-          decoration: BoxDecoration(
-            color: context.colors.artworkTint,
-            shape: BoxShape.circle,
-          ),
-          child: Icon(
-            slide.icon,
-            key: const ValueKey('onboarding-feature-icon'),
-            size: 72,
-            color: context.colors.scanner,
-          ),
-        ),
-        Positioned(
-          bottom: 26,
-          left: 20,
-          right: 20,
-          child: LayoutBuilder(
-            builder: (context, constraints) => constraints.maxWidth < 180
-                ? const SizedBox.shrink()
-                : _statusCard(context),
-          ),
-        ),
-        Positioned(
-          top: 24,
-          right: 24,
-          child: Text(
-            '0${index + 1}',
-            style: TextStyle(
-              color: context.colors.muted,
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ),
-      ],
-    ),
-  );
-
-  Widget _outlineCircle(BuildContext context, double size) => Container(
-    width: size,
-    height: size,
-    decoration: BoxDecoration(
-      shape: BoxShape.circle,
-      border: Border.all(
-        color: AppColors.blue.withValues(alpha: .10),
-        width: 1,
-      ),
-    ),
-  );
-
-  Widget _statusCard(BuildContext context) => Container(
-    key: const ValueKey('onboarding-status-card'),
-    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-    decoration: BoxDecoration(
-      color: context.colors.artworkSurface,
-      borderRadius: BorderRadius.circular(16),
-      border: Border.all(color: context.colors.artworkLine),
-      boxShadow: [
-        BoxShadow(
-          color: context.colors.scanner.withValues(alpha: .08),
-          blurRadius: 12,
-          offset: const Offset(0, 4),
-        ),
-      ],
-    ),
-    child: Row(
-      children: [
-        Container(
-          width: 34,
-          height: 34,
-          decoration: BoxDecoration(
-            color: context.colors.paleBlue,
-            borderRadius: BorderRadius.circular(11),
-          ),
-          child: Icon(
-            Icons.verified_outlined,
-            size: 19,
-            color: context.colors.blue,
-          ),
-        ),
-        const SizedBox(width: 11),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                slide.cardTitle,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: context.colors.ink,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                slide.cardSubtitle,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(color: context.colors.muted, fontSize: 10),
-              ),
-            ],
-          ),
-        ),
-        Icon(Icons.arrow_outward_rounded, size: 17, color: context.colors.ink),
-      ],
-    ),
-  );
 }

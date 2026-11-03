@@ -1,14 +1,14 @@
 """Prediction reports submitted by mobile users with dataset sync.
 
 Revision ID: 8c41d7e21190
-Revises: 1a47d8ec2301
+Revises: b7c1e4a90f23
 """
 from alembic import op
 import sqlalchemy as sa
 
 
 revision = "8c41d7e21190"
-down_revision = "1a47d8ec2301"
+down_revision = "b7c1e4a90f23"
 branch_labels = None
 depends_on = None
 

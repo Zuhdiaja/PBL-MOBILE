@@ -8,6 +8,9 @@ x-api: &api
     PRIVATE_STORAGE: /private
     MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-512}
     COOKIE_SECURE: ${COOKIE_SECURE:-false}
+    GOOGLE_MOBILE_CLIENT_IDS: ${GOOGLE_MOBILE_CLIENT_IDS:-}
+    MOBILE_TOKEN_TTL: ${MOBILE_TOKEN_TTL:-2592000}
+    MOBILE_CORS_ORIGINS: ${MOBILE_CORS_ORIGINS:-}
   volumes:
     - private_files:/private
 services:

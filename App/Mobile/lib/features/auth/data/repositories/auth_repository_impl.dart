@@ -1,28 +1,41 @@
 import '../../domain/entities/user_account.dart';
 import '../../domain/repositories/auth_repository.dart';
-import '../datasources/demo_auth_data_source.dart';
+import '../datasources/auth_data_source.dart';
 import '../models/user_account_model.dart';
 
 class AuthRepositoryImpl implements AuthRepository {
   const AuthRepositoryImpl(this._dataSource);
 
-  final DemoAuthDataSource _dataSource;
+  final AuthDataSource _dataSource;
 
   @override
-  UserAccount? currentAccount() => _dataSource.readSession()?.toEntity();
+  Future<UserAccount?> currentAccount() async =>
+      (await _dataSource.currentAccount())?.toEntity();
 
   @override
-  UserAccount? signIn(SignInRequest request) =>
-      _dataSource.signIn(request.email, request.password)?.toEntity();
+  Future<UserAccount?> signIn(SignInRequest request) async =>
+      (await _dataSource.signIn(request.email, request.password))?.toEntity();
 
   @override
-  UserAccount register(RegisterRequest request) => _dataSource
-      .register(request.name, request.email, request.password)
-      .toEntity();
+  Future<UserAccount> register(RegisterRequest request) async =>
+      (await _dataSource.register(
+        request.name,
+        request.email,
+        request.password,
+      )).toEntity();
 
   @override
-  void signOut() => _dataSource.clearSession();
+  Future<UserAccount> signInWithGoogle({
+    String? idToken,
+    String? accessToken,
+  }) async => (await _dataSource.signInWithGoogle(
+    idToken: idToken,
+    accessToken: accessToken,
+  )).toEntity();
 
-  /// Model used by the login form to prefill the demo credentials.
-  UserAccountModel get demoAccount => _dataSource.demoAccount;
+  @override
+  Future<void> signOut() => _dataSource.signOut();
+
+  /// Model used by the login form to prefill preview credentials.
+  UserAccountModel? get demoAccount => _dataSource.demoAccount;
 }

@@ -54,7 +54,7 @@ class _MainShellState extends State<MainShell> {
   }
 
   Future<void> _openScan({bool paste = false}) async {
-    _selectTab(1);
+    _selectTab(2);
     if (paste) {
       final message = await _inputScan.scanUrl.pasteIntoFirstField();
       if (mounted && message != null) showScanMessage(context, message);
@@ -150,10 +150,11 @@ class _MainShellState extends State<MainShell> {
             [
                   HomeScreen(
                     controller: _inputScan.home,
-                    name: (widget.auth.auth.account ?? widget.auth.demoAccount)
-                        .firstName,
+                    name:
+                        (widget.auth.auth.account ?? widget.auth.displayAccount)
+                            .firstName,
                     initials:
-                        (widget.auth.auth.account ?? widget.auth.demoAccount)
+                        (widget.auth.auth.account ?? widget.auth.displayAccount)
                             .initials,
                     onNotifications: _openNotifications,
                     onRecentScan: (scan) =>
@@ -162,9 +163,10 @@ class _MainShellState extends State<MainShell> {
                     onPaste: () => _openScan(paste: true),
                     onQr: _openQr,
                     onShare: _openShare,
-                    onHistory: () => _selectTab(2),
+                    onHistory: () => _selectTab(3),
                     onProfile: () => _selectTab(4),
                   ),
+                  StatsScreen(controller: _history.stats),
                   ScanUrlScreen(
                     controller: _inputScan.scanUrl,
                     onQr: _openQr,
@@ -176,11 +178,10 @@ class _MainShellState extends State<MainShell> {
                     onOpenDetail: (entry) =>
                         _openDetail(_scanResults.findResult(entry.id)),
                   ),
-                  StatsScreen(controller: _history.stats),
                   ProfilePage(
                     controller: widget.auth.profile,
                     account:
-                        widget.auth.auth.account ?? widget.auth.demoAccount,
+                        widget.auth.auth.account ?? widget.auth.displayAccount,
                     onSettings: _openSettings,
                     onSignOut: _signOut,
                     onReportStatus: _openReportStatus,

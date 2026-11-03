@@ -21,11 +21,14 @@ Future<void> main() async {
 }
 
 class MyApp extends StatefulWidget {
-  const MyApp({super.key, this.theme});
+  const MyApp({super.key, this.theme, this.auth});
 
   /// App-wide theme choice. When omitted the app follows the device theme
   /// without persistence, which keeps widget tests plugin-free.
   final ThemeController? theme;
+
+  /// Auth wiring override for tests. The app builds the real one when omitted.
+  final AuthDependencies? auth;
 
   @override
   State<MyApp> createState() => _MyAppState();
@@ -45,7 +48,7 @@ class _MyAppState extends State<MyApp> {
     controller: _theme,
     child: ListenableBuilder(
       listenable: _theme,
-      child: const _LaunchGate(),
+      child: _LaunchGate(auth: widget.auth),
       builder: (context, child) => MaterialApp(
         title: 'LinkGuard',
         debugShowCheckedModeBanner: false,
@@ -75,17 +78,19 @@ class _MyAppState extends State<MyApp> {
 }
 
 class _LaunchGate extends StatefulWidget {
-  const _LaunchGate();
+  const _LaunchGate({this.auth});
+  final AuthDependencies? auth;
   @override
   State<_LaunchGate> createState() => _LaunchGateState();
 }
 
 class _LaunchGateState extends State<_LaunchGate> {
-  final _auth = AuthDependencies();
+  late final bool _ownsAuth = widget.auth == null;
+  late final AuthDependencies _auth = widget.auth ?? AuthDependencies();
 
   @override
   void dispose() {
-    _auth.dispose();
+    if (_ownsAuth) _auth.dispose();
     super.dispose();
   }
 
