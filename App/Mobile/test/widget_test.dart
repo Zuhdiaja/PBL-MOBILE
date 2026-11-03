@@ -10,8 +10,10 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:pbl_semester5/main.dart';
 
+import 'test_auth.dart';
+
 Future<void> openLogin(WidgetTester tester) async {
-  await tester.pumpWidget(const MyApp());
+  await tester.pumpWidget(MyApp(auth: demoAuth()));
   await tester.pumpAndSettle();
   await tester.tap(find.text('Lewati'));
   await tester.pumpAndSettle();
@@ -70,7 +72,7 @@ void main() {
       find.byType(TextField).at(1),
       'nadia-new@example.com',
     );
-    await tester.enterText(find.byType(TextField).at(2), '123456');
+    await tester.enterText(find.byType(TextField).at(2), 'password-nadia-2026');
     await tester.ensureVisible(find.widgetWithText(FilledButton, 'Daftar'));
     await tester.tap(find.widgetWithText(FilledButton, 'Daftar'));
     await tester.pumpAndSettle();

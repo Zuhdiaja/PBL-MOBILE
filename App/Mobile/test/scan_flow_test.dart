@@ -2,10 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:pbl_semester5/app/auth_dependencies.dart';
 import 'package:pbl_semester5/theme/app_theme.dart';
 import 'package:pbl_semester5/widgets/scan_components.dart';
 import 'package:pbl_semester5/screens/main_shell.dart';
+
+import 'test_auth.dart';
 
 Future<void> openApp(
   WidgetTester tester, {
@@ -30,7 +31,7 @@ class MyAppTestShell extends StatefulWidget {
 }
 
 class _MyAppTestShellState extends State<MyAppTestShell> {
-  final _auth = AuthDependencies();
+  final _auth = demoAuth();
 
   @override
   void dispose() {

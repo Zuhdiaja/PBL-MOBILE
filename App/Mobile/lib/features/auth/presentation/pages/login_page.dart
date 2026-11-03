@@ -10,15 +10,15 @@ class LoginPage extends StatefulWidget {
   const LoginPage({
     super.key,
     required this.controller,
-    required this.demoAccount,
     required this.registerPageBuilder,
     required this.onSignedIn,
+    this.demoAccount,
   });
 
   final AuthController controller;
 
-  /// Prefills the form so the demo credentials are one tap away.
-  final UserAccount demoAccount;
+  /// Prefills the form for previews. The real app passes null.
+  final UserAccount? demoAccount;
 
   /// Built by the app layer so this feature does not own navigation.
   final WidgetBuilder registerPageBuilder;
@@ -32,10 +32,9 @@ class LoginPage extends StatefulWidget {
 
 class _LoginPageState extends State<LoginPage> {
   late final TextEditingController _emailController = TextEditingController(
-    text: widget.demoAccount.email,
+    text: widget.demoAccount?.email ?? '',
   );
-  late final TextEditingController _passwordController =
-      TextEditingController();
+  final _passwordController = TextEditingController();
 
   @override
   void dispose() {
@@ -44,14 +43,14 @@ class _LoginPageState extends State<LoginPage> {
     super.dispose();
   }
 
-  void _submit() {
-    final signedIn = widget.controller.submitSignIn(
+  Future<void> _submit() async {
+    final signedIn = await widget.controller.submitSignIn(
       SignInRequest(
         email: _emailController.text,
         password: _passwordController.text,
       ),
     );
-    if (signedIn) widget.onSignedIn();
+    if (signedIn && mounted) widget.onSignedIn();
   }
 
   @override
@@ -71,13 +70,14 @@ class _LoginPageState extends State<LoginPage> {
           ),
           AuthField(
             label: 'Kata sandi',
-            hint: 'Minimal 6 karakter',
+            hint: 'Kata sandi Anda',
             obscure: true,
             controller: _passwordController,
           ),
         ],
         actionLabel: 'Masuk',
         errorMessage: controller.errorMessage,
+        isSubmitting: controller.isSubmitting,
         footerPrompt: 'Belum punya akun?',
         footerAction: 'Daftar sekarang',
         onFooterTap: () => Navigator.of(context)

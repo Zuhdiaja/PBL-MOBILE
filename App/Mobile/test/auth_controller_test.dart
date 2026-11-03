@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:pbl_semester5/features/auth/domain/entities/auth_failure.dart';
 import 'package:pbl_semester5/features/auth/domain/entities/user_account.dart';
 import 'package:pbl_semester5/features/auth/domain/repositories/account_repository.dart';
 import 'package:pbl_semester5/features/auth/domain/repositories/auth_repository.dart';
@@ -20,10 +21,10 @@ class _FakeAuthRepository implements AuthRepository {
   var signOutCalls = 0;
 
   @override
-  UserAccount? currentAccount() => _session;
+  Future<UserAccount?> currentAccount() async => _session;
 
   @override
-  UserAccount register(RegisterRequest request) {
+  Future<UserAccount> register(RegisterRequest request) async {
     _session = UserAccount(
       id: 'registered-1',
       name: request.name.isEmpty ? 'Nadia Putri' : request.name,
@@ -33,7 +34,7 @@ class _FakeAuthRepository implements AuthRepository {
   }
 
   @override
-  UserAccount? signIn(SignInRequest request) {
+  Future<UserAccount?> signIn(SignInRequest request) async {
     if (!accepts) return null;
     return _session = const UserAccount(
       id: 'demo-1',
@@ -43,10 +44,16 @@ class _FakeAuthRepository implements AuthRepository {
   }
 
   @override
-  void signOut() {
+  Future<void> signOut() async {
     signOutCalls++;
     _session = null;
   }
+}
+
+class _FailingAuthRepository extends _FakeAuthRepository {
+  @override
+  Future<UserAccount?> signIn(SignInRequest request) async =>
+      throw const AuthFailure('Tidak dapat terhubung ke server.');
 }
 
 class _FakeAccountRepository implements AccountRepository {
@@ -80,13 +87,14 @@ void main() {
       expect(controller.isSignedIn, isFalse);
       expect(controller.account, isNull);
       expect(controller.errorMessage, isNull);
+      expect(controller.isSubmitting, isFalse);
     });
 
-    test('a successful sign in exposes the account', () {
+    test('a successful sign in exposes the account', () async {
       final controller = build(_FakeAuthRepository());
       addTearDown(controller.dispose);
 
-      final signedIn = controller.submitSignIn(
+      final signedIn = await controller.submitSignIn(
         const SignInRequest(email: 'nadia@gmail.com', password: '123456'),
       );
 
@@ -94,13 +102,14 @@ void main() {
       expect(controller.isSignedIn, isTrue);
       expect(controller.account?.name, 'Nadia Putri');
       expect(controller.errorMessage, isNull);
+      expect(controller.isSubmitting, isFalse);
     });
 
-    test('a rejected sign in keeps the error message', () {
+    test('a rejected sign in keeps the error message', () async {
       final controller = build(_FakeAuthRepository(accepts: false));
       addTearDown(controller.dispose);
 
-      final signedIn = controller.submitSignIn(
+      final signedIn = await controller.submitSignIn(
         const SignInRequest(email: 'salah@email.com', password: 'salah'),
       );
 
@@ -109,29 +118,41 @@ void main() {
       expect(controller.errorMessage, 'Email atau password salah.');
     });
 
-    test('notifies listeners when the outcome changes', () {
+    test('a transport failure is shown instead of thrown', () async {
+      final controller = build(_FailingAuthRepository());
+      addTearDown(controller.dispose);
+
+      final signedIn = await controller.submitSignIn(
+        const SignInRequest(email: 'nadia@gmail.com', password: '123456'),
+      );
+
+      expect(signedIn, isFalse);
+      expect(controller.errorMessage, contains('Tidak dapat terhubung'));
+    });
+
+    test('notifies listeners while submitting and when done', () async {
       final controller = build(_FakeAuthRepository());
       addTearDown(controller.dispose);
 
       var notified = 0;
       controller.addListener(() => notified++);
 
-      controller.submitSignIn(
+      await controller.submitSignIn(
         const SignInRequest(email: 'nadia@gmail.com', password: '123456'),
       );
 
-      expect(notified, 1);
+      expect(notified, 2);
     });
 
-    test('registering opens a session', () {
+    test('registering opens a session', () async {
       final controller = build(_FakeAuthRepository());
       addTearDown(controller.dispose);
 
-      final registered = controller.submitRegister(
+      final registered = await controller.submitRegister(
         const RegisterRequest(
           name: 'Budi Santoso',
           email: 'budi@email.com',
-          password: 'rahasia',
+          password: 'password-budi-2026',
         ),
       );
 
@@ -139,26 +160,26 @@ void main() {
       expect(controller.account?.name, 'Budi Santoso');
     });
 
-    test('signing out clears the account and the error', () {
+    test('signing out clears the account and the error', () async {
       final repository = _FakeAuthRepository(accepts: false);
       final controller = build(repository);
       addTearDown(controller.dispose);
 
-      controller.submitSignIn(
+      await controller.submitSignIn(
         const SignInRequest(email: 'salah@email.com', password: 'salah'),
       );
-      controller.submitSignOut();
+      await controller.submitSignOut();
 
       expect(controller.isSignedIn, isFalse);
       expect(controller.errorMessage, isNull);
       expect(repository.signOutCalls, 1);
     });
 
-    test('clearError drops the message', () {
+    test('clearError drops the message', () async {
       final controller = build(_FakeAuthRepository(accepts: false));
       addTearDown(controller.dispose);
 
-      controller.submitSignIn(
+      await controller.submitSignIn(
         const SignInRequest(email: 'salah@email.com', password: 'salah'),
       );
       controller.clearError();
@@ -179,10 +200,10 @@ void main() {
     });
 
     test('restore adopts a session the repository already holds', () async {
-      final repository = _FakeAuthRepository()
-        ..signIn(
-          const SignInRequest(email: 'nadia@gmail.com', password: '123456'),
-        );
+      final repository = _FakeAuthRepository();
+      await repository.signIn(
+        const SignInRequest(email: 'nadia@gmail.com', password: '123456'),
+      );
       final controller = build(repository);
       addTearDown(controller.dispose);
 

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:pbl_semester5/app/auth_dependencies.dart';
 import 'package:pbl_semester5/app/theme_dependencies.dart';
 import 'package:pbl_semester5/features/auth/presentation/pages/settings_page.dart';
 import 'package:pbl_semester5/main.dart';
@@ -10,6 +9,7 @@ import 'package:pbl_semester5/theme/theme_preference_store.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'scan_flow_test.dart' show tapVisible;
+import 'test_auth.dart';
 
 class _BrokenStore implements ThemePreferenceStore {
   @override
@@ -74,7 +74,7 @@ void main() {
 
       final theme = ThemeDependencies();
       await theme.controller.load();
-      await tester.pumpWidget(MyApp(theme: theme.controller));
+      await tester.pumpWidget(MyApp(theme: theme.controller, auth: demoAuth()));
       await tester.pumpAndSettle();
 
       await tester.tap(find.text('Lewati'));
@@ -122,7 +122,7 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    final auth = AuthDependencies();
+    final auth = demoAuth();
     addTearDown(auth.dispose);
 
     await tester.pumpWidget(

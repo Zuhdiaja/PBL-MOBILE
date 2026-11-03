@@ -6,7 +6,7 @@ import 'package:pbl_semester5/features/auth/data/repositories/auth_repository_im
 import 'package:pbl_semester5/features/auth/domain/repositories/auth_repository.dart';
 
 void main() {
-  group('AuthRepositoryImpl', () {
+  group('AuthRepositoryImpl with demo data', () {
     late DemoAuthDataSource source;
     late AuthRepositoryImpl repository;
 
@@ -15,110 +15,116 @@ void main() {
       repository = AuthRepositoryImpl(source);
     });
 
-    test('starts with no session', () {
-      expect(repository.currentAccount(), isNull);
+    test('starts with no session', () async {
+      expect(await repository.currentAccount(), isNull);
     });
 
-    test('accepts the demo credentials and opens a session', () {
-      final account = repository.signIn(
+    test('accepts the demo credentials and opens a session', () async {
+      final account = await repository.signIn(
         const SignInRequest(email: 'nadia@gmail.com', password: '123456'),
       );
 
       expect(account?.name, DemoAuthDataSource.demoName);
       expect(account?.email, DemoAuthDataSource.demoEmail);
-      expect(repository.currentAccount()?.id, account?.id);
+      expect((await repository.currentAccount())?.id, account?.id);
     });
 
-    test('ignores the email casing and surrounding spaces', () {
-      final account = repository.signIn(
+    test('ignores the email casing and surrounding spaces', () async {
+      final account = await repository.signIn(
         const SignInRequest(email: '  NADIA@Gmail.com ', password: '123456'),
       );
 
       expect(account, isNotNull);
     });
 
-    test('rejects a wrong password', () {
+    test('rejects a wrong password', () async {
       expect(
-        repository.signIn(
+        await repository.signIn(
           const SignInRequest(email: 'nadia@gmail.com', password: 'salah'),
         ),
         isNull,
       );
-      expect(repository.currentAccount(), isNull);
+      expect(await repository.currentAccount(), isNull);
     });
 
-    test('rejects an unknown email', () {
+    test('rejects an unknown email', () async {
       expect(
-        repository.signIn(
+        await repository.signIn(
           const SignInRequest(email: 'orang@email.com', password: '123456'),
         ),
         isNull,
       );
     });
 
-    test('signing in twice keeps one session', () {
-      repository.signIn(
+    test('signing in twice keeps one session', () async {
+      await repository.signIn(
         const SignInRequest(email: 'nadia@gmail.com', password: '123456'),
       );
-      final account = repository.signIn(
+      final account = await repository.signIn(
         const SignInRequest(email: 'nadia@gmail.com', password: '123456'),
       );
 
-      expect(repository.currentAccount()?.id, account?.id);
+      expect((await repository.currentAccount())?.id, account?.id);
     });
 
-    test('register creates an account that can sign in afterwards', () {
-      final account = repository.register(
+    test('register creates an account that can sign in afterwards', () async {
+      final account = await repository.register(
         const RegisterRequest(
           name: 'Budi Santoso',
           email: 'budi@email.com',
-          password: 'rahasia',
+          password: 'password-budi-2026',
         ),
       );
 
       expect(account.name, 'Budi Santoso');
       expect(account.initials, 'BS');
 
-      repository.signOut();
+      await repository.signOut();
 
-      final signedIn = repository.signIn(
-        const SignInRequest(email: 'budi@email.com', password: 'rahasia'),
+      final signedIn = await repository.signIn(
+        const SignInRequest(
+          email: 'budi@email.com',
+          password: 'password-budi-2026',
+        ),
       );
       expect(signedIn?.id, account.id);
     });
 
-    test('registering with blank values falls back to the demo account', () {
-      final account = repository.register(
-        const RegisterRequest(name: '', email: '', password: ''),
-      );
+    test(
+      'registering with blank values falls back to the demo account',
+      () async {
+        final account = await repository.register(
+          const RegisterRequest(name: '', email: '', password: ''),
+        );
 
-      expect(account.name, DemoAuthDataSource.demoName);
-      expect(account.email, DemoAuthDataSource.demoEmail);
-    });
+        expect(account.name, DemoAuthDataSource.demoName);
+        expect(account.email, DemoAuthDataSource.demoEmail);
+      },
+    );
 
-    test('signing out clears the session', () {
-      repository.signIn(
+    test('signing out clears the session', () async {
+      await repository.signIn(
         const SignInRequest(email: 'nadia@gmail.com', password: '123456'),
       );
 
-      repository.signOut();
+      await repository.signOut();
 
-      expect(repository.currentAccount(), isNull);
+      expect(await repository.currentAccount(), isNull);
     });
 
     test('exposes the demo account used to prefill the login form', () {
-      expect(repository.demoAccount.email, DemoAuthDataSource.demoEmail);
-      expect(repository.demoAccount.name, DemoAuthDataSource.demoName);
+      expect(repository.demoAccount?.email, DemoAuthDataSource.demoEmail);
+      expect(repository.demoAccount?.name, DemoAuthDataSource.demoName);
     });
 
-    test('data sources do not share sessions across instances', () {
-      repository.signIn(
+    test('data sources do not share sessions across instances', () async {
+      await repository.signIn(
         const SignInRequest(email: 'nadia@gmail.com', password: '123456'),
       );
 
       final other = AuthRepositoryImpl(DemoAuthDataSource());
 
-      expect(other.currentAccount(), isNull);
+      expect(await other.currentAccount(), isNull);
     });
   });
 

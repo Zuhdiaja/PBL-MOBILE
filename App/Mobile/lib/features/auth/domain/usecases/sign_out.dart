@@ -4,5 +4,5 @@ import '../repositories/auth_repository.dart';
 class SignOut {
   const SignOut();
 
-  void call(AuthRepository repository) => repository.signOut();
+  Future<void> call(AuthRepository repository) => repository.signOut();
 }
