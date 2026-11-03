@@ -28,16 +28,31 @@ yang sudah di-deploy, timpa lewat `--dart-define`:
 flutter run --dart-define=API_BASE_URL=http://192.168.1.10:3000
 ```
 
-Token disimpan di perangkat melalui `shared_preferences`. Tombol Google aktif
-bila client ID OAuth diberikan saat build:
+Token disimpan di perangkat melalui `shared_preferences`.
 
-```sh
-flutter run -d chrome --web-port 8080 --dart-define=GOOGLE_WEB_CLIENT_ID=<web-client-id>.apps.googleusercontent.com
-```
+### Menjalankan tombol Google per platform
 
-Untuk emulator atau HP fisik, client Android dicocokkan otomatis lewat package
-name dan SHA-1; `serverClientId` tetap memakai client Web agar ID token keluar.
-Tanpa `--dart-define`, tombol Google tetap nonaktif dan keterangan
+`GOOGLE_WEB_CLIENT_ID` wajib disertakan di **semua** platform, termasuk emulator
+dan HP fisik, karena `serverClientId` memakai client Web agar Google
+mengeluarkan ID token. Tanpa itu tombol Google tetap nonaktif dan keterangan
 "Login Google belum terhubung." ditampilkan.
+
+| Platform | Perintah |
+| --- | --- |
+| Chrome | `flutter run -d chrome --web-port 8080 --dart-define=GOOGLE_WEB_CLIENT_ID=<web-client-id>` |
+| Emulator Android | `flutter run --dart-define=GOOGLE_WEB_CLIENT_ID=<web-client-id>` |
+| HP fisik Android | `flutter run --dart-define=API_BASE_URL=http://<ip-laptop>:3000 --dart-define=GOOGLE_WEB_CLIENT_ID=<web-client-id>` |
+
+Catatan per platform:
+
+- **Chrome**: alamat harus persis `http://localhost:8080` dan origin itu
+  terdaftar di `MOBILE_CORS_ORIGINS` pada `App/Web/.env`. Google mengirim
+  access token, bukan ID token, dan API memverifikasinya lewat `tokeninfo`.
+- **Emulator Android**: alamat API default `http://10.0.2.2:3000` sudah benar;
+  Google mengirim ID token.
+- **HP fisik Android**: HP dan laptop harus satu jaringan Wi-Fi, firewall
+  Windows mengizinkan port 3000, dan SHA-1 debug keystore laptop harus sama
+  dengan yang terdaftar pada OAuth client Android di Google Cloud. Google
+  mengirim ID token.
 
 Pengecekan: `flutter analyze --no-pub` dan `flutter test --no-pub`.
