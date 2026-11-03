@@ -3,10 +3,12 @@ import 'package:pbl_semester5/features/auth/domain/entities/auth_failure.dart';
 import 'package:pbl_semester5/features/auth/domain/entities/user_account.dart';
 import 'package:pbl_semester5/features/auth/domain/repositories/account_repository.dart';
 import 'package:pbl_semester5/features/auth/domain/repositories/auth_repository.dart';
+import 'package:pbl_semester5/features/auth/domain/repositories/google_identity_source.dart';
 import 'package:pbl_semester5/features/auth/domain/usecases/load_account_stats.dart';
 import 'package:pbl_semester5/features/auth/domain/usecases/register_account.dart';
 import 'package:pbl_semester5/features/auth/domain/usecases/set_report_notifications.dart';
 import 'package:pbl_semester5/features/auth/domain/usecases/sign_in.dart';
+import 'package:pbl_semester5/features/auth/domain/usecases/sign_in_with_google.dart';
 import 'package:pbl_semester5/features/auth/domain/usecases/sign_out.dart';
 
 const demoAccount = UserAccount(
@@ -43,6 +45,20 @@ class _FakeAuthRepository implements AuthRepository {
   }
 
   @override
+  Future<UserAccount> signInWithGoogle({
+    String? idToken,
+    String? accessToken,
+  }) async {
+    if (failure != null) throw failure!;
+    _session = const UserAccount(
+      id: 'google-1',
+      name: 'Nadia Google',
+      email: 'nadia@gmail.com',
+    );
+    return _session!;
+  }
+
+  @override
   Future<UserAccount?> signIn(SignInRequest request) async {
     if (failure != null) throw failure!;
     if (!accepts) return null;
@@ -52,6 +68,27 @@ class _FakeAuthRepository implements AuthRepository {
 
   @override
   Future<void> signOut() async => _session = null;
+}
+
+class _FakeGoogleIdentity implements GoogleIdentitySource {
+  _FakeGoogleIdentity(this.token);
+
+  final String? token;
+
+  @override
+  Future<GoogleTokens> obtainTokens() async => GoogleTokens(idToken: token);
+}
+
+class _ThrowingGoogleIdentity implements GoogleIdentitySource {
+  @override
+  Future<GoogleTokens> obtainTokens() async =>
+      throw StateError('plugin missing');
+}
+
+class _FailingGoogleIdentity implements GoogleIdentitySource {
+  @override
+  Future<GoogleTokens> obtainTokens() async =>
+      throw const AuthFailure('Login Google gagal: detail teknis');
 }
 
 class _FakeAccountRepository implements AccountRepository {
@@ -256,6 +293,64 @@ void main() {
       );
 
       expect(result.failure?.message, contains('sudah terdaftar'));
+    });
+  });
+
+  group('SignInWithGoogle', () {
+    const signInWithGoogle = SignInWithGoogle();
+
+    test('exchanges a platform token for a session', () async {
+      final repository = _FakeAuthRepository();
+
+      final result = await signInWithGoogle(
+        _FakeGoogleIdentity('google-token'),
+        repository,
+      );
+
+      expect(result.account?.email, 'nadia@gmail.com');
+      expect(result.failure, isNull);
+    });
+
+    test('a cancelled chooser becomes a user facing failure', () async {
+      final result = await signInWithGoogle(
+        _FakeGoogleIdentity(null),
+        _FakeAuthRepository(),
+      );
+
+      expect(result.account, isNull);
+      expect(result.failure?.message, 'Login Google dibatalkan.');
+    });
+
+    test('a plugin error becomes a user facing failure', () async {
+      final result = await signInWithGoogle(
+        _ThrowingGoogleIdentity(),
+        _FakeAuthRepository(),
+      );
+
+      expect(result.failure?.message, contains('tidak dapat dimulai'));
+    });
+
+    test('an identity source failure keeps its own message', () async {
+      final result = await signInWithGoogle(
+        _FailingGoogleIdentity(),
+        _FakeAuthRepository(),
+      );
+
+      expect(result.failure?.message, contains('detail teknis'));
+    });
+
+    test('server rejections are passed through', () async {
+      final repository = _FakeAuthRepository()
+        ..failure = const AuthFailure(
+          'Email ini sudah tertaut ke akun Google lain.',
+        );
+
+      final result = await signInWithGoogle(
+        _FakeGoogleIdentity('google-token'),
+        repository,
+      );
+
+      expect(result.failure?.message, contains('sudah tertaut'));
     });
   });
 

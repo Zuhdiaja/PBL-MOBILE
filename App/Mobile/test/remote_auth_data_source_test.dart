@@ -163,6 +163,73 @@ void main() {
       expect(await store.read(), isNull);
     });
 
+    test(
+      'signInWithGoogle stores the session from the google endpoint',
+      () async {
+        final store = MemoryTokenStore();
+        final source = build(
+          MockClient((request) async {
+            expect(
+              request.url.toString(),
+              '$_baseUrl/api/v1/mobile/auth/google',
+            );
+            expect(jsonDecode(request.body)['id_token'], 'google-token');
+            return _json(_session(email: 'nadia@gmail.com'), 200);
+          }),
+          tokenStore: store,
+        );
+
+        final account = await source.signInWithGoogle(idToken: 'google-token');
+
+        expect(account.email, 'nadia@gmail.com');
+        expect(await store.read(), 'issued-token');
+      },
+    );
+
+    test(
+      'signInWithGoogle sends an access token when there is no ID token',
+      () async {
+        final source = build(
+          MockClient((request) async {
+            final payload = jsonDecode(request.body) as Map<String, dynamic>;
+            expect(payload['access_token'], 'ya29.access');
+            expect(payload.containsKey('id_token'), isFalse);
+            return _json(_session(email: 'nadia@gmail.com'), 200);
+          }),
+        );
+
+        final account = await source.signInWithGoogle(
+          accessToken: 'ya29.access',
+        );
+
+        expect(account.email, 'nadia@gmail.com');
+      },
+    );
+
+    test('signInWithGoogle maps 503 to a configuration failure', () async {
+      final source = build(
+        MockClient(
+          (_) async => _json({
+            'error': {
+              'code': 'google_unavailable',
+              'message': 'Login Google belum dikonfigurasi.',
+            },
+          }, 503),
+        ),
+      );
+
+      expect(
+        () => source.signInWithGoogle(idToken: 'google-token'),
+        throwsA(
+          isA<AuthFailure>().having(
+            (failure) => failure.message,
+            'message',
+            'Login Google belum dikonfigurasi.',
+          ),
+        ),
+      );
+    });
+
     test('network errors become a friendly failure', () async {
       final source = build(MockClient((_) async => throw Exception('offline')));
 

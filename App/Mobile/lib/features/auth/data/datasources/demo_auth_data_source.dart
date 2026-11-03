@@ -1,3 +1,4 @@
+import '../../domain/entities/auth_failure.dart';
 import '../models/user_account_model.dart';
 import 'auth_data_source.dart';
 
@@ -55,6 +56,19 @@ class DemoAuthDataSource implements AuthDataSource {
     _registeredPassword = password;
     _session = _registered;
     return _registered!;
+  }
+
+  @override
+  Future<UserAccountModel> signInWithGoogle({
+    String? idToken,
+    String? accessToken,
+  }) async {
+    final hasId = idToken != null && idToken.isNotEmpty;
+    final hasAccess = accessToken != null && accessToken.isNotEmpty;
+    if (!hasId && !hasAccess) {
+      throw const AuthFailure('Token Google tidak valid.');
+    }
+    return demoAccount;
   }
 
   @override

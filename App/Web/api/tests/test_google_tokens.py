@@ -5,7 +5,11 @@ from joserfc import jwt
 from joserfc.jwk import RSAKey
 
 from app.services import google_tokens
-from app.services.google_tokens import GoogleTokenError, verify_google_id_token
+from app.services.google_tokens import (
+    GoogleTokenError,
+    verify_google_access_token,
+    verify_google_id_token,
+)
 
 CLIENT_ID = "mobile-client"
 
@@ -75,3 +79,54 @@ def test_rejects_malformed_and_oversized_tokens(certificates):
 def test_requires_configured_client_ids(certificates, signing_key):
     with pytest.raises(GoogleTokenError):
         verify_google_id_token(make_token(signing_key), [], http_get=no_fetch)
+
+
+class _Response:
+    def __init__(self, status_code=200, payload=None):
+        self.status_code = status_code
+        self._payload = payload or {}
+
+    def json(self):
+        return self._payload
+
+
+def _access_getter(responses):
+    def get(url, timeout=None, headers=None):
+        return responses.pop(0)
+    return get
+
+
+def test_access_token_is_verified_against_google():
+    responses = [
+        _Response(200, {"aud": CLIENT_ID, "expires_in": 3599}),
+        _Response(200, {"sub": "google-sub", "email": "nadia@gmail.com",
+                        "email_verified": True, "name": "Nadia Putri"}),
+    ]
+    claims = verify_google_access_token("ya29.access", [CLIENT_ID],
+                                        http_get=_access_getter(responses))
+    assert claims["sub"] == "google-sub"
+    assert claims["email"] == "nadia@gmail.com"
+
+
+@pytest.mark.parametrize("tokeninfo, userinfo", [
+    ({"aud": "another-app", "expires_in": 3599},
+     {"sub": "s", "email": "a@b.test", "email_verified": True}),
+    ({"aud": CLIENT_ID, "expires_in": 0},
+     {"sub": "s", "email": "a@b.test", "email_verified": True}),
+    ({"aud": CLIENT_ID, "expires_in": 3599},
+     {"sub": "s", "email": "a@b.test", "email_verified": False}),
+    ({"aud": CLIENT_ID, "expires_in": 3599},
+     {"sub": "", "email": "a@b.test", "email_verified": True}),
+])
+def test_access_token_rejections(tokeninfo, userinfo):
+    responses = [_Response(200, tokeninfo), _Response(200, userinfo)]
+    with pytest.raises(GoogleTokenError):
+        verify_google_access_token("ya29.access", [CLIENT_ID],
+                                   http_get=_access_getter(responses))
+
+
+def test_access_token_rejected_when_tokeninfo_fails():
+    responses = [_Response(400, {})]
+    with pytest.raises(GoogleTokenError):
+        verify_google_access_token("ya29.access", [CLIENT_ID],
+                                   http_get=_access_getter(responses))

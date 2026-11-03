@@ -16,7 +16,11 @@ from werkzeug.security import check_password_hash, generate_password_hash
 
 from app.extensions import db, limiter
 from app.models import MobileUser
-from app.services.google_tokens import GoogleTokenError, verify_google_id_token
+from app.services.google_tokens import (
+    GoogleTokenError,
+    verify_google_access_token,
+    verify_google_id_token,
+)
 
 mobile = Blueprint("mobile", __name__)
 
@@ -162,11 +166,15 @@ def google():
     client_ids = current_app.config.get("GOOGLE_MOBILE_CLIENT_IDS") or []
     if not client_ids:
         return error("google_unavailable", "Login Google belum dikonfigurasi.", 503)
-    id_token = body().get("id_token")
-    if not isinstance(id_token, str):
+    data = body()
+    id_token, access_token = data.get("id_token"), data.get("access_token")
+    if not isinstance(id_token, str) and not isinstance(access_token, str):
         return error("invalid_google_token", "Token Google tidak valid.", 401)
     try:
-        claims = verify_google_id_token(id_token, client_ids)
+        if isinstance(id_token, str):
+            claims = verify_google_id_token(id_token, client_ids)
+        else:
+            claims = verify_google_access_token(access_token, client_ids)
     except GoogleTokenError as exc:
         return error("invalid_google_token", str(exc), 401)
 

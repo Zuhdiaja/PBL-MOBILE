@@ -37,6 +37,10 @@ abstract class AuthRepository {
   /// Creates an account and opens a session for it.
   Future<UserAccount> register(RegisterRequest request);
 
+  /// Opens a session from Google tokens, creating the account on first use.
+  /// Mobile supplies [idToken]; the web flow supplies [accessToken].
+  Future<UserAccount> signInWithGoogle({String? idToken, String? accessToken});
+
   /// Clears the current session.
   Future<void> signOut();
 }

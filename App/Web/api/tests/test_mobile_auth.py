@@ -104,6 +104,21 @@ def test_google_rejected_when_not_configured(app, client):
     assert response.status_code == 503
 
 
+def test_google_accepts_an_access_token_from_the_web_flow(app, client, monkeypatch):
+    app.config["GOOGLE_MOBILE_CLIENT_IDS"] = ["test-client"]
+
+    def verify(token, client_ids):
+        assert token == "ya29.access"
+        return {"sub": "google-sub-web", "email": "web@gmail.com",
+                "name": "Web User", "email_verified": True}
+
+    monkeypatch.setattr("app.routes.mobile_auth.verify_google_access_token", verify)
+    response = client.post("/api/v1/mobile/auth/google",
+                           json={"access_token": "ya29.access"})
+    assert response.status_code == 200
+    assert response.get_json()["user"]["email"] == "web@gmail.com"
+
+
 def test_google_registers_new_mobile_user(app, client, monkeypatch):
     app.config["GOOGLE_MOBILE_CLIENT_IDS"] = ["test-client"]
     monkeypatch.setattr("app.routes.mobile_auth.verify_google_id_token",

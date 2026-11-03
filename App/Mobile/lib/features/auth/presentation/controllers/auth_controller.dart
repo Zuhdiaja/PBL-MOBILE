@@ -3,8 +3,10 @@ import '../../../../presentation/load_controller.dart';
 import '../../domain/entities/auth_failure.dart';
 import '../../domain/entities/user_account.dart';
 import '../../domain/repositories/auth_repository.dart';
+import '../../domain/repositories/google_identity_source.dart';
 import '../../domain/usecases/register_account.dart';
 import '../../domain/usecases/sign_in.dart';
+import '../../domain/usecases/sign_in_with_google.dart';
 import '../../domain/usecases/sign_out.dart';
 
 /// Holds the session and the state of the login and register forms.
@@ -13,12 +15,16 @@ class AuthController extends LoadController {
     required this.repository,
     required this.signIn,
     required this.registerAccount,
+    required this.signInWithGoogle,
+    required this.googleIdentity,
     required this.signOut,
   });
 
   final AuthRepository repository;
   final SignIn signIn;
   final RegisterAccount registerAccount;
+  final SignInWithGoogle signInWithGoogle;
+  final GoogleIdentitySource googleIdentity;
   final SignOut signOut;
 
   UserAccount? _account;
@@ -65,6 +71,16 @@ class AuthController extends LoadController {
     if (_isSubmitting) return false;
     _beginSubmission();
     final result = await registerAccount(request, repository);
+    if (_closed) return false;
+    _isSubmitting = false;
+    return _applyResult(result.account, result.failure);
+  }
+
+  /// Attempts a Google sign in; returns true when the session opened.
+  Future<bool> submitGoogle() async {
+    if (_isSubmitting) return false;
+    _beginSubmission();
+    final result = await signInWithGoogle(googleIdentity, repository);
     if (_closed) return false;
     _isSubmitting = false;
     return _applyResult(result.account, result.failure);

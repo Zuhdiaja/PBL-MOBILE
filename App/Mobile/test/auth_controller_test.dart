@@ -3,10 +3,12 @@ import 'package:pbl_semester5/features/auth/domain/entities/auth_failure.dart';
 import 'package:pbl_semester5/features/auth/domain/entities/user_account.dart';
 import 'package:pbl_semester5/features/auth/domain/repositories/account_repository.dart';
 import 'package:pbl_semester5/features/auth/domain/repositories/auth_repository.dart';
+import 'package:pbl_semester5/features/auth/domain/repositories/google_identity_source.dart';
 import 'package:pbl_semester5/features/auth/domain/usecases/load_account_stats.dart';
 import 'package:pbl_semester5/features/auth/domain/usecases/register_account.dart';
 import 'package:pbl_semester5/features/auth/domain/usecases/set_report_notifications.dart';
 import 'package:pbl_semester5/features/auth/domain/usecases/sign_in.dart';
+import 'package:pbl_semester5/features/auth/domain/usecases/sign_in_with_google.dart';
 import 'package:pbl_semester5/features/auth/domain/usecases/sign_out.dart';
 import 'package:pbl_semester5/features/auth/presentation/controllers/auth_controller.dart';
 import 'package:pbl_semester5/features/auth/presentation/controllers/profile_controller.dart';
@@ -34,6 +36,19 @@ class _FakeAuthRepository implements AuthRepository {
   }
 
   @override
+  Future<UserAccount> signInWithGoogle({
+    String? idToken,
+    String? accessToken,
+  }) async {
+    if (!accepts) throw const AuthFailure('Token Google tidak valid.');
+    return _session = const UserAccount(
+      id: 'google-1',
+      name: 'Nadia Google',
+      email: 'nadia@gmail.com',
+    );
+  }
+
+  @override
   Future<UserAccount?> signIn(SignInRequest request) async {
     if (!accepts) return null;
     return _session = const UserAccount(
@@ -56,6 +71,15 @@ class _FailingAuthRepository extends _FakeAuthRepository {
       throw const AuthFailure('Tidak dapat terhubung ke server.');
 }
 
+class _FakeGoogleIdentity implements GoogleIdentitySource {
+  _FakeGoogleIdentity([this.token = 'google-token']);
+
+  final String? token;
+
+  @override
+  Future<GoogleTokens> obtainTokens() async => GoogleTokens(idToken: token);
+}
+
 class _FakeAccountRepository implements AccountRepository {
   bool notificationsEnabled = true;
 
@@ -73,10 +97,15 @@ class _FakeAccountRepository implements AccountRepository {
 
 void main() {
   group('AuthController', () {
-    AuthController build(_FakeAuthRepository repository) => AuthController(
+    AuthController build(
+      _FakeAuthRepository repository, {
+      GoogleIdentitySource? google,
+    }) => AuthController(
       repository: repository,
       signIn: const SignIn(),
       registerAccount: const RegisterAccount(),
+      signInWithGoogle: const SignInWithGoogle(),
+      googleIdentity: google ?? _FakeGoogleIdentity(),
       signOut: const SignOut(),
     );
 
@@ -158,6 +187,40 @@ void main() {
 
       expect(registered, isTrue);
       expect(controller.account?.name, 'Budi Santoso');
+    });
+
+    test('a Google sign in opens a session', () async {
+      final controller = build(_FakeAuthRepository());
+      addTearDown(controller.dispose);
+
+      final signedIn = await controller.submitGoogle();
+
+      expect(signedIn, isTrue);
+      expect(controller.account?.email, 'nadia@gmail.com');
+      expect(controller.errorMessage, isNull);
+    });
+
+    test('a cancelled Google flow reports a failure', () async {
+      final controller = build(
+        _FakeAuthRepository(),
+        google: _FakeGoogleIdentity(null),
+      );
+      addTearDown(controller.dispose);
+
+      final signedIn = await controller.submitGoogle();
+
+      expect(signedIn, isFalse);
+      expect(controller.errorMessage, 'Login Google dibatalkan.');
+    });
+
+    test('a rejected Google token reports the server message', () async {
+      final controller = build(_FakeAuthRepository(accepts: false));
+      addTearDown(controller.dispose);
+
+      final signedIn = await controller.submitGoogle();
+
+      expect(signedIn, isFalse);
+      expect(controller.errorMessage, 'Token Google tidak valid.');
     });
 
     test('signing out clears the account and the error', () async {

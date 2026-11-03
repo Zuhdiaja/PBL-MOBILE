@@ -12,6 +12,8 @@ from joserfc.errors import JoseError
 from joserfc.jwk import KeySet
 
 CERTIFICATES_URL = "https://www.googleapis.com/oauth2/v3/certs"
+TOKENINFO_URL = "https://oauth2.googleapis.com/tokeninfo"
+USERINFO_URL = "https://www.googleapis.com/oauth2/v3/userinfo"
 ISSUERS = ("accounts.google.com", "https://accounts.google.com")
 MAX_TOKEN_LENGTH = 4096
 DEFAULT_CACHE_SECONDS = 3600
@@ -48,6 +50,42 @@ def _key_set(http_get):
     except (ValueError, KeyError, TypeError) as exc:
         _certificates["payload"] = None
         raise GoogleTokenError("Sertifikat Google tidak valid.") from exc
+
+
+def verify_google_access_token(token, client_ids, http_get=requests.get):
+    """Verify an OAuth2 access token by asking Google who it belongs to.
+
+    The web plugin cannot deliver ID tokens, so the browser flow sends an
+    access token instead. ``tokeninfo`` proves the token was issued to one of
+    our client IDs, and ``userinfo`` supplies the verified profile.
+    """
+    if not isinstance(token, str) or not 0 < len(token) <= MAX_TOKEN_LENGTH:
+        raise GoogleTokenError("Token Google tidak valid.")
+    if not client_ids:
+        raise GoogleTokenError("Login Google belum dikonfigurasi.")
+    try:
+        info = http_get(f"{TOKENINFO_URL}?access_token={token}", timeout=5)
+        if info.status_code != 200:
+            raise GoogleTokenError("Token Google tidak valid.")
+        meta = info.json()
+        if meta.get("aud") not in client_ids:
+            raise GoogleTokenError("Token Google bukan untuk aplikasi ini.")
+        if int(meta.get("expires_in", 0)) <= 0:
+            raise GoogleTokenError("Token Google sudah kedaluwarsa.")
+        profile = http_get(USERINFO_URL, timeout=5,
+                           headers={"Authorization": f"Bearer {token}"})
+        if profile.status_code != 200:
+            raise GoogleTokenError("Profil Google tidak dapat dibaca.")
+        data = profile.json()
+    except GoogleTokenError:
+        raise
+    except (requests.RequestException, ValueError) as exc:
+        raise GoogleTokenError("Token Google tidak dapat diverifikasi.") from exc
+    if not data.get("sub") or not data.get("email"):
+        raise GoogleTokenError("Token Google tidak memiliki identitas.")
+    if data.get("email_verified") not in (True, "true"):
+        raise GoogleTokenError("Email Google belum terverifikasi.")
+    return data
 
 
 def verify_google_id_token(token, client_ids, http_get=requests.get):

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../config/google_config.dart';
 import '../../domain/repositories/auth_repository.dart';
 import '../../domain/usecases/register_account.dart';
 import '../controllers/auth_controller.dart';
@@ -46,6 +47,11 @@ class _RegisterPageState extends State<RegisterPage> {
     if (registered && mounted) widget.onRegistered();
   }
 
+  Future<void> _submitGoogle() async {
+    final registered = await widget.controller.submitGoogle();
+    if (registered && mounted) widget.onRegistered();
+  }
+
   @override
   Widget build(BuildContext context) {
     final controller = widget.controller;
@@ -76,6 +82,10 @@ class _RegisterPageState extends State<RegisterPage> {
         actionLabel: 'Daftar',
         errorMessage: controller.errorMessage,
         isSubmitting: controller.isSubmitting,
+        onGoogleSignIn: googleSignInConfigured ? _submitGoogle : null,
+        googleCaption: googleSignInConfigured
+            ? null
+            : 'Login Google belum terhubung.',
         footerPrompt: 'Sudah punya akun?',
         footerAction: 'Masuk',
         onFooterTap: () => Navigator.of(context).pop(),
