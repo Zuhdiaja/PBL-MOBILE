@@ -164,6 +164,34 @@ class RemoteAuthDataSource implements AuthDataSource {
   }
 
   @override
+  Future<UserAccountModel> signInWithGoogle(String idToken) async {
+    final response = await _request(
+      () => _client.post(
+        _uri('/google'),
+        headers: _jsonHeaders,
+        body: jsonEncode({'id_token': idToken}),
+      ),
+    );
+    if (response.statusCode == 200) return _storeSession(response);
+    if (response.statusCode == 403) {
+      throw AuthFailure(
+        _message(response, 'Akun dinonaktifkan. Hubungi admin.'),
+      );
+    }
+    if (response.statusCode == 409) {
+      throw AuthFailure(
+        _message(response, 'Email ini sudah tertaut ke akun Google lain.'),
+      );
+    }
+    if (response.statusCode == 503) {
+      throw AuthFailure(
+        _message(response, 'Login Google belum dikonfigurasi.'),
+      );
+    }
+    throw AuthFailure(_message(response, 'Login Google gagal. Coba lagi.'));
+  }
+
+  @override
   Future<void> signOut() async {
     final token = await tokenStore.read();
     if (token != null) {

@@ -30,12 +30,20 @@ class AuthForm extends StatelessWidget {
     required this.onSubmit,
     this.errorMessage,
     this.isSubmitting = false,
+    this.onGoogleSignIn,
+    this.googleCaption,
   });
   final String title, subtitle, actionLabel, footerPrompt, footerAction;
   final List<AuthField> fields;
   final VoidCallback onFooterTap, onSubmit;
   final String? errorMessage;
   final bool isSubmitting;
+
+  /// Enables the Google button. Null keeps it disabled.
+  final VoidCallback? onGoogleSignIn;
+
+  /// Explains why Google is unavailable; hidden once the button works.
+  final String? googleCaption;
   @override
   Widget build(BuildContext context) => Scaffold(
     body: SafeArea(
@@ -66,7 +74,7 @@ class AuthForm extends StatelessWidget {
                   SizedBox(
                     width: double.infinity,
                     child: OutlinedButton(
-                      onPressed: null,
+                      onPressed: isSubmitting ? null : onGoogleSignIn,
                       child: Wrap(
                         alignment: WrapAlignment.center,
                         crossAxisAlignment: WrapCrossAlignment.center,
@@ -93,10 +101,14 @@ class AuthForm extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 6),
-                  Text(
-                    'Login Google belum terhubung.',
-                    style: TextStyle(fontSize: 11, color: context.colors.muted),
-                  ),
+                  if (googleCaption != null)
+                    Text(
+                      googleCaption!,
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: context.colors.muted,
+                      ),
+                    ),
                   const SizedBox(height: 18),
                   LayoutBuilder(
                     builder: (context, constraints) => Row(

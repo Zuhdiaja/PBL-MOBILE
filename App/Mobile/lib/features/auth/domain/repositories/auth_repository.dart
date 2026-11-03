@@ -37,6 +37,10 @@ abstract class AuthRepository {
   /// Creates an account and opens a session for it.
   Future<UserAccount> register(RegisterRequest request);
 
+  /// Opens a session from a verified Google ID token, creating the account
+  /// on first use.
+  Future<UserAccount> signInWithGoogle(String idToken);
+
   /// Clears the current session.
   Future<void> signOut();
 }

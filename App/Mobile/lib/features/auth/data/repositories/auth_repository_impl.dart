@@ -25,6 +25,10 @@ class AuthRepositoryImpl implements AuthRepository {
       )).toEntity();
 
   @override
+  Future<UserAccount> signInWithGoogle(String idToken) async =>
+      (await _dataSource.signInWithGoogle(idToken)).toEntity();
+
+  @override
   Future<void> signOut() => _dataSource.signOut();
 
   /// Model used by the login form to prefill preview credentials.

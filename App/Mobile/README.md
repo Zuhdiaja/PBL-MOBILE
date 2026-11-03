@@ -28,7 +28,16 @@ yang sudah di-deploy, timpa lewat `--dart-define`:
 flutter run --dart-define=API_BASE_URL=http://192.168.1.10:3000
 ```
 
-Token disimpan di perangkat melalui `shared_preferences`. Login Google belum
-tersambung; tombolnya masih nonaktif.
+Token disimpan di perangkat melalui `shared_preferences`. Tombol Google aktif
+bila client ID OAuth diberikan saat build:
+
+```sh
+flutter run -d chrome --web-port 8080 --dart-define=GOOGLE_WEB_CLIENT_ID=<web-client-id>.apps.googleusercontent.com
+```
+
+Untuk emulator atau HP fisik, client Android dicocokkan otomatis lewat package
+name dan SHA-1; `serverClientId` tetap memakai client Web agar ID token keluar.
+Tanpa `--dart-define`, tombol Google tetap nonaktif dan keterangan
+"Login Google belum terhubung." ditampilkan.
 
 Pengecekan: `flutter analyze --no-pub` dan `flutter test --no-pub`.

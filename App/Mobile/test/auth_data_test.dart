@@ -102,6 +102,12 @@ void main() {
       },
     );
 
+    test('google sign in opens the demo session', () async {
+      final account = await repository.signInWithGoogle('google-token');
+
+      expect(account.email, DemoAuthDataSource.demoEmail);
+    });
+
     test('signing out clears the session', () async {
       await repository.signIn(
         const SignInRequest(email: 'nadia@gmail.com', password: '123456'),

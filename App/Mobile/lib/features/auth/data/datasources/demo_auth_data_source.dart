@@ -1,3 +1,4 @@
+import '../../domain/entities/auth_failure.dart';
 import '../models/user_account_model.dart';
 import 'auth_data_source.dart';
 
@@ -56,6 +57,12 @@ class DemoAuthDataSource implements AuthDataSource {
     _session = _registered;
     return _registered!;
   }
+
+  @override
+  Future<UserAccountModel> signInWithGoogle(String idToken) async =>
+      idToken.isEmpty
+      ? throw const AuthFailure('Token Google tidak valid.')
+      : demoAccount;
 
   @override
   Future<void> signOut() async => _session = null;
