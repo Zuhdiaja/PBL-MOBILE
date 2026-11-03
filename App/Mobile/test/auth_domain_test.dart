@@ -45,7 +45,10 @@ class _FakeAuthRepository implements AuthRepository {
   }
 
   @override
-  Future<UserAccount> signInWithGoogle(String idToken) async {
+  Future<UserAccount> signInWithGoogle({
+    String? idToken,
+    String? accessToken,
+  }) async {
     if (failure != null) throw failure!;
     _session = const UserAccount(
       id: 'google-1',
@@ -73,12 +76,19 @@ class _FakeGoogleIdentity implements GoogleIdentitySource {
   final String? token;
 
   @override
-  Future<String?> obtainIdToken() async => token;
+  Future<GoogleTokens> obtainTokens() async => GoogleTokens(idToken: token);
 }
 
 class _ThrowingGoogleIdentity implements GoogleIdentitySource {
   @override
-  Future<String?> obtainIdToken() async => throw StateError('plugin missing');
+  Future<GoogleTokens> obtainTokens() async =>
+      throw StateError('plugin missing');
+}
+
+class _FailingGoogleIdentity implements GoogleIdentitySource {
+  @override
+  Future<GoogleTokens> obtainTokens() async =>
+      throw const AuthFailure('Login Google gagal: detail teknis');
 }
 
 class _FakeAccountRepository implements AccountRepository {
@@ -318,6 +328,15 @@ void main() {
       );
 
       expect(result.failure?.message, contains('tidak dapat dimulai'));
+    });
+
+    test('an identity source failure keeps its own message', () async {
+      final result = await signInWithGoogle(
+        _FailingGoogleIdentity(),
+        _FakeAuthRepository(),
+      );
+
+      expect(result.failure?.message, contains('detail teknis'));
     });
 
     test('server rejections are passed through', () async {

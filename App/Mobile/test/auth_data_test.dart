@@ -103,7 +103,9 @@ void main() {
     );
 
     test('google sign in opens the demo session', () async {
-      final account = await repository.signInWithGoogle('google-token');
+      final account = await repository.signInWithGoogle(
+        idToken: 'google-token',
+      );
 
       expect(account.email, DemoAuthDataSource.demoEmail);
     });

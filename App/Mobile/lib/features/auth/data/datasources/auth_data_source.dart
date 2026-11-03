@@ -15,8 +15,11 @@ abstract class AuthDataSource {
   /// Creates an account and opens a session for it.
   Future<UserAccountModel> register(String name, String email, String password);
 
-  /// Opens a session from a Google ID token.
-  Future<UserAccountModel> signInWithGoogle(String idToken);
+  /// Opens a session from Google tokens.
+  Future<UserAccountModel> signInWithGoogle({
+    String? idToken,
+    String? accessToken,
+  });
 
   /// Closes the session.
   Future<void> signOut();

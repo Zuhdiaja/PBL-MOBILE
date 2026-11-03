@@ -179,10 +179,30 @@ void main() {
           tokenStore: store,
         );
 
-        final account = await source.signInWithGoogle('google-token');
+        final account = await source.signInWithGoogle(idToken: 'google-token');
 
         expect(account.email, 'nadia@gmail.com');
         expect(await store.read(), 'issued-token');
+      },
+    );
+
+    test(
+      'signInWithGoogle sends an access token when there is no ID token',
+      () async {
+        final source = build(
+          MockClient((request) async {
+            final payload = jsonDecode(request.body) as Map<String, dynamic>;
+            expect(payload['access_token'], 'ya29.access');
+            expect(payload.containsKey('id_token'), isFalse);
+            return _json(_session(email: 'nadia@gmail.com'), 200);
+          }),
+        );
+
+        final account = await source.signInWithGoogle(
+          accessToken: 'ya29.access',
+        );
+
+        expect(account.email, 'nadia@gmail.com');
       },
     );
 
@@ -199,7 +219,7 @@ void main() {
       );
 
       expect(
-        () => source.signInWithGoogle('google-token'),
+        () => source.signInWithGoogle(idToken: 'google-token'),
         throwsA(
           isA<AuthFailure>().having(
             (failure) => failure.message,

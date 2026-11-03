@@ -36,7 +36,10 @@ class _FakeAuthRepository implements AuthRepository {
   }
 
   @override
-  Future<UserAccount> signInWithGoogle(String idToken) async {
+  Future<UserAccount> signInWithGoogle({
+    String? idToken,
+    String? accessToken,
+  }) async {
     if (!accepts) throw const AuthFailure('Token Google tidak valid.');
     return _session = const UserAccount(
       id: 'google-1',
@@ -74,7 +77,7 @@ class _FakeGoogleIdentity implements GoogleIdentitySource {
   final String? token;
 
   @override
-  Future<String?> obtainIdToken() async => token;
+  Future<GoogleTokens> obtainTokens() async => GoogleTokens(idToken: token);
 }
 
 class _FakeAccountRepository implements AccountRepository {

@@ -164,12 +164,23 @@ class RemoteAuthDataSource implements AuthDataSource {
   }
 
   @override
-  Future<UserAccountModel> signInWithGoogle(String idToken) async {
+  Future<UserAccountModel> signInWithGoogle({
+    String? idToken,
+    String? accessToken,
+  }) async {
+    final hasId = idToken != null && idToken.isNotEmpty;
+    final hasAccess = accessToken != null && accessToken.isNotEmpty;
+    if (!hasId && !hasAccess) {
+      throw const AuthFailure('Token Google tidak valid.');
+    }
     final response = await _request(
       () => _client.post(
         _uri('/google'),
         headers: _jsonHeaders,
-        body: jsonEncode({'id_token': idToken}),
+        body: jsonEncode({
+          if (hasId) 'id_token': idToken,
+          if (hasAccess) 'access_token': accessToken,
+        }),
       ),
     );
     if (response.statusCode == 200) return _storeSession(response);

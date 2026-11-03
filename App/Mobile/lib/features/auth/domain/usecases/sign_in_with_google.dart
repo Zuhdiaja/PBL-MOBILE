@@ -5,7 +5,7 @@ import '../repositories/google_identity_source.dart';
 
 typedef GoogleSignInResult = ({UserAccount? account, AuthFailure? failure});
 
-/// Exchanges a platform Google identity for a LinkGuard session.
+/// Exchanges platform Google tokens for a LinkGuard session.
 class SignInWithGoogle {
   const SignInWithGoogle();
 
@@ -13,9 +13,11 @@ class SignInWithGoogle {
     GoogleIdentitySource google,
     AuthRepository repository,
   ) async {
-    String? idToken;
+    GoogleTokens tokens;
     try {
-      idToken = await google.obtainIdToken();
+      tokens = await google.obtainTokens();
+    } on AuthFailure catch (failure) {
+      return (account: null, failure: failure);
     } catch (_) {
       return (
         account: null,
@@ -24,7 +26,7 @@ class SignInWithGoogle {
         ),
       );
     }
-    if (idToken == null || idToken.isEmpty) {
+    if (tokens.isEmpty) {
       return (
         account: null,
         failure: const AuthFailure('Login Google dibatalkan.'),
@@ -32,7 +34,10 @@ class SignInWithGoogle {
     }
 
     try {
-      final account = await repository.signInWithGoogle(idToken);
+      final account = await repository.signInWithGoogle(
+        idToken: tokens.idToken,
+        accessToken: tokens.accessToken,
+      );
       return (account: account, failure: null);
     } on AuthFailure catch (failure) {
       return (account: null, failure: failure);
