@@ -22,6 +22,22 @@ mobile = Blueprint("mobile", __name__)
 
 TOKEN_PREFIX = "linkguard:mobile:token:"
 DUMMY_HASH = generate_password_hash("unused-constant-time-password", method="scrypt")
+CORS_HEADERS = "Authorization, Content-Type, X-Requested-With"
+CORS_METHODS = "GET, POST, OPTIONS"
+
+
+@mobile.after_request
+def cors_headers(response):
+    """Allow the Flutter web build to call the API from another origin."""
+    origin = request.headers.get("Origin")
+    allowed = current_app.config.get("MOBILE_CORS_ORIGINS") or []
+    if origin and origin in allowed:
+        response.headers["Access-Control-Allow-Origin"] = origin
+        response.headers["Access-Control-Allow-Headers"] = CORS_HEADERS
+        response.headers["Access-Control-Allow-Methods"] = CORS_METHODS
+        response.headers["Access-Control-Max-Age"] = "600"
+        response.headers["Vary"] = "Origin"
+    return response
 
 
 def error(code, message, status=400):

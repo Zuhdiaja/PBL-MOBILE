@@ -4,9 +4,10 @@ from app.extensions import db
 from app.models import MobileUser
 
 
-def sign_up(client, email="nadia@example.com", password="password-nadia-2026", name="Nadia Putri"):
+def sign_up(client, email="nadia@example.com", password="password-nadia-2026", name="Nadia Putri", headers=None):
     return client.post("/api/v1/mobile/auth/register",
-                       json={"name": name, "email": email, "password": password})
+                       json={"name": name, "email": email, "password": password},
+                       headers=headers)
 
 
 def bearer(token):
@@ -191,3 +192,43 @@ def test_admin_password_reset_revokes_mobile_token(authenticated, app, client):
                           json={"password": "password-baru-2026"}, headers=headers)
     assert response.status_code == 200
     assert client.get("/api/v1/mobile/auth/me", headers=bearer(token)).status_code == 401
+
+
+def test_cors_is_disabled_by_default(client):
+    response = sign_up(client, headers={"Origin": "http://localhost:54321"})
+    assert response.status_code == 201
+    assert "Access-Control-Allow-Origin" not in response.headers
+
+
+def test_allowed_origin_receives_cors_headers(app, client):
+    app.config["MOBILE_CORS_ORIGINS"] = ["http://localhost:54321"]
+    response = sign_up(client, headers={"Origin": "http://localhost:54321"})
+    assert response.headers["Access-Control-Allow-Origin"] == "http://localhost:54321"
+    assert response.headers["Vary"] == "Origin"
+
+
+def test_preflight_is_answered_for_allowed_origin(app, client):
+    app.config["MOBILE_CORS_ORIGINS"] = ["http://localhost:54321"]
+    response = client.options("/api/v1/mobile/auth/login",
+                              headers={"Origin": "http://localhost:54321",
+                                       "Access-Control-Request-Method": "POST",
+                                       "Access-Control-Request-Headers": "authorization"})
+    assert response.status_code == 200
+    assert "Authorization" in response.headers["Access-Control-Allow-Headers"]
+    assert "POST" in response.headers["Access-Control-Allow-Methods"]
+
+
+def test_unknown_origin_is_ignored(app, client):
+    app.config["MOBILE_CORS_ORIGINS"] = ["http://localhost:54321"]
+    response = sign_up(client, headers={"Origin": "http://evil.example.com"})
+    assert response.status_code == 201
+    assert "Access-Control-Allow-Origin" not in response.headers
+
+
+def test_admin_endpoints_never_gain_cors_headers(authenticated, app):
+    app.config["MOBILE_CORS_ORIGINS"] = ["http://localhost:54321"]
+    admin, headers = authenticated
+    response = admin.get("/api/v1/users?kind=mobile",
+                         headers={**headers, "Origin": "http://localhost:54321"})
+    assert response.status_code == 200
+    assert "Access-Control-Allow-Origin" not in response.headers

@@ -37,6 +37,9 @@ def create_app(config=None):
                                   os.environ.get("GOOGLE_MOBILE_CLIENT_IDS", "").split(",")
                                   if client.strip()],
         MOBILE_TOKEN_TTL=int(os.environ.get("MOBILE_TOKEN_TTL", str(30 * 24 * 3600))),
+        MOBILE_CORS_ORIGINS=[origin.strip() for origin in
+                             os.environ.get("MOBILE_CORS_ORIGINS", "").split(",")
+                             if origin.strip()],
     )
     if config:
         app.config.update(config)
