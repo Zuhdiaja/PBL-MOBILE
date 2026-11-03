@@ -10,6 +10,7 @@ x-api: &api
     COOKIE_SECURE: ${COOKIE_SECURE:-false}
     GOOGLE_MOBILE_CLIENT_IDS: ${GOOGLE_MOBILE_CLIENT_IDS:-}
     MOBILE_TOKEN_TTL: ${MOBILE_TOKEN_TTL:-2592000}
+    MOBILE_CORS_ORIGINS: ${MOBILE_CORS_ORIGINS:-}
   volumes:
     - private_files:/private
 services:
