@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../domain/repositories/auth_repository.dart';
+import '../../domain/usecases/register_account.dart';
 import '../controllers/auth_controller.dart';
 import '../widgets/auth_form.dart';
 
@@ -34,15 +35,15 @@ class _RegisterPageState extends State<RegisterPage> {
     super.dispose();
   }
 
-  void _submit() {
-    final registered = widget.controller.submitRegister(
+  Future<void> _submit() async {
+    final registered = await widget.controller.submitRegister(
       RegisterRequest(
         name: _nameController.text,
         email: _emailController.text,
         password: _passwordController.text,
       ),
     );
-    if (registered) widget.onRegistered();
+    if (registered && mounted) widget.onRegistered();
   }
 
   @override
@@ -67,13 +68,14 @@ class _RegisterPageState extends State<RegisterPage> {
           ),
           AuthField(
             label: 'Kata sandi',
-            hint: 'Minimal 6 karakter',
+            hint: 'Minimal ${RegisterAccount.minimumPasswordLength} karakter',
             obscure: true,
             controller: _passwordController,
           ),
         ],
         actionLabel: 'Daftar',
         errorMessage: controller.errorMessage,
+        isSubmitting: controller.isSubmitting,
         footerPrompt: 'Sudah punya akun?',
         footerAction: 'Masuk',
         onFooterTap: () => Navigator.of(context).pop(),

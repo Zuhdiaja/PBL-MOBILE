@@ -8,7 +8,10 @@ typedef SignInResult = ({UserAccount? account, AuthFailure? failure});
 class SignIn {
   const SignIn();
 
-  SignInResult call(SignInRequest request, AuthRepository repository) {
+  Future<SignInResult> call(
+    SignInRequest request,
+    AuthRepository repository,
+  ) async {
     final email = request.email.trim();
     if (email.isEmpty || request.password.isEmpty) {
       return (
@@ -17,15 +20,19 @@ class SignIn {
       );
     }
 
-    final account = repository.signIn(
-      SignInRequest(email: email, password: request.password),
-    );
-    if (account == null) {
-      return (
-        account: null,
-        failure: const AuthFailure('Email atau password salah.'),
+    try {
+      final account = await repository.signIn(
+        SignInRequest(email: email, password: request.password),
       );
+      if (account == null) {
+        return (
+          account: null,
+          failure: const AuthFailure('Email atau password salah.'),
+        );
+      }
+      return (account: account, failure: null);
+    } on AuthFailure catch (failure) {
+      return (account: null, failure: failure);
     }
-    return (account: account, failure: null);
   }
 }

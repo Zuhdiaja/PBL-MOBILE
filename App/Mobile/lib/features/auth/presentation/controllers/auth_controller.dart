@@ -23,6 +23,8 @@ class AuthController extends LoadController {
 
   UserAccount? _account;
   String? _errorMessage;
+  bool _isSubmitting = false;
+  bool _closed = false;
 
   /// Account of the current session, or null when signed out.
   UserAccount? get account => _account;
@@ -30,7 +32,16 @@ class AuthController extends LoadController {
   /// Message shown after a rejected attempt, or null when there is none.
   String? get errorMessage => _errorMessage;
 
+  /// Whether a sign in or registration request is in flight.
+  bool get isSubmitting => _isSubmitting;
+
   bool get isSignedIn => _account != null;
+
+  @override
+  void dispose() {
+    _closed = true;
+    super.dispose();
+  }
 
   /// Reads any session the data source already holds.
   @override
@@ -40,20 +51,29 @@ class AuthController extends LoadController {
   Future<void> restore() => load();
 
   /// Attempts a sign in; returns true when the session opened.
-  bool submitSignIn(SignInRequest request) {
-    final result = signIn(request, repository);
+  Future<bool> submitSignIn(SignInRequest request) async {
+    if (_isSubmitting) return false;
+    _beginSubmission();
+    final result = await signIn(request, repository);
+    if (_closed) return false;
+    _isSubmitting = false;
     return _applyResult(result.account, result.failure);
   }
 
   /// Attempts a registration; returns true when the session opened.
-  bool submitRegister(RegisterRequest request) {
-    final result = registerAccount(request, repository);
+  Future<bool> submitRegister(RegisterRequest request) async {
+    if (_isSubmitting) return false;
+    _beginSubmission();
+    final result = await registerAccount(request, repository);
+    if (_closed) return false;
+    _isSubmitting = false;
     return _applyResult(result.account, result.failure);
   }
 
   /// Closes the session and forgets the last error.
-  void submitSignOut() {
-    signOut(repository);
+  Future<void> submitSignOut() async {
+    await signOut(repository);
+    if (_closed) return;
     _account = null;
     _errorMessage = null;
     notifyListeners();
@@ -62,6 +82,12 @@ class AuthController extends LoadController {
   /// Clears the error after the page has shown it.
   void clearError() {
     if (_errorMessage == null) return;
+    _errorMessage = null;
+    notifyListeners();
+  }
+
+  void _beginSubmission() {
+    _isSubmitting = true;
     _errorMessage = null;
     notifyListeners();
   }

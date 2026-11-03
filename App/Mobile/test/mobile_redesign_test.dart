@@ -8,13 +8,14 @@ import 'package:pbl_semester5/theme/app_theme.dart';
 import 'package:pbl_semester5/theme/app_colors.dart';
 
 import 'scan_flow_test.dart' show openApp, tapVisible;
+import 'test_auth.dart';
 
 Future<void> signIn(WidgetTester tester) async {
   tester.view.physicalSize = const Size(390, 844);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
   addTearDown(tester.view.resetDevicePixelRatio);
-  await tester.pumpWidget(const MyApp());
+  await tester.pumpWidget(MyApp(auth: demoAuth()));
   await tester.pumpAndSettle();
   await tester.tap(find.text('Lewati'));
   await tester.pumpAndSettle();
@@ -60,7 +61,7 @@ void main() {
   testWidgets('password visibility preserves the typed password', (
     tester,
   ) async {
-    await tester.pumpWidget(const MyApp());
+    await tester.pumpWidget(MyApp(auth: demoAuth()));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Lewati'));
     await tester.pumpAndSettle();

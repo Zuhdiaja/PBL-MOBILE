@@ -150,10 +150,11 @@ class _MainShellState extends State<MainShell> {
             [
                   HomeScreen(
                     controller: _inputScan.home,
-                    name: (widget.auth.auth.account ?? widget.auth.demoAccount)
-                        .firstName,
+                    name:
+                        (widget.auth.auth.account ?? widget.auth.displayAccount)
+                            .firstName,
                     initials:
-                        (widget.auth.auth.account ?? widget.auth.demoAccount)
+                        (widget.auth.auth.account ?? widget.auth.displayAccount)
                             .initials,
                     onNotifications: _openNotifications,
                     onRecentScan: (scan) =>
@@ -180,7 +181,7 @@ class _MainShellState extends State<MainShell> {
                   ProfilePage(
                     controller: widget.auth.profile,
                     account:
-                        widget.auth.auth.account ?? widget.auth.demoAccount,
+                        widget.auth.auth.account ?? widget.auth.displayAccount,
                     onSettings: _openSettings,
                     onSignOut: _signOut,
                     onReportStatus: _openReportStatus,

@@ -19,4 +19,16 @@ flutter pub get
 flutter run
 ```
 
+Autentikasi memakai API LinkGuard di `/api/v1/mobile/auth`. Alamat default
+mengikuti platform: emulator Android memakai `http://10.0.2.2:3000`, sedangkan
+web dan desktop memakai `http://localhost:3000`. Untuk perangkat fisik atau API
+yang sudah di-deploy, timpa lewat `--dart-define`:
+
+```sh
+flutter run --dart-define=API_BASE_URL=http://192.168.1.10:3000
+```
+
+Token disimpan di perangkat melalui `shared_preferences`. Login Google belum
+tersambung; tombolnya masih nonaktif.
+
 Pengecekan: `flutter analyze --no-pub` dan `flutter test --no-pub`.

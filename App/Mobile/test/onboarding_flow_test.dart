@@ -5,6 +5,8 @@ import 'package:pbl_semester5/main.dart';
 import 'package:pbl_semester5/theme/app_colors.dart';
 import 'package:pbl_semester5/theme/app_theme.dart';
 
+import 'test_auth.dart';
+
 Future<void> showOnboarding(
   WidgetTester tester, {
   Size size = const Size(390, 844),
@@ -152,7 +154,7 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
-    await tester.pumpWidget(const MyApp());
+    await tester.pumpWidget(MyApp(auth: demoAuth()));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Lewati'));
     await tester.pumpAndSettle();
