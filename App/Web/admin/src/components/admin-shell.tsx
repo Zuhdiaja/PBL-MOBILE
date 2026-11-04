@@ -11,6 +11,7 @@ import {
   ShieldCheck,
   ChevronsUpDown,
   ChevronRight,
+  Flag,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -112,6 +113,7 @@ function Navigation({
             <SidebarMenu>
               {[
                 { href: "/datasets", name: "Dataset", Icon: Database },
+                { href: "/reports", name: "Laporan", Icon: Flag },
                 { href: "/users", name: "Pengguna", Icon: UsersRound },
                 { href: "/profile", name: "Profil", Icon: UserRound },
               ].map(({ href, name, Icon }) => (
@@ -214,7 +216,13 @@ function SiteHeader() {
         <span className="breadcrumb-parent">Ruang kerja</span>
         <ChevronRight aria-hidden="true" size={14} className="breadcrumb-parent" />
         <span aria-current="page">
-          {path === "/profile" ? "Profil" : path === "/users" ? "Pengguna" : "Dataset"}
+          {path === "/profile"
+            ? "Profil"
+            : path === "/users"
+              ? "Pengguna"
+              : path === "/reports"
+                ? "Laporan"
+                : "Dataset"}
         </span>
       </nav>
       <Badge variant="outline" className="ml-auto font-normal text-muted-foreground">
