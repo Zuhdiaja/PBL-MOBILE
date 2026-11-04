@@ -53,9 +53,16 @@ def create_app(config=None):
                                      default_timeout=app.config["IMPORT_TIMEOUT"])
     from app.routes import api, authenticate
     from app.routes.mobile_auth import mobile
+    # Imported for its side effect: it attaches /predict to the mobile blueprint,
+    # so it must come after mobile_auth defines that blueprint.
+    from app.routes import mobile_predict as _mobile_predict  # noqa: F401
+    from app.services.url_model import load as load_url_model
     app.register_blueprint(api, url_prefix="/api/v1")
     app.register_blueprint(mobile, url_prefix="/api/v1/mobile")
     app.before_request(authenticate)
+    # Loading happens once here, not per request. A missing artefact logs a
+    # warning and leaves the extension as None instead of failing startup.
+    app.extensions["url_model"] = load_url_model(app)
 
     @app.errorhandler(HTTPException)
     def http_error(exc):
