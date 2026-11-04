@@ -19,11 +19,14 @@ idna==3.20
 iniconfig==2.3.1
 itsdangerous==2.2.0
 Jinja2==3.1.6
+joblib==1.6.0
 joserfc==1.7.5
 limits==5.8.0
 Mako==1.4.3
 MarkupSafe==3.0.4
 msgspec==0.22.0
+narwhals==2.28.0
+numpy==2.2.6
 ordered-set==4.1.0
 packaging==26.3
 pillow==12.3.0
@@ -37,8 +40,11 @@ python-dateutil==2.9.0.post0
 redis==7.4.1
 requests==2.34.2
 rq==2.12.0
+scikit-learn==1.9.1
+scipy==1.15.3
 six==1.17.0
 SQLAlchemy==2.1.4
+threadpoolctl==3.7.0
 typing_extensions==4.16.0
 urllib3==2.8.0
 Werkzeug==3.1.9
