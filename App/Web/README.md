@@ -68,6 +68,12 @@ Sumber yang dituju adalah [MURL 2026 di Mendeley](https://data.mendeley.com/data
 - Pekerjaan gagal/terhenti dipulihkan sebagai `failed` saat metadata/status dibaca atau unggahan berikutnya dilakukan. Heartbeat yang kedaluwarsa lebih dari satu jam ditandai gagal; worker yang sudah ditandai gagal tidak boleh mengaktifkan dataset. Dataset lama tetap tersedia.
 - Pagination 25/50/100 baris dijalankan di PostgreSQL melalui indeks `(dataset_id, row_number)`. URL menyimpan halaman, ukuran halaman, dan identitas dataset; pergantian dataset kembali ke halaman pertama.
 
+## Laporan
+
+Menu **Laporan** menampung koreksi prediksi dari pengguna mobile. Admin dapat meninjau, mengubah status dan kategori, lalu menyetujui laporan sehingga satu baris baru ditambahkan ke dataset aktif. Ejaan kategori mengikuti dataset yang sedang aktif, dan kelas `legitimate` tidak pernah diubah.
+
+Alur, aturan kategori, kode error, serta cara menguji dengan dataset MURL asli dijelaskan di [reports/README.md](reports/README.md).
+
 ## Menjalankan tanpa container web
 
 Bun 1.4.3+, Python 3.13+, PostgreSQL dan Redis diperlukan. Dari `admin`:

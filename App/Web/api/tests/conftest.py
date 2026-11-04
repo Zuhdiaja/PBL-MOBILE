@@ -6,6 +6,7 @@ from werkzeug.security import generate_password_hash
 from app import create_app
 from app.extensions import db
 from app.models import Admin
+from app.routes import reports as reports_routes
 
 
 @pytest.fixture()
@@ -18,6 +19,8 @@ def app(tmp_path):
         pytest.fail("Tests require dedicated Redis database 15")
     redis = Redis.from_url(redis_url)
     redis.flushdb()
+    # The label cache is process-wide; a fresh database must not reuse old spellings.
+    reports_routes._LABEL_CACHE.clear()
     application = create_app(dict(TESTING=True, SQLALCHEMY_DATABASE_URI=url,
         SESSION_REDIS=redis, RATELIMIT_STORAGE_URI=redis_url, RATELIMIT_ENABLED=False,
         PRIVATE_STORAGE=str(tmp_path), GOOGLE_CLIENT_ID="test-client", GOOGLE_CLIENT_SECRET="test-secret"))
