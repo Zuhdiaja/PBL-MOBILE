@@ -13,6 +13,7 @@ x-api: &api
     MOBILE_CORS_ORIGINS: ${MOBILE_CORS_ORIGINS:-}
   volumes:
     - private_files:/private
+    - ./api/instance/models:/app/instance/models:ro
 services:
   postgres:
     image: postgres:17-alpine
