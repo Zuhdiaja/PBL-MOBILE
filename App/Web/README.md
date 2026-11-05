@@ -74,6 +74,17 @@ Menu **Laporan** menampung koreksi prediksi dari pengguna mobile. Admin dapat me
 
 Alur, aturan kategori, kode error, serta cara menguji dengan dataset MURL asli dijelaskan di [reports/README.md](reports/README.md).
 
+## Pipeline ML
+
+Menu **Pipeline ML** menampilkan artefak metrik dari notebook SVM + TF-IDF tanpa menjalankan training atau inference di server. Impor `svm_tfidf_metrics.json` lewat tombol **Impor hasil** atau CLI:
+
+```sh
+docker compose exec api flask --app app:create_app ml-import \
+  --path /path/to/svm_tfidf_metrics.json
+```
+
+Halaman menampilkan empat tahap: normalisasi URL, praproses TF-IDF, parameter training, dan evaluasi (metrik, report per kelas, confusion matrix). Preview URL hanya memperlihatkan hasil normalisasi dan frekuensi n-gram karakter; file model `.pkl` tidak dipakai. Contoh artefak hasil notebook ada di `model-experiments/results/hasil_model/svm_tfidf_metrics.example.json`; confusion matrix pada contoh tersebut direkonstruksi dari recall/support karena notebook menyimpan matriks asli sebagai gambar.
+
 ## Menjalankan tanpa container web
 
 Bun 1.4.3+, Python 3.13+, PostgreSQL dan Redis diperlukan. Dari `admin`:

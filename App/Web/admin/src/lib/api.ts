@@ -138,3 +138,72 @@ export type ReportsResponse = {
   row_count: number;
   summary: ReportsSummary;
 };
+
+export type MLMetrics = {
+  accuracy: number;
+  balanced_accuracy: number;
+  macro_f1: number;
+  weighted_f1: number;
+};
+export type MLReportRow = {
+  precision: number;
+  recall: number;
+  "f1-score": number;
+  support: number;
+};
+export type MLReport = Record<string, MLReportRow>;
+export type MLRunSummary = {
+  id: string;
+  model: string;
+  representation: string;
+  status: string;
+  classes: string[];
+  metrics: { test: MLMetrics };
+  row_count: number | null;
+  input_features: number | null;
+  fit_seconds: number | null;
+  completed_at: string | null;
+  created_at: string | null;
+};
+export type MLRunDetail = Omit<MLRunSummary, "metrics"> & {
+  metrics: { validation: MLMetrics; test: MLMetrics };
+  report: { validation: MLReport; test: MLReport };
+  confusion_matrix: number[][];
+  split_counts: { train: number; validation: number; test: number };
+  params: Record<string, string | number | boolean | null>;
+  preprocessing: string | null;
+};
+export type MLRunsResponse = { items: MLRunSummary[]; active_id: string | null };
+export type MLDatasetSummary = {
+  dataset: Dataset;
+  label_column: string | null;
+  class_counts: { label: string; count: number }[];
+};
+export type MLNormalized = {
+  raw: string;
+  scheme: string;
+  host: string;
+  canonical_host: string;
+  site: string;
+  is_ip: boolean;
+  path: string;
+  query: string;
+  fragment: string;
+  parse_failed: boolean;
+  steps: string[];
+  text: string;
+};
+export type MLPreviewResponse = {
+  normalized: MLNormalized;
+  steps: string[];
+  ngrams: {
+    "3": { token: string; count: number }[];
+    "4": { token: string; count: number }[];
+    "5": { token: string; count: number }[];
+    total_tokens: number;
+  };
+};
+export const percent = new Intl.NumberFormat("id-ID", {
+  style: "percent",
+  maximumFractionDigits: 2,
+});
