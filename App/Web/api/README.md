@@ -9,9 +9,10 @@ Semua endpoint memakai `/api/v1`:
 | Auth | `GET /auth/csrf`, `POST /auth/login`, `POST /auth/logout`, `GET /auth/me` |
 | Profil | `PATCH /profile`, `PUT/GET /profile/avatar`, `POST /profile/password` |
 | Dataset | `GET /dataset`, `POST /dataset/imports`, `GET /dataset/imports/{id}`, `GET /dataset/rows` |
+| Laporan | `POST /reports/submit`, `GET /reports`, `GET/PATCH/DELETE /reports/{id}`, `POST /reports/{id}/sync-dataset` |
+| Pipeline ML | `GET /ml/runs`, `GET /ml/runs/{id}`, `POST /ml/runs/import`, `GET /ml/dataset-summary`, `POST /ml/preview` |
 | Pengguna | `GET /users?kind=admin|mobile&page=1&page_size=25`, `POST /users/{kind}`, `PATCH /users/{kind}/{id}`, `POST /users/{kind}/{id}/password` |
 | Mobile auth | `POST /mobile/auth/register`, `POST /mobile/auth/login`, `POST /mobile/auth/google`, `GET /mobile/auth/me`, `POST /mobile/auth/logout` |
-| Laporan | `POST /reports/submit`, `GET /reports`, `GET/PATCH/DELETE /reports/{id}`, `POST /reports/{id}/sync-dataset` |
 | Operasional | `GET /health` |
 
 Ambil `csrf_token` dari `/auth/csrf`; kirim lewat header `X-CSRF-Token` pada request perubahan, termasuk login. Login merotasi sesi dan token; gunakan token baru dari respons. Upload memakai multipart field `file`. `/dataset/rows` memerlukan `dataset_id`, `page` (default 1), dan `page_size` (25/50/100). Respons error: `{"error":{"code":"...","message":"..."}}`.

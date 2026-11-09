@@ -118,3 +118,50 @@ class PredictionReport(db.Model):
             created_at=self.created_at.isoformat() if self.created_at else None,
             updated_at=self.updated_at.isoformat() if self.updated_at else None,
         )
+
+
+class MLRun(db.Model):
+    __tablename__ = "ml_runs"
+    id = db.Column(db.String(36), primary_key=True)
+    model = db.Column(db.String(32), nullable=False)
+    representation = db.Column(db.String(32), nullable=False)
+    status = db.Column(db.String(16), nullable=False, default="completed")
+    classes = db.Column(JSONB, nullable=False, default=list)
+    metrics = db.Column(JSONB, nullable=False, default=dict)
+    report = db.Column(JSONB, nullable=False, default=dict)
+    confusion_matrix = db.Column(JSONB, nullable=False, default=list)
+    split_counts = db.Column(JSONB, nullable=False, default=dict)
+    params = db.Column(JSONB, nullable=False, default=dict)
+    preprocessing = db.Column(db.Text)
+    fit_seconds = db.Column(db.Float)
+    input_features = db.Column(db.Integer)
+    row_count = db.Column(db.BigInteger, nullable=False)
+    completed_at = db.Column(db.DateTime(timezone=True))
+    created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=now)
+    __table_args__ = (db.Index("ml_runs_completed_at", "completed_at"),)
+
+    def public(self, detail=False):
+        data = dict(
+            id=self.id,
+            model=self.model,
+            representation=self.representation,
+            status=self.status,
+            classes=self.classes,
+            row_count=self.row_count,
+            input_features=self.input_features,
+            fit_seconds=self.fit_seconds,
+            completed_at=self.completed_at.isoformat() if self.completed_at else None,
+            created_at=self.created_at.isoformat() if self.created_at else None,
+        )
+        if detail:
+            data.update(
+                metrics=self.metrics,
+                report=self.report,
+                confusion_matrix=self.confusion_matrix,
+                split_counts=self.split_counts,
+                params=self.params,
+                preprocessing=self.preprocessing,
+            )
+        else:
+            data["metrics"] = {"test": (self.metrics or {}).get("test", {})}
+        return data

@@ -242,3 +242,4 @@ def rows():
 # Register account management and report endpoints on this authenticated blueprint.
 from app.routes import users as _users
 from app.routes import reports as _reports
+from app.routes import ml as _ml

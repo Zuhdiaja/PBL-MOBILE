@@ -1,3 +1,4 @@
+import json
 import os
 from datetime import timedelta
 from pathlib import Path
@@ -95,5 +96,22 @@ def create_app(config=None):
                              password_hash=generate_password_hash(password, method="scrypt")))
         db.session.commit()
         click.echo(f"Admin {email} dibuat.")
+
+    @app.cli.command("ml-import")
+    @click.option("--path", required=True, type=click.Path(exists=True, dir_okay=False, path_type=Path),
+                  help="Path to svm_tfidf_metrics.json.")
+    def ml_import(path):
+        from app.ml.artifacts import ArtifactError, parse_artifact
+        from app.ml.store import upsert_run
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+            raise click.ClickException(f"File hasil model tidak dapat dibaca: {exc}")
+        try:
+            payload = parse_artifact(data)
+        except ArtifactError as exc:
+            raise click.ClickException(f"Artefak tidak valid: {exc}")
+        run = upsert_run(payload)
+        click.echo(run.id)
 
     return app

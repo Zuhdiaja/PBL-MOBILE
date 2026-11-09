@@ -12,6 +12,7 @@ import {
   ChevronsUpDown,
   ChevronRight,
   Flag,
+  BrainCircuit,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -115,6 +116,7 @@ function Navigation({
                 { href: "/datasets", name: "Dataset", Icon: Database },
                 { href: "/reports", name: "Laporan", Icon: Flag },
                 { href: "/users", name: "Pengguna", Icon: UsersRound },
+                { href: "/ml", name: "Pipeline ML", Icon: BrainCircuit },
                 { href: "/profile", name: "Profil", Icon: UserRound },
               ].map(({ href, name, Icon }) => (
                 <SidebarMenuItem key={href}>
@@ -222,7 +224,9 @@ function SiteHeader() {
               ? "Pengguna"
               : path === "/reports"
                 ? "Laporan"
-                : "Dataset"}
+                : path === "/ml"
+                  ? "Pipeline ML"
+                  : "Dataset"}
         </span>
       </nav>
       <Badge variant="outline" className="ml-auto font-normal text-muted-foreground">
