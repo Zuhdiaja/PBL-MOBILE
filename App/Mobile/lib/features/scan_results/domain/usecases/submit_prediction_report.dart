@@ -1,32 +1,32 @@
 import '../entities/prediction_report.dart';
 import '../repositories/prediction_report_repository.dart';
 
-typedef SubmitReportResult = ({bool submitted, ScanResultsFailure? failure});
+typedef SubmitReportResult = ({
+  SubmittedPredictionReport? report,
+  ScanResultsFailure? failure,
+});
 
-/// Validates a correction before handing it to the repository.
+/// Validates a correction and hands it to the repository.
 class SubmitPredictionReport {
   const SubmitPredictionReport();
 
-  SubmitReportResult call(
+  Future<SubmitReportResult> call(
     PredictionReport report,
     PredictionReportRepository repository,
-  ) {
+  ) async {
     if (report.category.trim().isEmpty) {
       return (
-        submitted: false,
+        report: null,
         failure: const ScanResultsFailure(
           'Pilih kategori yang benar terlebih dahulu.',
         ),
       );
     }
-    final submitted = repository.submit(report);
-    return submitted
-        ? (submitted: true, failure: null)
-        : (
-            submitted: false,
-            failure: const ScanResultsFailure(
-              'Laporan belum dapat dikirim. Coba lagi.',
-            ),
-          );
+    try {
+      final submitted = await repository.submit(report);
+      return (report: submitted, failure: null);
+    } on ScanResultsFailure catch (failure) {
+      return (report: null, failure: failure);
+    }
   }
 }

@@ -1,8 +1,8 @@
 import 'dart:convert';
 
-import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
+import '../../../../config/api_config.dart';
 import '../../domain/entities/auth_failure.dart';
 import '../models/user_account_model.dart';
 import 'auth_data_source.dart';
@@ -10,18 +10,9 @@ import 'token_store.dart';
 
 /// Default API origin for local development.
 ///
-/// Override it for a physical device or a deployed API:
-/// `flutter run --dart-define=API_BASE_URL=http://192.168.1.10:3000`.
-String defaultAuthApiBaseUrl() {
-  const override = String.fromEnvironment('API_BASE_URL');
-  if (override.isNotEmpty) return override;
-  if (kIsWeb) return 'http://localhost:3000';
-  // The Android emulator reaches the host machine through 10.0.2.2.
-  if (defaultTargetPlatform == TargetPlatform.android) {
-    return 'http://10.0.2.2:3000';
-  }
-  return 'http://localhost:3000';
-}
+/// Kept as a thin alias so existing callers and tests stay valid; the value
+/// itself lives in [defaultApiBaseUrl] so other features can share it.
+String defaultAuthApiBaseUrl() => defaultApiBaseUrl();
 
 /// Talks to `/api/v1/mobile/auth` on the LinkGuard API.
 class RemoteAuthDataSource implements AuthDataSource {

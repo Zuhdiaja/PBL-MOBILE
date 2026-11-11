@@ -37,7 +37,9 @@ class MainShell extends StatefulWidget {
 class _MainShellState extends State<MainShell> {
   int _selectedIndex = 0;
   final _inputScan = InputScanDependencies();
-  final _scanResults = ScanResultsDependencies();
+  late final _scanResults = ScanResultsDependencies(
+    tokenStore: widget.auth.tokenStore,
+  );
   final _history = HistoryDependencies();
 
   @override

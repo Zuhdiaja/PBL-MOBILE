@@ -27,9 +27,12 @@ class _FakeReportRepository implements PredictionReportRepository {
   List<String> getCategories() => const ['Phishing', 'Spam'];
 
   @override
-  bool submit(PredictionReport report) {
+  Future<SubmittedPredictionReport> submit(PredictionReport report) async {
     submitted.add(report);
-    return accepts;
+    if (!accepts) {
+      throw const ScanResultsFailure('Laporan belum dapat dikirim. Coba lagi.');
+    }
+    return const SubmittedPredictionReport(id: 12, status: 'submitted');
   }
 }
 
@@ -95,10 +98,10 @@ void main() {
   group('SubmitPredictionReport', () {
     const submitReport = SubmitPredictionReport();
 
-    test('rejects a report without a category', () {
+    test('rejects a report without a category', () async {
       final repository = _FakeReportRepository();
 
-      final outcome = submitReport(
+      final outcome = await submitReport(
         const PredictionReport(
           url: 'contoh.example.test',
           type: ReportType.falsePositive,
@@ -107,13 +110,13 @@ void main() {
         repository,
       );
 
-      expect(outcome.submitted, isFalse);
+      expect(outcome.report, isNull);
       expect(outcome.failure?.message, contains('Pilih kategori'));
       expect(repository.submitted, isEmpty);
     });
 
-    test('treats whitespace as a missing category', () {
-      final outcome = submitReport(
+    test('treats whitespace as a missing category', () async {
+      final outcome = await submitReport(
         const PredictionReport(
           url: 'contoh.example.test',
           type: ReportType.falsePositive,
@@ -122,13 +125,13 @@ void main() {
         _FakeReportRepository(),
       );
 
-      expect(outcome.submitted, isFalse);
+      expect(outcome.report, isNull);
     });
 
-    test('passes the report through when a category is chosen', () {
+    test('passes the report through when a category is chosen', () async {
       final repository = _FakeReportRepository();
 
-      final outcome = submitReport(
+      final outcome = await submitReport(
         const PredictionReport(
           url: 'contoh.example.test',
           type: ReportType.falseNegative,
@@ -138,14 +141,14 @@ void main() {
         repository,
       );
 
-      expect(outcome.submitted, isTrue);
+      expect(outcome.report?.id, 12);
       expect(outcome.failure, isNull);
       expect(repository.submitted.single.type, ReportType.falseNegative);
       expect(repository.submitted.single.notes, 'Mengambil data login.');
     });
 
-    test('turns a rejected write into a user facing failure', () {
-      final outcome = submitReport(
+    test('turns a rejected write into a user facing failure', () async {
+      final outcome = await submitReport(
         const PredictionReport(
           url: 'contoh.example.test',
           type: ReportType.falsePositive,
@@ -154,7 +157,7 @@ void main() {
         _FakeReportRepository(accepts: false),
       );
 
-      expect(outcome.submitted, isFalse);
+      expect(outcome.report, isNull);
       expect(outcome.failure?.message, isNotEmpty);
     });
   });
