@@ -67,6 +67,12 @@ class AuthDependencies {
   /// Session storage shared with features that call the authenticated API.
   final TokenStore tokenStore;
 
+  /// Token store handed to API-backed features.
+  ///
+  /// Null while the app runs on an offline source, so those features keep
+  /// their example data instead of calling a server that is not there.
+  TokenStore? get apiTokenStore => _authSource.isOffline ? null : tokenStore;
+
   final AuthDataSource _authSource;
   final GoogleIdentitySource _googleIdentity;
   final _accountSource = DemoAccountDataSource();

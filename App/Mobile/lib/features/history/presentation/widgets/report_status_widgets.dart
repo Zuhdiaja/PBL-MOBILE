@@ -69,11 +69,13 @@ class ReportStatusBadge extends StatelessWidget {
       ReportStage.completed => context.colors.success,
       ReportStage.review => context.colors.blue,
       ReportStage.submitted => context.colors.warning,
+      ReportStage.rejected => context.colors.danger,
     };
     final bg = switch (stage) {
       ReportStage.completed => context.colors.paleSuccess,
       ReportStage.review => context.colors.paleBlue,
       ReportStage.submitted => context.colors.paleWarning,
+      ReportStage.rejected => context.colors.paleDanger,
     };
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),

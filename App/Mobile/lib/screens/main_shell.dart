@@ -38,9 +38,11 @@ class _MainShellState extends State<MainShell> {
   int _selectedIndex = 0;
   final _inputScan = InputScanDependencies();
   late final _scanResults = ScanResultsDependencies(
-    tokenStore: widget.auth.tokenStore,
+    tokenStore: widget.auth.apiTokenStore,
   );
-  final _history = HistoryDependencies();
+  late final _history = HistoryDependencies(
+    tokenStore: widget.auth.apiTokenStore,
+  );
 
   @override
   void dispose() {

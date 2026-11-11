@@ -19,8 +19,9 @@ abstract class LoadController extends ChangeNotifier {
   @protected
   Future<void> loadValue<T>(
     FutureOr<T> Function() read,
-    void Function(T value) apply,
-  ) {
+    void Function(T value) apply, {
+    String? Function(Object error)? describeError,
+  }) {
     if (_disposed) return Future.value();
     if (_pending != null) return _pending!;
     _isLoading = true;
@@ -35,9 +36,11 @@ abstract class LoadController extends ChangeNotifier {
           apply(value);
           _hasLoaded = true;
         }
-      } catch (_) {
+      } catch (error) {
         if (!_disposed) {
-          _loadError = 'Data belum dapat dimuat. Silakan coba lagi.';
+          _loadError =
+              describeError?.call(error) ??
+              'Data belum dapat dimuat. Silakan coba lagi.';
         }
       } finally {
         _pending = null;

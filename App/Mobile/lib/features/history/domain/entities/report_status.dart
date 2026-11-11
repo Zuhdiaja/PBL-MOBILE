@@ -2,7 +2,8 @@
 enum ReportStage {
   submitted('Diproses'),
   review('Ditinjau'),
-  completed('Selesai');
+  completed('Selesai'),
+  rejected('Ditolak');
 
   const ReportStage(this.label);
 

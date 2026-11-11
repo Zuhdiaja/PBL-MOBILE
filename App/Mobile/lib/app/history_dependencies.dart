@@ -1,6 +1,9 @@
+import '../config/api_config.dart';
+import '../features/auth/data/datasources/token_store.dart';
 import '../features/history/data/datasources/demo_history_data_source.dart';
 import '../features/history/data/datasources/demo_notifications_data_source.dart';
 import '../features/history/data/datasources/demo_report_status_data_source.dart';
+import '../features/history/data/datasources/remote_report_status_data_source.dart';
 import '../features/history/data/repositories/history_repository_impl.dart';
 import '../features/history/data/repositories/notifications_repository_impl.dart';
 import '../features/history/data/repositories/report_status_repository_impl.dart';
@@ -15,10 +18,19 @@ import '../features/history/presentation/controllers/stats_controller.dart';
 /// Composition root for the history and monitoring feature.
 ///
 /// Concrete and legacy data stay here so feature widgets never import them.
+/// Passing a [tokenStore] reads the user's own reports from the API; without
+/// one the feature keeps the example data used by tests and previews.
 class HistoryDependencies {
-  HistoryDependencies() {
+  HistoryDependencies({TokenStore? tokenStore, String? apiBaseUrl}) {
     final history = HistoryRepositoryImpl(DemoHistoryDataSource());
-    final reports = ReportStatusRepositoryImpl(DemoReportStatusDataSource());
+    final reports = ReportStatusRepositoryImpl(
+      tokenStore == null
+          ? DemoReportStatusDataSource()
+          : RemoteReportStatusDataSource(
+              baseUrl: apiBaseUrl ?? defaultApiBaseUrl(),
+              tokenStore: tokenStore,
+            ),
+    );
     final notifications = NotificationsRepositoryImpl(
       DemoNotificationsDataSource(),
     );
@@ -35,6 +47,7 @@ class HistoryDependencies {
     reportStatus = ReportStatusController(
       repository: reports,
       buildReportTimeline: const BuildReportTimeline(),
+      isSimulated: tokenStore == null,
     );
     this.notifications = NotificationsController(notifications);
   }
