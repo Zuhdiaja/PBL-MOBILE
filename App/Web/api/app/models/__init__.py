@@ -94,6 +94,7 @@ class PredictionReport(db.Model):
     notes = db.Column(db.Text)
     admin_notes = db.Column(db.Text)
     reporter_email = db.Column(db.String(254))
+    reporter_id = db.Column(db.Integer, db.ForeignKey("mobile_users.id", ondelete="SET NULL"), index=True)
     dataset_id = db.Column(db.String(36), db.ForeignKey("datasets.id", ondelete="SET NULL"))
     dataset_synced = db.Column(db.Boolean, nullable=False, default=False)
     created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=now)
@@ -113,6 +114,7 @@ class PredictionReport(db.Model):
             notes=self.notes,
             admin_notes=self.admin_notes,
             reporter_email=self.reporter_email,
+            reporter_id=self.reporter_id,
             dataset_id=self.dataset_id,
             dataset_synced=self.dataset_synced,
             created_at=self.created_at.isoformat() if self.created_at else None,

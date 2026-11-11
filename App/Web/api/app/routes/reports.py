@@ -52,12 +52,17 @@ def dataset_labels(dataset_id, column_index):
 @api.post("/reports/submit")
 @limiter.limit("30 per minute")
 def reports_submit():
+    return create_report()
+
+
+def create_report(reporter=None):
+    """Legacy submissions stay anonymous; mobile identity comes only from auth."""
     data = body()
     url = data.get("url")
     report_type = data.get("type") or data.get("report_type")
     category = data.get("category") or data.get("reported_category")
     notes = data.get("notes")
-    email = data.get("reporter_email")
+    email = reporter.email if reporter is not None else data.get("reporter_email")
 
     if not isinstance(url, str) or not 1 <= len(url.strip()) <= 2048:
         return error("invalid_url", "URL laporan tidak valid.")
@@ -80,6 +85,7 @@ def reports_submit():
         reported_category=normalize_category(category) or category.strip(),
         notes=notes,
         reporter_email=email.strip().lower() if email else None,
+        reporter_id=reporter.id if reporter is not None else None,
         status="submitted",
         created_at=now(),
         updated_at=now(),
@@ -173,7 +179,7 @@ def reports_detail(report_id):
 
 @api.patch("/reports/<int:report_id>")
 def reports_update(report_id):
-    report = db.session.get(PredictionReport, report_id)
+    report = db.session.get(PredictionReport, report_id, with_for_update=True)
     if not report:
         return error("not_found", "Laporan tidak ditemukan.", 404)
 
@@ -183,9 +189,12 @@ def reports_update(report_id):
     category = data.get("reported_category")
 
     if status is not None:
-        if status not in VALID_STATUSES:
+        if not isinstance(status, str) or status not in VALID_STATUSES:
             return error("invalid_status", "Status laporan tidak valid.")
-        report.status = status
+        if report.dataset_synced and status != report.status:
+            return error("report_synced", "Status laporan tersinkron tidak dapat diubah.", 409)
+        if not report.dataset_synced and status == "completed":
+            return error("sync_required", "Gunakan sinkronisasi dataset untuk menyelesaikan laporan.", 409)
 
     if admin_notes is not None:
         if not isinstance(admin_notes, str):
@@ -193,12 +202,21 @@ def reports_update(report_id):
         admin_notes = admin_notes.strip()
         if len(admin_notes) > MAX_NOTES:
             return error("invalid_notes", f"Catatan maksimal {MAX_NOTES} karakter.")
-        report.admin_notes = admin_notes
 
     if category is not None:
         if not isinstance(category, str) or not 1 <= len(category.strip()) <= 64:
             return error("invalid_category", "Kategori laporan tidak valid.")
-        report.reported_category = normalize_category(category) or category.strip()
+        category = normalize_category(category) or category.strip()
+        if report.dataset_synced and category != report.reported_category:
+            return error("report_synced", "Kategori laporan tersinkron tidak dapat diubah.", 409)
+
+    # Validate the whole request before changing the ORM object.
+    if status is not None:
+        report.status = status
+    if admin_notes is not None:
+        report.admin_notes = admin_notes
+    if category is not None:
+        report.reported_category = category
 
     report.updated_at = now()
     db.session.commit()
@@ -213,6 +231,8 @@ def reports_sync_dataset(report_id):
         return error("not_found", "Laporan tidak ditemukan.", 404)
     if report.dataset_synced:
         return error("already_synced", "Laporan ini sudah disinkronkan ke dataset.", 409)
+    if report.status == "rejected":
+        return error("report_rejected", "Tinjau kembali laporan yang ditolak sebelum sinkronisasi.", 409)
 
     # Exclusive lock: this path writes Dataset.row_count, so FOR SHARE is unsafe.
     state = db.session.scalar(db.select(DatasetState).where(DatasetState.id == 1).with_for_update())
@@ -225,9 +245,11 @@ def reports_sync_dataset(report_id):
 
     columns = [col.lower().strip() for col in (active.columns or [])]
 
-    # The dataset must have a URL column; guessing one silently overwrites data.
-    if not any("url" in col for col in columns):
-        return error("unsupported_dataset", "Dataset aktif tidak memiliki kolom URL.", 409)
+    # Exact, unambiguous headers only; substring matches can select feature columns.
+    url_columns = [i for i, col in enumerate(columns) if col == "url"]
+    label_columns = [i for i, col in enumerate(columns) if col in {"label", "category", "class", "type"}]
+    if len(url_columns) != 1 or len(label_columns) != 1:
+        return error("unsupported_dataset", "Dataset harus memiliki satu kolom url dan satu kolom label/category/class/type.", 409)
 
     # Only canonical class names may reach the training data.
     label = normalize_category(report.reported_category)
@@ -250,29 +272,7 @@ def reports_sync_dataset(report_id):
             409,
         )
 
-    url_idx = None
-    cat_idx = None
-
-    for i, col in enumerate(columns):
-        if url_idx is None and "url" in col:
-            url_idx = i
-        elif cat_idx is None and any(
-            k in col for k in ("label", "category", "class", "type")
-        ):
-            cat_idx = i
-
-    if url_idx is None:
-        return error("unsupported_dataset", "Dataset aktif tidak memiliki kolom URL.", 409)
-
-    # Never write the label into the URL column when no label column was found.
-    if cat_idx is None:
-        cat_idx = next((i for i in range(len(columns)) if i != url_idx), None)
-    if cat_idx is None:
-        return error(
-            "unsupported_dataset",
-            "Dataset aktif tidak memiliki kolom kategori.",
-            409,
-        )
+    url_idx, cat_idx = url_columns[0], label_columns[0]
 
     values = ["" for _ in range(max(len(columns), 2))]
     values[url_idx] = report.url

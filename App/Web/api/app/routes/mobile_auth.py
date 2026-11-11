@@ -130,7 +130,7 @@ def register():
     name, email, password = data.get("name"), data.get("email"), data.get("password")
     if not valid_name(name):
         return error("invalid_name", "Nama harus 1–120 karakter.")
-    if not valid_email((email or "").strip()):
+    if not isinstance(email, str) or not valid_email(email.strip()):
         return error("invalid_email", "Gunakan alamat email yang valid.")
     if not valid_password(password):
         return error("weak_password", "Password harus 12–256 karakter.")
