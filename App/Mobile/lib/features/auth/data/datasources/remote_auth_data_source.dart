@@ -34,6 +34,9 @@ class RemoteAuthDataSource implements AuthDataSource {
   @override
   UserAccountModel? get demoAccount => null;
 
+  @override
+  bool get isOffline => false;
+
   Uri _uri(String path) => Uri.parse('$baseUrl/api/v1/mobile/auth$path');
 
   Map<String, String> get _jsonHeaders => const {

@@ -142,7 +142,7 @@ class _ShareLinkScreenState extends State<ShareLinkScreen> {
           ),
         const SizedBox(height: 20),
         const InfoNote(
-          'Ini pratinjau alur berbagi. Penerimaan tautan dari aplikasi lain belum terhubung.',
+          'Tautan yang dibagikan dari aplikasi lain akan langsung mengisi kolom di atas.',
         ),
       ],
     ),

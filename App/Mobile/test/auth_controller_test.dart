@@ -88,10 +88,10 @@ class _FakeAccountRepository implements AccountRepository {
       const AccountStats(totalScans: 8, submittedReports: 3, pendingReports: 1);
 
   @override
-  bool readReportNotificationsEnabled() => notificationsEnabled;
+  Future<bool> readReportNotificationsEnabled() async => notificationsEnabled;
 
   @override
-  void writeReportNotificationsEnabled(bool enabled) =>
+  Future<void> writeReportNotificationsEnabled(bool enabled) async =>
       notificationsEnabled = enabled;
 }
 
@@ -331,7 +331,7 @@ void main() {
       );
       addTearDown(controller.dispose);
 
-      controller.load();
+      await controller.load();
 
       expect(controller.reportNotificationsEnabled, isFalse);
     });
@@ -339,12 +339,12 @@ void main() {
     test('toggling flips the preference and notifies listeners', () async {
       final controller = build(_FakeAccountRepository());
       addTearDown(controller.dispose);
-      controller.load();
+      await controller.load();
 
       var notified = 0;
       controller.addListener(() => notified++);
 
-      final enabled = controller.toggleReportNotifications();
+      final enabled = await controller.toggleReportNotifications();
 
       expect(enabled, isFalse);
       expect(controller.reportNotificationsEnabled, isFalse);
@@ -355,10 +355,10 @@ void main() {
       final repository = _FakeAccountRepository();
       final controller = build(repository);
       addTearDown(controller.dispose);
-      controller.load();
+      await controller.load();
 
-      controller.toggleReportNotifications();
-      final enabled = controller.toggleReportNotifications();
+      await controller.toggleReportNotifications();
+      final enabled = await controller.toggleReportNotifications();
 
       expect(enabled, isTrue);
       expect(repository.notificationsEnabled, isTrue);

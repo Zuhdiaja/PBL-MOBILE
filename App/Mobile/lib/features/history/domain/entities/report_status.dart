@@ -2,7 +2,8 @@
 enum ReportStage {
   submitted('Diproses'),
   review('Ditinjau'),
-  completed('Selesai');
+  completed('Selesai'),
+  rejected('Ditolak');
 
   const ReportStage(this.label);
 
@@ -13,14 +14,18 @@ enum ReportStage {
 /// A report the user sent for one URL.
 class ReportStatus {
   const ReportStatus({
+    this.id = '',
     required this.url,
     required this.reportedCategory,
     required this.type,
     required this.stage,
     required this.submittedTime,
+    this.submittedAt,
     this.notes,
   });
 
+  /// Identifier of the stored report; empty for example data.
+  final String id;
   final String url;
   final String reportedCategory;
 
@@ -28,6 +33,9 @@ class ReportStatus {
   final String type;
   final ReportStage stage;
   final String submittedTime;
+
+  /// Submission time as returned by the API, used to group notifications.
+  final DateTime? submittedAt;
   final String? notes;
 }
 

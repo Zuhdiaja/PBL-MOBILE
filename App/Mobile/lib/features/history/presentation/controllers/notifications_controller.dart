@@ -1,13 +1,17 @@
 import '../../../../presentation/load_controller.dart';
 
 import '../../domain/entities/app_notification.dart';
+import '../../domain/entities/history_failure.dart';
 import '../../domain/repositories/notifications_repository.dart';
 
 /// State for the notification list and the read marks kept in memory.
 class NotificationsController extends LoadController {
-  NotificationsController(this.repository);
+  NotificationsController(this.repository, {this.isSimulated = true});
 
   final NotificationsRepository repository;
+
+  /// True while the list comes from example data instead of the API.
+  final bool isSimulated;
 
   List<AppNotification> _notifications = const [];
   final _readIds = <String>{};
@@ -24,6 +28,7 @@ class NotificationsController extends LoadController {
     return loadValue(
       repository.getNotifications,
       (value) => _notifications = value,
+      describeError: (error) => error is HistoryFailure ? error.message : null,
     );
   }
 

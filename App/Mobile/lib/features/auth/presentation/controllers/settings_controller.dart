@@ -14,21 +14,32 @@ class SettingsController extends ChangeNotifier {
   final SetReportNotifications setReportNotifications;
 
   bool _reportNotificationsEnabled = true;
+  bool _disposed = false;
 
   bool get reportNotificationsEnabled => _reportNotificationsEnabled;
 
-  void load() {
-    _reportNotificationsEnabled = repository.readReportNotificationsEnabled();
+  Future<void> load() async {
+    final enabled = await repository.readReportNotificationsEnabled();
+    if (_disposed) return;
+    _reportNotificationsEnabled = enabled;
     notifyListeners();
   }
 
   /// Flips the preference and returns the value the repository settled on.
-  bool toggleReportNotifications() {
-    _reportNotificationsEnabled = setReportNotifications(
+  Future<bool> toggleReportNotifications() async {
+    final enabled = await setReportNotifications(
       !_reportNotificationsEnabled,
       repository,
     );
+    if (_disposed) return enabled;
+    _reportNotificationsEnabled = enabled;
     notifyListeners();
-    return _reportNotificationsEnabled;
+    return enabled;
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    super.dispose();
   }
 }

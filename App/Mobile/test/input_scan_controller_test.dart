@@ -158,6 +158,21 @@ void main() {
     },
   );
 
+  test('a shared link fills the field without the example label', () {
+    final controller = ShareLinkController(
+      clipboardRepository: FakeClipboardRepository(),
+      prepareScanPreview: prepare,
+      exampleUrl: 'https://shared.example.com',
+    );
+    addTearDown(controller.dispose);
+
+    controller.prefill('https://masuk.example.com/promo');
+
+    expect(controller.url, 'https://masuk.example.com/promo');
+    expect(controller.host, 'masuk.example.com');
+    expect(controller.usingExample, isFalse);
+  });
+
   test('share clipboard failure keeps the example and its label', () async {
     final repository = FakeClipboardRepository()
       ..result = (

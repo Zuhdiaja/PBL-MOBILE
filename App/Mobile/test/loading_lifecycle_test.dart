@@ -98,9 +98,9 @@ class AccountSource implements AccountRepository {
   @override
   FutureOr<AccountStats> readStats() => read();
   @override
-  bool readReportNotificationsEnabled() => true;
+  Future<bool> readReportNotificationsEnabled() async => true;
   @override
-  void writeReportNotificationsEnabled(bool enabled) {}
+  Future<void> writeReportNotificationsEnabled(bool enabled) async {}
 }
 
 void noop() {}

@@ -4,8 +4,8 @@ import '../repositories/account_repository.dart';
 class SetReportNotifications {
   const SetReportNotifications();
 
-  bool call(bool enabled, AccountRepository repository) {
-    repository.writeReportNotificationsEnabled(enabled);
+  Future<bool> call(bool enabled, AccountRepository repository) async {
+    await repository.writeReportNotificationsEnabled(enabled);
     return repository.readReportNotificationsEnabled();
   }
 }
