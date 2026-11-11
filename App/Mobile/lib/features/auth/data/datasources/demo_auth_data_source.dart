@@ -21,6 +21,9 @@ class DemoAuthDataSource implements AuthDataSource {
       const UserAccountModel(id: 'demo-1', name: demoName, email: demoEmail);
 
   @override
+  bool get isOffline => true;
+
+  @override
   Future<UserAccountModel?> currentAccount() async => _session;
 
   /// Accepts the demo credentials or the account created this session.

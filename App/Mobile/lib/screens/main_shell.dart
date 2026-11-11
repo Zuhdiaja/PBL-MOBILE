@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../app/auth_dependencies.dart';
@@ -38,16 +40,61 @@ class _MainShellState extends State<MainShell> {
   int _selectedIndex = 0;
   final _inputScan = InputScanDependencies();
   late final _scanResults = ScanResultsDependencies(
-    tokenStore: widget.auth.tokenStore,
+    tokenStore: widget.auth.apiTokenStore,
   );
-  final _history = HistoryDependencies();
+  late final _history = HistoryDependencies(
+    tokenStore: widget.auth.apiTokenStore,
+    accountRepository: widget.auth.accountRepository,
+  );
+  StreamSubscription<String>? _shareSubscription;
+
+  @override
+  void initState() {
+    super.initState();
+    _listenForSharedLinks();
+  }
 
   @override
   void dispose() {
+    _shareSubscription?.cancel();
     _inputScan.dispose();
     _scanResults.dispose();
     _history.dispose();
     super.dispose();
+  }
+
+  /// Opens the share form when another app hands LinkGuard a link.
+  ///
+  /// The plugin is unavailable in previews and widget tests, so a missing
+  /// platform channel is ignored instead of surfacing an error.
+  Future<void> _listenForSharedLinks() async {
+    try {
+      final initial = await _inputScan.shareIntent.takeInitialText();
+      final url = _inputScan.extractSharedUrl(initial);
+      if (url != null) _openSharedLink(url);
+    } catch (_) {
+      // No share sheet on this platform.
+    }
+    _shareSubscription = _inputScan.shareIntent.textStream().listen((text) {
+      final url = _inputScan.extractSharedUrl(text);
+      if (url != null) _openSharedLink(url);
+    }, onError: (_) {});
+  }
+
+  void _openSharedLink(String url) {
+    if (!mounted) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => ShareLinkScreen(
+            controller: _inputScan.createShareLink(initialUrl: url),
+            onNavigate: _selectTab,
+            onViewResults: _openResults,
+          ),
+        ),
+      );
+    });
   }
 
   void _selectTab(int index) {

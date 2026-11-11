@@ -69,7 +69,10 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                 NotificationRow(item: item, unread: controller.isUnread(item)),
           ),
           const SizedBox(height: 22),
-          const InfoNote('Data contoh. Notifikasi belum terhubung ke server.'),
+          if (controller.isSimulated)
+            const InfoNote(
+              'Data contoh. Notifikasi belum terhubung ke server.',
+            ),
         ],
       );
     },

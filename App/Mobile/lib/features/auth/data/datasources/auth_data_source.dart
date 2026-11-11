@@ -26,4 +26,9 @@ abstract class AuthDataSource {
 
   /// Credentials the login form may prefill. Only demo sources provide it.
   UserAccountModel? get demoAccount => null;
+
+  /// True when the source keeps everything in memory instead of calling the
+  /// API. Features that read the authenticated API stay on their example data
+  /// in that case, so previews and widget tests never reach the network.
+  bool get isOffline => false;
 }

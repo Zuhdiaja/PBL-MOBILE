@@ -44,8 +44,8 @@ void main() {
   group('ReportStatusRepositoryImpl', () {
     final repository = ReportStatusRepositoryImpl(DemoReportStatusDataSource());
 
-    test('maps every legacy report', () {
-      final reports = repository.getReports();
+    test('maps every legacy report', () async {
+      final reports = await repository.getReports();
 
       expect(reports.length, demoReports.length);
       expect(reports.first.url, demoReports.first.url);
@@ -53,9 +53,10 @@ void main() {
       expect(reports.first.notes, demoReports.first.notes);
     });
 
-    test('translates the legacy status text into a stage', () {
+    test('translates the legacy status text into a stage', () async {
       final stages = {
-        for (final report in repository.getReports()) report.url: report.stage,
+        for (final report in await repository.getReports())
+          report.url: report.stage,
       };
 
       expect(stages['docs.example.com'], ReportStage.completed);

@@ -35,6 +35,13 @@ class ShareLinkController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Fills the field with a URL received from the system share sheet.
+  void prefill(String url) {
+    field.text = url;
+    _usingExample = false;
+    notifyListeners();
+  }
+
   Future<ClipboardResult?> paste() async {
     final result = await clipboardRepository.readText();
     if (_disposed) return null;

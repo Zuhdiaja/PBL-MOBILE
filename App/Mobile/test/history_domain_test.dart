@@ -108,10 +108,18 @@ void main() {
       expect(buildTimeline(report(ReportStage.completed)).activeIndex, 2);
     });
 
+    test('replaces the last step for a rejected report', () {
+      final timeline = buildTimeline(report(ReportStage.rejected));
+
+      expect(timeline.activeIndex, 2);
+      expect(timeline.steps.last, 'Ditolak');
+    });
+
     test('labels every stage in Indonesian', () {
       expect(ReportStage.submitted.label, 'Diproses');
       expect(ReportStage.review.label, 'Ditinjau');
       expect(ReportStage.completed.label, 'Selesai');
+      expect(ReportStage.rejected.label, 'Ditolak');
     });
   });
 }

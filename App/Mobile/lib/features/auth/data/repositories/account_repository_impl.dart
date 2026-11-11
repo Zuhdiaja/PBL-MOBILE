@@ -1,11 +1,11 @@
 import '../../domain/entities/user_account.dart';
 import '../../domain/repositories/account_repository.dart';
-import '../datasources/demo_account_data_source.dart';
+import '../datasources/account_data_source.dart';
 
 class AccountRepositoryImpl implements AccountRepository {
   const AccountRepositoryImpl(this._dataSource);
 
-  final DemoAccountDataSource _dataSource;
+  final AccountDataSource _dataSource;
 
   @override
   AccountStats readStats() => AccountStats(
@@ -15,10 +15,10 @@ class AccountRepositoryImpl implements AccountRepository {
   );
 
   @override
-  bool readReportNotificationsEnabled() =>
+  Future<bool> readReportNotificationsEnabled() =>
       _dataSource.readReportNotificationsEnabled();
 
   @override
-  void writeReportNotificationsEnabled(bool enabled) =>
+  Future<void> writeReportNotificationsEnabled(bool enabled) =>
       _dataSource.writeReportNotificationsEnabled(enabled);
 }

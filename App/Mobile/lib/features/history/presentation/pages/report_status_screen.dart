@@ -24,6 +24,7 @@ class _ReportStatusScreenState extends State<ReportStatusScreen> {
       builder: (_) => ReportDetailScreen(
         report: report,
         buildReportTimeline: widget.controller.buildReportTimeline,
+        isSimulated: widget.controller.isSimulated,
       ),
     ),
   );
@@ -58,7 +59,8 @@ class _ReportStatusScreenState extends State<ReportStatusScreen> {
           const SizedBox(height: 12),
         ],
         const SizedBox(height: 8),
-        const InfoNote('Data contoh. Laporan belum terhubung ke server.'),
+        if (widget.controller.isSimulated)
+          const InfoNote('Data contoh. Laporan belum terhubung ke server.'),
       ],
     ),
   );
@@ -69,9 +71,11 @@ class ReportDetailScreen extends StatelessWidget {
     super.key,
     required this.report,
     required this.buildReportTimeline,
+    this.isSimulated = true,
   });
   final ReportStatus report;
   final BuildReportTimeline buildReportTimeline;
+  final bool isSimulated;
   @override
   Widget build(BuildContext context) {
     final timeline = buildReportTimeline(report);
@@ -121,7 +125,8 @@ class ReportDetailScreen extends StatelessWidget {
             done: i <= timeline.activeIndex,
             isLast: i == timeline.steps.length - 1,
           ),
-        const InfoNote('Data contoh. Linimasa menampilkan alur simulasi.'),
+        if (isSimulated)
+          const InfoNote('Data contoh. Linimasa menampilkan alur simulasi.'),
       ],
     );
   }

@@ -5,13 +5,19 @@ class BuildReportTimeline {
   const BuildReportTimeline();
 
   static const steps = ['Laporan dikirim', 'Sedang ditinjau', 'Selesai'];
+  static const rejectedSteps = [
+    'Laporan dikirim',
+    'Sedang ditinjau',
+    'Ditolak',
+  ];
 
-  ReportTimeline call(ReportStatus report) => ReportTimeline(
-    steps: steps,
-    activeIndex: switch (report.stage) {
-      ReportStage.submitted => 0,
-      ReportStage.review => 1,
-      ReportStage.completed => 2,
-    },
-  );
+  ReportTimeline call(ReportStatus report) => switch (report.stage) {
+    ReportStage.submitted => const ReportTimeline(steps: steps, activeIndex: 0),
+    ReportStage.review => const ReportTimeline(steps: steps, activeIndex: 1),
+    ReportStage.completed => const ReportTimeline(steps: steps, activeIndex: 2),
+    ReportStage.rejected => const ReportTimeline(
+      steps: rejectedSteps,
+      activeIndex: 2,
+    ),
+  };
 }
