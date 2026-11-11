@@ -10,6 +10,7 @@ from app.ml.dataset_binding import active_dataset, dataset_digest
 from app.ml.ngrams import char_ngrams
 from app.ml.normalize import normalize_url
 from app.ml.store import upsert_run
+from app.ml.url_text import model_input
 from app.models import Dataset, DatasetRow, DatasetState, MLRun
 from app.routes import api, body, error
 
@@ -112,8 +113,11 @@ def ml_preview():
     if not isinstance(url, str) or not url.strip() or len(url) > 2048:
         return error("invalid_url", "URL harus berupa teks 1-2048 karakter.")
     normalized = normalize_url(url)
+    text = model_input(url)
     return jsonify(
+        model_input=text,
         normalized=normalized,
         steps=normalized["steps"],
-        ngrams=char_ngrams(normalized["text"]),
+        # N-grams must come from the model input, not from the display text.
+        ngrams=char_ngrams(text),
     )

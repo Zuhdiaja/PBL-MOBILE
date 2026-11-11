@@ -9,6 +9,7 @@ from app.ml.artifacts import ArtifactError, parse_artifact
 from app.ml.dataset_binding import dataset_digest
 from app.ml.ngrams import char_ngrams
 from app.ml.normalize import normalize_url
+from app.ml.url_text import model_input
 
 FIXTURE = Path(__file__).parent / "fixtures" / "svm_tfidf_metrics.json"
 SYNTHETIC_FIXTURE = Path(__file__).parent / "fixtures" / "svm_tfidf_metrics_synthetic.json"
@@ -186,3 +187,48 @@ def test_dataset_digest_is_stable_and_null_safe():
     assert dataset_digest(_dataset(100)) == dataset_digest(_dataset(100))
     assert dataset_digest(None) is None
     assert len(dataset_digest(_dataset(100))) == 64
+
+
+# --- model_input: the text the trained pipeline actually consumes -------------
+
+def test_model_input_strips_scheme_and_lowercases():
+    # The dataset stores lower-case URLs without a scheme; the model learned
+    # "://" as a strong phishing cue, so a pasted scheme must never reach it.
+    assert model_input("HTTP://PayPal-Login.COM/Verify") == "paypal-login.com/verify"
+    assert model_input("https://example.com/Path") == "example.com/path"
+    assert model_input("http://example.com") == "example.com"
+    assert model_input("https://example.com") == "example.com"
+
+
+def test_model_input_keeps_www_and_percent_escapes():
+    assert model_input("https://www.example.com/a%20b") == "www.example.com/a%20b"
+    assert model_input("www.example.com/x") == "www.example.com/x"
+
+
+def test_model_input_trims_control_characters_and_spaces():
+    assert model_input("  https://a.test/x  ") == "a.test/x"
+    assert model_input("\x00\x1fexample.com\n") == "example.com"
+
+
+def test_model_input_keeps_urls_that_have_no_scheme():
+    assert model_input("a.test/path?q=1#frag") == "a.test/path?q=1#frag"
+
+
+def test_model_input_only_strips_http_and_https():
+    # ftp/ws/wss are absent from the training data, so they stay untouched.
+    assert model_input("ftp://example.com/x") == "ftp://example.com/x"
+    assert model_input("ws://example.com/x") == "ws://example.com/x"
+
+
+def test_model_input_handles_broken_scheme_spacing():
+    assert model_input("http:  //example.com/x") == "example.com/x"
+    assert model_input("//example.com/x") == "example.com/x"
+
+
+def test_model_input_is_total_for_non_strings():
+    for value in (None, 1, [], {}, b"bytes"):
+        assert model_input(value) == ""
+
+
+def test_model_input_strips_scheme_only_once():
+    assert model_input("http://https://example.com") == "https://example.com"

@@ -122,6 +122,10 @@ def test_preview_normalizes_and_tokenizes(authenticated):
     assert "lowercase_scheme" in data["steps"]
     assert "idna" in data["steps"]
     assert data["ngrams"]["total_tokens"] > 0
+    # The model never sees a scheme, so the tokenised text is lower-case bare.
+    # The trailing root dot stays: only the scheme and case are normalised.
+    assert data["model_input"] == "bücher.example./verify?x=1"
+    assert "://" not in data["model_input"]
 
     ip = client.post(
         "/api/v1/ml/preview",
@@ -186,3 +190,20 @@ def test_cli_imports_artifact(app, tmp_path):
         run = db.session.get(MLRun, RUN_ID)
         assert run is not None
         assert run.classes == ["benign", "phishing", "malware"]
+
+
+def test_preview_tokenizes_the_model_input(authenticated):
+    client, headers = authenticated
+    response = client.post(
+        "/api/v1/ml/preview",
+        json={"url": "HTTPS://Example.COM/Login"},
+        headers=headers,
+    )
+    assert response.status_code == 200
+    data = response.json
+    assert data["model_input"] == "example.com/login"
+    # N-grams must describe the model input, never the schemed display text.
+    tokens = [item["token"] for item in data["ngrams"]["3"]]
+    assert "htt" not in tokens
+    assert "://" not in tokens
+    assert "exa" in tokens

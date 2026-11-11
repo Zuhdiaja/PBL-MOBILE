@@ -208,6 +208,7 @@ export type MLNormalized = {
   text: string;
 };
 export type MLPreviewResponse = {
+  model_input: string;
   normalized: MLNormalized;
   steps: string[];
   ngrams: {
