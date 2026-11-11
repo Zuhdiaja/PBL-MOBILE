@@ -24,21 +24,7 @@ import '../features/auth/presentation/controllers/settings_controller.dart';
 /// the device. Tests and previews inject a [DemoAuthDataSource] instead so they
 /// stay offline.
 class AuthDependencies {
-  AuthDependencies({
-    AuthDataSource? authSource,
-    TokenStore? tokenStore,
-    GoogleIdentitySource? googleIdentity,
-  }) : _authSource =
-           authSource ??
-           RemoteAuthDataSource(
-             baseUrl: defaultAuthApiBaseUrl(),
-             tokenStore: tokenStore ?? SharedPreferencesTokenStore(),
-           ),
-       _googleIdentity =
-           googleIdentity ??
-           (googleSignInConfigured
-               ? PluginGoogleIdentitySource()
-               : const UnavailableGoogleIdentitySource()) {
+  AuthDependencies._(this.tokenStore, this._authSource, this._googleIdentity) {
     final authRepository = AuthRepositoryImpl(_authSource);
     auth = AuthController(
       repository: authRepository,
@@ -57,6 +43,29 @@ class AuthDependencies {
       setReportNotifications: const SetReportNotifications(),
     );
   }
+
+  factory AuthDependencies({
+    AuthDataSource? authSource,
+    TokenStore? tokenStore,
+    GoogleIdentitySource? googleIdentity,
+  }) {
+    final store = tokenStore ?? SharedPreferencesTokenStore();
+    return AuthDependencies._(
+      store,
+      authSource ??
+          RemoteAuthDataSource(
+            baseUrl: defaultAuthApiBaseUrl(),
+            tokenStore: store,
+          ),
+      googleIdentity ??
+          (googleSignInConfigured
+              ? PluginGoogleIdentitySource()
+              : const UnavailableGoogleIdentitySource()),
+    );
+  }
+
+  /// Session storage shared with features that call the authenticated API.
+  final TokenStore tokenStore;
 
   final AuthDataSource _authSource;
   final GoogleIdentitySource _googleIdentity;

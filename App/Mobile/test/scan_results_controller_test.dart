@@ -125,21 +125,59 @@ void main() {
       expect(notified, 0);
     });
 
-    test('submitting without a category returns a message', () {
+    test('submitting without a category returns a message', () async {
       final controller = build();
       addTearDown(controller.dispose);
 
-      expect(controller.submit(), contains('Pilih kategori'));
+      expect(await controller.submit(), contains('Pilih kategori'));
     });
 
-    test('submitting with a category succeeds', () {
+    test('submitting with a category succeeds', () async {
       final controller = build();
       addTearDown(controller.dispose);
 
       controller.selectCategory('Malware');
       controller.notes.text = 'TAUTAN PROGRAM BERBAHAYA';
 
-      expect(controller.submit(), isNull);
+      expect(await controller.submit(), isNull);
+    });
+
+    test('keeps the report record returned by the source', () async {
+      final controller = build();
+      addTearDown(controller.dispose);
+
+      controller.selectCategory('Phishing');
+      controller.notes.text = 'Meniru halaman login.';
+
+      await controller.submit();
+
+      expect(controller.lastSubmitted?.id, 1);
+      expect(controller.lastSubmitted?.status, 'submitted');
+    });
+
+    test('flags the form as sending while the request is in flight', () async {
+      final controller = build();
+      addTearDown(controller.dispose);
+
+      controller.selectCategory('Spam');
+      controller.notes.text = 'Iklan berulang.';
+
+      final pending = controller.submit();
+      expect(controller.isSubmitting, isTrue);
+
+      await pending;
+      expect(controller.isSubmitting, isFalse);
+    });
+
+    test('surfaces the failure message of a rejected write', () async {
+      final controller = build(accepts: false);
+      addTearDown(controller.dispose);
+
+      controller.selectCategory('Malware');
+      controller.notes.text = 'Berkas mencurigakan.';
+
+      expect(await controller.submit(), contains('belum dapat dikirim'));
+      expect(controller.lastSubmitted, isNull);
     });
 
     test('clearing the category resets it', () {

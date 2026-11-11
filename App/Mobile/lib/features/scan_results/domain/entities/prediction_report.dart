@@ -18,9 +18,23 @@ class PredictionReport {
   final String notes;
 }
 
+/// Correction the API accepted and stored, identified by its report number.
+class SubmittedPredictionReport {
+  const SubmittedPredictionReport({required this.id, required this.status});
+
+  /// Identifier assigned by the API; shown to the user as the report number.
+  final int id;
+
+  /// Status the server gave the report, `submitted` for a new correction.
+  final String status;
+}
+
 /// Failure raised by the results and reporting rules.
-class ScanResultsFailure {
+class ScanResultsFailure implements Exception {
   const ScanResultsFailure(this.message);
 
   final String message;
+
+  @override
+  String toString() => message;
 }
