@@ -25,3 +25,7 @@
 
 # Local mobile design reference.
 /LinkGuard-phone-mockups.zip
+
+# Trained model artefacts stay outside version control.
+*.pkl
+*.joblib
