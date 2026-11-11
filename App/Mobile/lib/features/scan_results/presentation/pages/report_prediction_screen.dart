@@ -41,23 +41,27 @@ class _ReportPredictionScreenState extends State<ReportPredictionScreen> {
   static bool _isSafeCategory(String value) =>
       value == 'Benign' || value.startsWith('Aman');
 
-  void _submit() {
+  Future<void> _submit() async {
     FocusManager.instance.primaryFocus?.unfocus();
     if (widget.controller.notes.text.trim().isEmpty) {
       showScanMessage(context, 'Tambahkan catatan untuk menjelaskan koreksi.');
       return;
     }
-    final failure = widget.controller.submit();
+    final failure = await widget.controller.submit();
+    if (!mounted) return;
     if (failure != null) {
       showScanMessage(context, failure);
       return;
     }
+    final reportId = widget.controller.lastSubmitted?.id;
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text(
-            'Laporan berhasil dikirim. Terima kasih atas masukan Anda!',
+            reportId == null
+                ? 'Laporan berhasil dikirim. Terima kasih atas masukan Anda!'
+                : 'Laporan #$reportId berhasil dikirim. Terima kasih atas masukan Anda!',
           ),
         ),
       );
@@ -179,9 +183,11 @@ class _ReportPredictionScreenState extends State<ReportPredictionScreen> {
           ),
           const SizedBox(height: 24),
           ScanButton(
-            label: 'Kirim laporan',
-            icon: Icons.arrow_forward_rounded,
-            onPressed: _submit,
+            label: c.isSubmitting ? 'Mengirim laporan…' : 'Kirim laporan',
+            icon: c.isSubmitting
+                ? Icons.hourglass_top_rounded
+                : Icons.arrow_forward_rounded,
+            onPressed: c.isSubmitting ? null : _submit,
           ),
         ],
       );

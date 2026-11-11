@@ -54,41 +54,41 @@ void main() {
         'Phishing',
         'Malware',
         'Spam',
-        'Lainnya',
+        'Defacement',
+        'Exploit',
       ]);
     });
 
-    test('accepts a valid submission', () {
+    test('accepts a valid submission', () async {
       const repository = PredictionReportRepositoryImpl(
         DemoPredictionReportDataSource(),
       );
 
-      expect(
-        repository.submit(
-          const PredictionReport(
-            url: 'contoh.example.test',
-            type: ReportType.falseNegative,
-            category: 'Malware',
-          ),
+      final report = await repository.submit(
+        const PredictionReport(
+          url: 'contoh.example.test',
+          type: ReportType.falseNegative,
+          category: 'Malware',
         ),
-        isTrue,
       );
+
+      expect(report.status, 'submitted');
     });
 
-    test('reports a rejected write', () {
+    test('reports a rejected write', () async {
       final repository = PredictionReportRepositoryImpl(
         const DemoPredictionReportDataSource(delivers: false),
       );
 
       expect(
-        repository.submit(
+        () => repository.submit(
           const PredictionReport(
             url: 'contoh.example.test',
             type: ReportType.falsePositive,
             category: 'Phishing',
           ),
         ),
-        isFalse,
+        throwsA(isA<ScanResultsFailure>()),
       );
     });
   });

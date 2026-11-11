@@ -4,5 +4,8 @@ import '../entities/prediction_report.dart';
 abstract class PredictionReportRepository {
   List<String> getCategories();
 
-  bool submit(PredictionReport report);
+  /// Sends the correction and returns the stored record.
+  ///
+  /// Throws [ScanResultsFailure] when the correction cannot be delivered.
+  Future<SubmittedPredictionReport> submit(PredictionReport report);
 }
