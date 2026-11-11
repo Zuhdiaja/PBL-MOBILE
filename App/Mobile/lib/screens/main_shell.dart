@@ -42,6 +42,7 @@ class _MainShellState extends State<MainShell> {
   );
   late final _history = HistoryDependencies(
     tokenStore: widget.auth.apiTokenStore,
+    accountRepository: widget.auth.accountRepository,
   );
 
   @override

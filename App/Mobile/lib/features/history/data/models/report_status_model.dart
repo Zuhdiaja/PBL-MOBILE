@@ -12,6 +12,8 @@ class ReportStatusModel {
     required this.type,
     required this.stage,
     required this.submittedTime,
+    this.id = '',
+    this.submittedAt,
     this.notes,
   });
 
@@ -30,11 +32,15 @@ class ReportStatusModel {
       throw const FormatException('Laporan tanpa URL.');
     }
     return ReportStatusModel._(
+      id: (json['id'] ?? '').toString(),
       url: url,
       reportedCategory: (json['reported_category'] ?? '').toString(),
       type: (json['report_type'] ?? '').toString(),
       stage: _apiStage((json['status'] ?? '').toString()),
       submittedTime: _wibTime(json['created_at']),
+      submittedAt: json['created_at'] is String
+          ? DateTime.tryParse(json['created_at'] as String)
+          : null,
       notes: switch (json['notes']) {
         final String value when value.trim().isNotEmpty => value,
         _ => null,
@@ -42,19 +48,23 @@ class ReportStatusModel {
     );
   }
 
+  final String id;
   final String url;
   final String reportedCategory;
   final String type;
   final ReportStage stage;
   final String submittedTime;
+  final DateTime? submittedAt;
   final String? notes;
 
   ReportStatus toEntity() => ReportStatus(
+    id: id,
     url: url,
     reportedCategory: reportedCategory,
     type: type,
     stage: stage,
     submittedTime: submittedTime,
+    submittedAt: submittedAt,
     notes: notes,
   );
 

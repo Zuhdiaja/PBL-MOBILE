@@ -99,10 +99,10 @@ class _FakeAccountRepository implements AccountRepository {
       const AccountStats(totalScans: 8, submittedReports: 3, pendingReports: 1);
 
   @override
-  bool readReportNotificationsEnabled() => notificationsEnabled;
+  Future<bool> readReportNotificationsEnabled() async => notificationsEnabled;
 
   @override
-  void writeReportNotificationsEnabled(bool enabled) =>
+  Future<void> writeReportNotificationsEnabled(bool enabled) async =>
       notificationsEnabled = enabled;
 }
 
@@ -384,19 +384,19 @@ void main() {
   group('SetReportNotifications', () {
     const setNotifications = SetReportNotifications();
 
-    test('persists the preference and returns the stored value', () {
+    test('persists the preference and returns the stored value', () async {
       final repository = _FakeAccountRepository();
 
-      final stored = setNotifications(false, repository);
+      final stored = await setNotifications(false, repository);
 
       expect(stored, isFalse);
       expect(repository.notificationsEnabled, isFalse);
     });
 
-    test('turning the preference back on is reported', () {
+    test('turning the preference back on is reported', () async {
       final repository = _FakeAccountRepository();
 
-      expect(setNotifications(true, repository), isTrue);
+      expect(await setNotifications(true, repository), isTrue);
       expect(repository.notificationsEnabled, isTrue);
     });
   });

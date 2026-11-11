@@ -153,22 +153,22 @@ void main() {
       expect(stats.pendingReports, 1);
     });
 
-    test('notifications start enabled', () {
-      expect(repository.readReportNotificationsEnabled(), isTrue);
+    test('notifications start enabled', () async {
+      expect(await repository.readReportNotificationsEnabled(), isTrue);
     });
 
-    test('stores the notification preference', () {
-      repository.writeReportNotificationsEnabled(false);
+    test('stores the notification preference', () async {
+      await repository.writeReportNotificationsEnabled(false);
 
-      expect(repository.readReportNotificationsEnabled(), isFalse);
+      expect(await repository.readReportNotificationsEnabled(), isFalse);
     });
 
-    test('a fresh data source returns to the default preference', () {
-      repository.writeReportNotificationsEnabled(false);
+    test('a fresh data source returns to the default preference', () async {
+      await repository.writeReportNotificationsEnabled(false);
 
       final other = AccountRepositoryImpl(DemoAccountDataSource());
 
-      expect(other.readReportNotificationsEnabled(), isTrue);
+      expect(await other.readReportNotificationsEnabled(), isTrue);
     });
   });
 }

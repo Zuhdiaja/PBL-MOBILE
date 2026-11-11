@@ -8,8 +8,8 @@ abstract class AccountRepository {
   FutureOr<AccountStats> readStats();
 
   /// Whether status report notifications are turned on.
-  bool readReportNotificationsEnabled();
+  Future<bool> readReportNotificationsEnabled();
 
   /// Stores the notification preference.
-  void writeReportNotificationsEnabled(bool enabled);
+  Future<void> writeReportNotificationsEnabled(bool enabled);
 }
