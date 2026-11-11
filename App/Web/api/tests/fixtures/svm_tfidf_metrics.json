@@ -14,7 +14,7 @@
     "tol": 0.0001
   },
   "preprocessing": "TfidfVectorizer(analyzer='char', ngram_range=(3, 5), max_features=75000)",
-  "split_counts": {"train": 700, "validation": 150, "test": 150},
+  "split_counts": {"train": 750, "validation": 150, "test": 100},
   "completed": true,
   "run_id": "test-run-000000000000000000000001",
   "fit_seconds": 12.5,
@@ -23,7 +23,7 @@
     "accuracy": 0.82,
     "balanced_accuracy": 0.79,
     "macro_f1": 0.78,
-    "weighted_f1": 0.81
+    "weighted_f1": 0.8313
   },
   "test": {
     "accuracy": 0.81,
@@ -36,7 +36,7 @@
     "phishing": {"precision": 0.75, "recall": 0.8, "f1-score": 0.774, "support": 45},
     "malware": {"precision": 0.7, "recall": 0.8, "f1-score": 0.747, "support": 15},
     "macro avg": {"precision": 0.783, "recall": 0.817, "f1-score": 0.798, "support": 150},
-    "weighted avg": {"precision": 0.818, "recall": 0.82, "f1-score": 0.818, "support": 150}
+    "weighted avg": {"precision": 0.835, "recall": 0.83, "f1-score": 0.8313, "support": 150}
   },
   "test_report": {
     "benign": {"precision": 0.8929, "recall": 0.8333, "f1-score": 0.8621, "support": 60},

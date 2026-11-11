@@ -578,6 +578,16 @@ export default function PipelineMLPage() {
                 </Badge>
                 <Badge variant="outline">{selected?.status ?? "completed"}</Badge>
                 {activeId === selectedId && <Badge>Aktif</Badge>}
+                {selected?.is_synthetic && (
+                  <Badge variant="outline" className="border-amber-300 text-amber-700">
+                    Matriks rekonstruksi
+                  </Badge>
+                )}
+                {selected?.dataset_matches === false && (
+                  <Badge variant="outline" className="border-red-300 text-red-700">
+                    Dataset berbeda
+                  </Badge>
+                )}
               </div>
             </div>
           ) : (
@@ -887,6 +897,20 @@ export default function PipelineMLPage() {
                         <p className="mt-3 text-xs leading-5 text-muted-foreground">
                           Confusion matrix contoh artefak direkonstruksi dari recall dan support
                           karena notebook hanya menyimpan matriks asli sebagai gambar.
+                        </p>
+                      )}
+                      {selected?.is_synthetic && !runIsDemo && (
+                        <p className="mt-3 text-xs leading-5 text-amber-700">
+                          Artefak ini bertanda sintetis: matriksnya direkonstruksi, sehingga
+                          precision per kelas tidak dapat diturunkan dari matriks dan angka ini
+                          tidak boleh dianggap hasil eksperimen asli.
+                        </p>
+                      )}
+                      {selected?.dataset_matches === false && (
+                        <p className="mt-3 text-xs leading-5 text-red-700">
+                          Metrik ini berasal dari dataset {selected.dataset_id ?? "lain"} yang
+                          berbeda dari dataset aktif. Sinkronkan ulang atau latih model pada dataset
+                          terbaru sebelum memakai angka ini.
                         </p>
                       )}
                     </div>

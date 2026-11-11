@@ -204,6 +204,16 @@ export const demoRun: MLRunDetail = {
   row_count: 783705,
   input_features: 75000,
   fit_seconds: 121.5,
+  dataset_id: null,
+  dataset_sha256: null,
+  is_synthetic: true,
+  dataset_matches: null,
   completed_at: "2026-11-05T00:00:00+00:00",
   created_at: "2026-11-05T00:00:00+00:00",
+  provenance: {
+    split_design_version: "icann-domain-disjoint-v3",
+    example_notice:
+      "Matriks direkonstruksi dari recall dan support karena notebook hanya menyimpan matriks sebagai gambar.",
+    is_synthetic: true,
+  },
 };

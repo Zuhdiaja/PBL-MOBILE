@@ -162,6 +162,10 @@ export type MLRunSummary = {
   row_count: number | null;
   input_features: number | null;
   fit_seconds: number | null;
+  dataset_id: string | null;
+  dataset_sha256: string | null;
+  is_synthetic: boolean;
+  dataset_matches: boolean | null;
   completed_at: string | null;
   created_at: string | null;
 };
@@ -172,8 +176,18 @@ export type MLRunDetail = Omit<MLRunSummary, "metrics"> & {
   split_counts: { train: number; validation: number; test: number };
   params: Record<string, string | number | boolean | null>;
   preprocessing: string | null;
+  provenance: {
+    split_design_version?: string | null;
+    prediction_files?: Record<string, string> | null;
+    example_notice?: string | null;
+    is_synthetic?: boolean;
+  };
 };
-export type MLRunsResponse = { items: MLRunSummary[]; active_id: string | null };
+export type MLRunsResponse = {
+  items: MLRunSummary[];
+  active_id: string | null;
+  dataset_sha256: string | null;
+};
 export type MLDatasetSummary = {
   dataset: Dataset;
   label_column: string | null;

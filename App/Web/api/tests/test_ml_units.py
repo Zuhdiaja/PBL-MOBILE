@@ -1,13 +1,21 @@
 import json
+from datetime import datetime, timezone
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
 from app.ml.artifacts import ArtifactError, parse_artifact
+from app.ml.dataset_binding import dataset_digest
 from app.ml.ngrams import char_ngrams
 from app.ml.normalize import normalize_url
 
 FIXTURE = Path(__file__).parent / "fixtures" / "svm_tfidf_metrics.json"
+SYNTHETIC_FIXTURE = Path(__file__).parent / "fixtures" / "svm_tfidf_metrics_synthetic.json"
+
+
+def load(path: Path) -> dict:
+    return json.loads(path.read_text(encoding="utf-8"))
 
 
 def test_normalize_uppercase_scheme_and_ip():
@@ -61,12 +69,82 @@ def test_char_ngrams_counts_windows():
 
 
 def test_parse_artifact_valid():
-    payload = parse_artifact(json.loads(FIXTURE.read_text(encoding="utf-8")))
+    payload = parse_artifact(load(FIXTURE))
     assert payload["id"] == "test-run-000000000000000000000001"
     assert payload["classes"] == ["benign", "phishing", "malware"]
     assert payload["metrics"]["test"]["accuracy"] == 0.81
     assert sum(sum(row) for row in payload["confusion_matrix"]) == 100
     assert payload["params"]["seed"] == 42
+    assert payload["provenance"]["is_synthetic"] is False
+
+
+def test_parse_artifact_accepts_synthetic_matrix():
+    payload = parse_artifact(load(SYNTHETIC_FIXTURE))
+    assert payload["provenance"]["is_synthetic"] is True
+    assert "rekonstruksi" in payload["provenance"]["example_notice"]
+    # Structural checks still apply to a reconstructed matrix.
+    assert sum(sum(row) for row in payload["confusion_matrix"]) == 100
+
+
+def test_parse_artifact_captures_provenance():
+    data = load(FIXTURE)
+    data["prediction_files"] = {"test": "svm_tfidf_test_predictions.csv.gz"}
+    payload = parse_artifact(data)
+    assert payload["provenance"]["split_design_version"] == "icann-domain-disjoint-v3"
+    assert payload["provenance"]["prediction_files"]["test"].endswith(".csv.gz")
+
+
+def test_parse_artifact_requires_split_counts_to_cover_row_count():
+    data = load(FIXTURE)
+    data["row_count"] = 1001
+    with pytest.raises(ArtifactError, match="split_counts"):
+        parse_artifact(data)
+
+
+def test_parse_artifact_rejects_fractional_support():
+    data = load(FIXTURE)
+    data["test_report"]["benign"]["support"] = 60.5
+    with pytest.raises(ArtifactError, match="bulat"):
+        parse_artifact(data)
+
+
+def test_parse_artifact_accepts_integral_float_support():
+    data = load(FIXTURE)
+    data["test_report"]["benign"]["support"] = 60.0
+    payload = parse_artifact(data)
+    assert payload["report"]["test"]["benign"]["support"] == 60
+    assert isinstance(payload["report"]["test"]["benign"]["support"], int)
+
+
+def test_parse_artifact_rejects_matrix_row_not_matching_support():
+    data = load(FIXTURE)
+    # Same grand total, but the first two rows no longer match their supports.
+    data["test_confusion_matrix"][0] = [49, 8, 2]
+    data["test_confusion_matrix"][1] = [6, 23, 2]
+    with pytest.raises(ArtifactError, match="Baris 1"):
+        parse_artifact(data)
+
+
+def test_parse_artifact_rejects_matrix_total_not_matching_test_split():
+    data = load(FIXTURE)
+    data["split_counts"]["test"] = 99
+    data["row_count"] = 999
+    with pytest.raises(ArtifactError, match="split_counts.test"):
+        parse_artifact(data)
+
+
+def test_parse_artifact_rejects_precision_not_derived_from_matrix():
+    data = load(FIXTURE)
+    data["test_report"]["benign"]["precision"] = 0.95
+    with pytest.raises(ArtifactError, match="precision"):
+        parse_artifact(data)
+
+
+def test_parse_artifact_rejects_inconsistent_macro_average():
+    data = load(FIXTURE)
+    data["test_report"]["macro avg"]["precision"] = 0.5
+    with pytest.raises(ArtifactError, match="macro avg"):
+        parse_artifact(data)
 
 
 @pytest.mark.parametrize(
@@ -83,7 +161,28 @@ def test_parse_artifact_valid():
     ],
 )
 def test_parse_artifact_rejects_invalid(mutate):
-    data = json.loads(FIXTURE.read_text(encoding="utf-8"))
+    data = load(FIXTURE)
     mutate(data)
     with pytest.raises(ArtifactError):
         parse_artifact(data)
+
+
+def _dataset(row_count=100):
+    return SimpleNamespace(
+        id="dataset-uuid",
+        filename="data.csv",
+        columns=["url", "type"],
+        row_count=row_count,
+        uploaded_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
+    )
+
+
+def test_dataset_digest_changes_when_row_count_changes():
+    # Report synchronisation appends a row, which must invalidate the run.
+    assert dataset_digest(_dataset(100)) != dataset_digest(_dataset(101))
+
+
+def test_dataset_digest_is_stable_and_null_safe():
+    assert dataset_digest(_dataset(100)) == dataset_digest(_dataset(100))
+    assert dataset_digest(None) is None
+    assert len(dataset_digest(_dataset(100))) == 64

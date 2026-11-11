@@ -61,7 +61,7 @@ def test_import_list_and_detail(authenticated):
     detail = client.get(f"/api/v1/ml/runs/{RUN_ID}", headers=headers)
     assert detail.status_code == 200
     assert detail.json["run"]["report"]["test"]["benign"]["f1-score"] == 0.8621
-    assert detail.json["run"]["split_counts"]["train"] == 700
+    assert detail.json["run"]["split_counts"]["train"] == 750
 
 
 def test_import_replaces_existing_run(app, authenticated):

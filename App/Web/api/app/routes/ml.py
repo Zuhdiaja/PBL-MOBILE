@@ -6,6 +6,7 @@ from flask import jsonify, request
 from sqlalchemy import func
 from app.extensions import db, limiter
 from app.ml.artifacts import ArtifactError, parse_artifact
+from app.ml.dataset_binding import active_dataset, dataset_digest
 from app.ml.ngrams import char_ngrams
 from app.ml.normalize import normalize_url
 from app.ml.store import upsert_run
@@ -24,8 +25,12 @@ def ml_runs():
             MLRun.created_at.desc(),
         )
     ).all()
-    return jsonify(items=[run.public() for run in runs],
-                   active_id=runs[0].id if runs else None)
+    digest = dataset_digest(active_dataset())
+    return jsonify(
+        items=[run.public(dataset_digest=digest) for run in runs],
+        active_id=runs[0].id if runs else None,
+        dataset_sha256=digest,
+    )
 
 
 @api.get("/ml/runs/<run_id>")
@@ -33,7 +38,7 @@ def ml_run_detail(run_id):
     run = db.session.get(MLRun, run_id)
     if not run:
         return error("run_not_found", "Hasil model tidak ditemukan.", 404)
-    return jsonify(run=run.public(detail=True))
+    return jsonify(run=run.public(detail=True, dataset_digest=dataset_digest(active_dataset())))
 
 
 @api.post("/ml/runs/import")
@@ -54,8 +59,14 @@ def ml_import():
         payload = parse_artifact(data)
     except ArtifactError as exc:
         return error("invalid_artifact", str(exc))
+    dataset = active_dataset()
+    payload["dataset_id"] = dataset.id if dataset else None
+    payload["dataset_sha256"] = dataset_digest(dataset)
     run = upsert_run(payload)
-    return jsonify(run=run.public(detail=True), message="Hasil model diimpor."), 201
+    return jsonify(
+        run=run.public(detail=True, dataset_digest=payload["dataset_sha256"]),
+        message="Hasil model diimpor.",
+    ), 201
 
 
 @api.get("/ml/dataset-summary")

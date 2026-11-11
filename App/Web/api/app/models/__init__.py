@@ -138,11 +138,22 @@ class MLRun(db.Model):
     fit_seconds = db.Column(db.Float)
     input_features = db.Column(db.Integer)
     row_count = db.Column(db.BigInteger, nullable=False)
+    # Dataset version this run was trained on. The digest changes whenever the
+    # dataset shape changes, including rows appended by report synchronisation.
+    dataset_id = db.Column(
+        db.String(36), db.ForeignKey("datasets.id", ondelete="SET NULL"), index=True
+    )
+    dataset_sha256 = db.Column(db.String(64))
+    provenance = db.Column(JSONB, nullable=False, default=dict)
     completed_at = db.Column(db.DateTime(timezone=True))
     created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=now)
     __table_args__ = (db.Index("ml_runs_completed_at", "completed_at"),)
 
-    def public(self, detail=False):
+    @property
+    def is_synthetic(self) -> bool:
+        return bool((self.provenance or {}).get("is_synthetic"))
+
+    def public(self, detail=False, dataset_digest=None):
         data = dict(
             id=self.id,
             model=self.model,
@@ -152,6 +163,14 @@ class MLRun(db.Model):
             row_count=self.row_count,
             input_features=self.input_features,
             fit_seconds=self.fit_seconds,
+            dataset_id=self.dataset_id,
+            dataset_sha256=self.dataset_sha256,
+            is_synthetic=self.is_synthetic,
+            dataset_matches=(
+                None
+                if dataset_digest is None or self.dataset_sha256 is None
+                else self.dataset_sha256 == dataset_digest
+            ),
             completed_at=self.completed_at.isoformat() if self.completed_at else None,
             created_at=self.created_at.isoformat() if self.created_at else None,
         )
@@ -163,6 +182,7 @@ class MLRun(db.Model):
                 split_counts=self.split_counts,
                 params=self.params,
                 preprocessing=self.preprocessing,
+                provenance=self.provenance or {},
             )
         else:
             data["metrics"] = {"test": (self.metrics or {}).get("test", {})}
