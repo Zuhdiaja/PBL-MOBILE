@@ -27,8 +27,9 @@ class InferenceUnavailable(RuntimeError):
 
 
 _cache_lock = threading.Lock()
-# run id -> (artifact_sha256, pipeline)
-_cache: dict[str, tuple[str, object]] = {}
+# (run id, checksum, sklearn version) -> pipeline. The version is part of the
+# key so a changed requirement can never be served from a stale entry.
+_cache: dict[tuple[str, str, str], object] = {}
 
 
 def artifact_file(run: MLRun) -> Path:
@@ -69,16 +70,19 @@ def load_pipeline(run: MLRun):
         raise InferenceUnavailable("Berkas model tidak cocok dengan catatan impor.")
 
     with _cache_lock:
-        cached = _cache.get(run.id)
-        if cached and cached[0] == digest:
-            return cached[1]
-
+        # Verify before loading: a pipeline unpickled by a different sklearn
+        # build can silently produce different predictions.
         if run.artifact_sklearn_version and (
             sklearn.__version__ != run.artifact_sklearn_version
         ):
             raise InferenceUnavailable(
                 "Versi scikit-learn berbeda dengan saat model diimpor."
             )
+
+        key = (run.id, digest, sklearn.__version__)
+        cached = _cache.get(key)
+        if cached is not None:
+            return cached
 
         try:
             pipeline = joblib.load(path)
@@ -88,7 +92,7 @@ def load_pipeline(run: MLRun):
         if not hasattr(pipeline, "predict"):
             raise InferenceUnavailable("Berkas bukan pipeline yang dapat diprediksi.")
 
-        _cache[run.id] = (digest, pipeline)
+        _cache[key] = pipeline
         return pipeline
 
 

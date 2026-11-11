@@ -44,7 +44,7 @@ def create_app(config=None):
     )
     if config:
         app.config.update(config)
-    for folder in ("imports", "avatars"):
+    for folder in ("imports", "avatars", "models"):
         Path(app.config["PRIVATE_STORAGE"], folder).mkdir(parents=True, exist_ok=True)
     db.init_app(app)
     migrate.init_app(app, db)
@@ -55,6 +55,7 @@ def create_app(config=None):
     from app.routes import api, authenticate
     from app.routes.mobile_auth import mobile
     from app.routes import mobile_reports as _mobile_reports
+    from app.routes import mobile_scan as _mobile_scan
     app.register_blueprint(api, url_prefix="/api/v1")
     app.register_blueprint(mobile, url_prefix="/api/v1/mobile")
     app.before_request(authenticate)
@@ -114,5 +115,55 @@ def create_app(config=None):
             raise click.ClickException(f"Artefak tidak valid: {exc}")
         run = upsert_run(payload)
         click.echo(run.id)
+
+    @app.cli.command("ml-load-artifact")
+    @click.option("--path", required=True, type=click.Path(exists=True, dir_okay=False, path_type=Path),
+                  help="Path to the joblib pipeline, inside PRIVATE_STORAGE.")
+    @click.option("--run-id", required=True, help="MLRun id whose metrics describe this model.")
+    def ml_load_artifact(path, run_id):
+        """Attach a trained pipeline to an imported run and make it active."""
+        import joblib
+        import sklearn
+        from app.extensions import db
+        from app.ml.inference import clear_cache, file_sha256
+        from app.models import MLRun
+
+        run = db.session.get(MLRun, run_id)
+        if run is None:
+            raise click.ClickException(f"Run {run_id} tidak ditemukan.")
+        if run.is_synthetic:
+            raise click.ClickException("Run contoh tidak boleh dijadikan model aktif.")
+
+        root = Path(app.config["PRIVATE_STORAGE"]).resolve()
+        resolved = path.resolve()
+        if root not in resolved.parents:
+            raise click.ClickException(
+                f"Berkas harus berada di dalam PRIVATE_STORAGE ({root})."
+            )
+        relative = resolved.relative_to(root).as_posix()
+
+        try:
+            pipeline = joblib.load(resolved)
+        except Exception as exc:  # noqa: BLE001
+            raise click.ClickException(f"Berkas model tidak dapat dimuat: {exc}")
+        if not hasattr(pipeline, "predict"):
+            raise click.ClickException("Berkas bukan pipeline yang dapat diprediksi.")
+
+        classes = list(getattr(pipeline.named_steps.get("classifier"), "classes_", []))
+        if classes and list(run.classes) != [str(item) for item in classes]:
+            raise click.ClickException(
+                "Kelas model tidak sama dengan kelas pada artefak metrik."
+            )
+
+        db.session.execute(
+            db.update(MLRun).where(MLRun.is_active.is_(True)).values(is_active=False)
+        )
+        run.artifact_path = relative
+        run.artifact_sha256 = file_sha256(resolved)
+        run.artifact_sklearn_version = sklearn.__version__
+        run.is_active = True
+        db.session.commit()
+        clear_cache()
+        click.echo(f"{run.id} aktif ({relative}, sha256 {run.artifact_sha256[:12]}).")
 
     return app
