@@ -4,6 +4,47 @@ Flask application factory, PostgreSQL/SQLAlchemy, Redis session, dan RQ untuk im
 
 Semua endpoint memakai `/api/v1`:
 
+### Integrasi laporan mobile (Prioritas 2)
+
+Jalankan `flask --app app:create_app db upgrade` sebelum memakai kode ini.
+Migration `d91f02c437ab` menambah `prediction_reports.reporter_id` yang nullable
+dan terindeks. Laporan lama tetap tanpa pemilik; email lama tidak dipakai untuk
+mengklaim kepemilikan. Tidak ada perubahan kode Flutter pada pekerjaan ini.
+
+Gunakan `Authorization: Bearer <token>` dari login mobile untuk endpoint berikut:
+
+| Method | Endpoint | Perilaku |
+| --- | --- | --- |
+| POST | `/mobile/reports` | Kirim koreksi dengan `url`, `type`, `category`, dan `notes` opsional; respons 201 `{report, message}` |
+| GET | `/mobile/reports?page=1&page_size=25` | Hanya laporan akun aktif; respons `{items, page, page_size, row_count, page_count}` |
+| GET | `/mobile/reports/{id}` | Detail milik akun; laporan milik orang lain/tidak ada menghasilkan 404 |
+
+`type` adalah `False Positive` atau `False Negative`; kategori dan batas field
+mengikuti panduan laporan. `page` harus >= 1 dan `page_size` salah satu 25/50/100;
+halaman melebihi jumlah halaman dijepit ke halaman terakhir. Hasil terbaru dahulu.
+Respons laporan mobile berisi `id`, `url`, `report_type`, `reported_category`,
+`status`, `notes`, `dataset_synced`, `created_at`, `updated_at`.
+Catatan internal admin, email/ID pelapor, dan ID dataset tidak dikirim.
+Identitas pelapor selalu dari bearer token; `reporter_id` dan `reporter_email`
+yang dikirim klien tidak menentukan pemilik. Cookie admin tidak menggantikan token.
+Token hilang, tidak valid, kedaluwarsa, dicabut, atau akun nonaktif menghasilkan 401.
+Endpoint ini memakai CORS mobile yang sama dengan autentikasi dan tidak memakai CSRF.
+
+Endpoint lama `POST /reports/submit` tetap tersedia sebagai submit anonim;
+`reporter_email` di sana hanya informasi kontak yang belum diverifikasi.
+Untuk fitur laporan saya, Flutter harus memakai `/mobile/reports`.
+
+Status `completed` hanya dihasilkan oleh `/reports/{id}/sync-dataset`.
+PATCH ke `completed` sebelum sync ditolak 409 `sync_required`.
+Setelah sync, perubahan status/kategori ditolak 409 `report_synced`; nilai yang
+sama tetap diterima agar catatan admin dapat diedit lewat form dashboard.
+Laporan `rejected` harus dibuka kembali menjadi `review` atau `submitted`
+sebelum sync, atau mendapat 409 `report_rejected`.
+Header dataset untuk sync harus tepat satu `url` dan tepat satu dari
+`label`, `category`, `class`, `type` (case-insensitive, spasi tepi diabaikan).
+Header hilang/ambigu ditolak 409 `unsupported_dataset`; kolom lain tidak ditebak.
+Record historis tidak diubah otomatis oleh migration selain penambahan kolom.
+
 | Kelompok | Endpoint |
 | --- | --- |
 | Auth | `GET /auth/csrf`, `POST /auth/login`, `POST /auth/logout`, `GET /auth/me` |

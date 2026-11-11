@@ -581,11 +581,14 @@ export default function ReportsPage() {
                   id="status"
                   className="w-full rounded-md border bg-background px-3 py-2 text-sm"
                   value={editStatus}
+                  disabled={selectedReport.dataset_synced}
                   onChange={(e) => setEditStatus(e.target.value as ReportStageStatus)}
                 >
                   <option value="submitted">Diproses</option>
                   <option value="review">Ditinjau</option>
-                  <option value="completed">Selesai</option>
+                  {selectedReport.status === "completed" && (
+                    <option value="completed">Selesai</option>
+                  )}
                   <option value="rejected">Ditolak</option>
                 </select>
               </div>
@@ -596,6 +599,7 @@ export default function ReportsPage() {
                   id="category"
                   className="w-full rounded-md border bg-background px-3 py-2 text-sm"
                   value={editCategory}
+                  disabled={selectedReport.dataset_synced}
                   onChange={(e) => setEditCategory(e.target.value)}
                 >
                   {editCategory && !categories.includes(editCategory) && (

@@ -284,6 +284,24 @@ Cakupan tes API mencakup submit publik, validasi masukan, alur admin, sync ke da
 
 ## Batasan
 
+### Pembaruan Prioritas 2
+
+Mobile kini dapat memakai endpoint bearer `/api/v1/mobile/reports` untuk submit
+dan daftar serta `/api/v1/mobile/reports/{id}` untuk detail milik akun.
+Kontrak lengkap dan migration dijelaskan di [README API](../api/README.md).
+Implementasi Flutter masih menjadi pekerjaan Prioritas 1.
+
+Status `completed` hanya bisa diberikan melalui sync. Status/kategori setelah
+sync tidak dapat diubah; catatan admin masih dapat diperbarui. Laporan ditolak
+harus dibuka kembali sebelum sync. Header dataset wajib tidak ambigu: satu
+`url` dan satu `label/category/class/type`; tidak ada fallback ke kolom lain.
+
+Verifikasi Prioritas 2 (11 November 2026): seluruh 141 test API selesai sukses
+pada PostgreSQL 18.3 dan Redis 5.0.14.1 terisolasi. Upgrade/downgrade migration,
+preservasi laporan lama, lint, format, dan TypeScript web juga lulus.
+Pengujian ini tidak memakai database aplikasi. Playwright belum dijalankan
+untuk perubahan ini.
+
 - **`created_at`/`updated_at` belum punya `server_default`.** Aman lewat ORM, tetapi insert SQL mentah harus mengisi sendiri.
 - **Belum ada index** pada `status`, `created_at`, atau `dataset_synced`. Query daftar masih sequential scan; penambahan index sebaiknya dilakukan setelah data tumbuh.
 - **Aplikasi mobile belum memanggil API ini.** Mobile masih memakai sumber data demo di memori, sehingga laporan yang masuk saat ini berasal dari pemanggilan manual.
