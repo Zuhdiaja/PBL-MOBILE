@@ -85,7 +85,7 @@ docker compose exec api flask --app app:create_app ml-import \
 
 Halaman menampilkan alur lengkap: dataset dan distribusi kelas, timeline preprocessing dengan contoh before/after, normalisasi URL untuk split domain, parameter TF-IDF karakter 3–5, pembagian train/validation/test, training LinearSVC, perbandingan metrik validation/test, classification report, dan confusion matrix. Preview URL hanya memperlihatkan hasil normalisasi dan frekuensi n-gram karakter; file model `.pkl` tidak dipakai.
 
-Jika dataset atau artefak model belum tersedia dari API, halaman memakai data simulasi yang diberi label jelas. Data simulasi memakai contoh artefak notebook dan tidak dijalankan sebagai model. Contoh artefak ada di `model-experiments/results/hasil_model/svm_tfidf_metrics.example.json`; confusion matrix pada contoh tersebut direkonstruksi dari recall/support karena notebook menyimpan matriks asli sebagai gambar.
+Jika dataset atau artefak model belum tersedia dari API, halaman memakai data simulasi yang diberi label jelas dan tidak dijalankan sebagai model. Artefak hasil notebook ada di `model-experiments/results/hasil_model/svm_tfidf_metrics.json`.
 
 ## Menjalankan tanpa container web
 

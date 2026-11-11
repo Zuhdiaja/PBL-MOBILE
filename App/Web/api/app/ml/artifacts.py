@@ -196,11 +196,12 @@ def parse_artifact(data: object) -> dict:
     # every row against its support before trusting the per-class numbers.
     _check_matrix_rows(matrix, test_report, classes)
 
-    # Example artefacts ship a reconstructed matrix, so their per-class precision
-    # cannot be derived from it. They stay importable for the dashboard, but are
-    # marked synthetic so they are never used for inference.
+    # Marking a run synthetic is an explicit declaration, never an inference from
+    # a free-text note: real exports may carry a note explaining how the matrix
+    # was produced. Consistency of the matrix itself is the real guard, and it
+    # runs for every artefact that is not declared synthetic.
     notice = data.get("example_notice")
-    synthetic = data.get("synthetic") is True or notice is not None
+    synthetic = data.get("synthetic") is True
     if not synthetic:
         _check_matrix_metrics(matrix, test_report, classes)
 

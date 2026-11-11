@@ -48,5 +48,6 @@
     [5, 35]
   ],
   "completed_at_utc": "2026-11-05T00:00:00+00:00",
+  "synthetic": true,
   "example_notice": "Matriks direkonstruksi dari recall dan support; precision per kelas tidak dapat diturunkan dari matriks."
 }

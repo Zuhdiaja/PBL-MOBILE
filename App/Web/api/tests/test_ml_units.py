@@ -87,6 +87,33 @@ def test_parse_artifact_accepts_synthetic_matrix():
     assert sum(sum(row) for row in payload["confusion_matrix"]) == 100
 
 
+def test_note_alone_does_not_mark_an_artefact_synthetic():
+    # A real export may carry a note about how the matrix was produced. Only an
+    # explicit "synthetic": true may block a run from becoming the active model.
+    data = load(FIXTURE)
+    data["example_notice"] = "Confusion matrix dihitung dengan sklearn."
+    payload = parse_artifact(data)
+    assert payload["provenance"]["is_synthetic"] is False
+    assert payload["provenance"]["example_notice"].startswith("Confusion matrix")
+
+
+def test_synthetic_flag_skips_metric_consistency_checks():
+    data = load(SYNTHETIC_FIXTURE)
+    # Precision per class no longer matches the matrix, while the aggregate rows
+    # stay arithmetically correct. Only a declared synthetic artefact may keep
+    # such numbers; a real export would be rejected.
+    data["test_report"]["benign"]["precision"] = 0.9
+    data["test_report"]["phishing"]["precision"] = 0.85
+    data["test_report"]["macro avg"]["precision"] = 0.875
+    data["test_report"]["weighted avg"]["precision"] = 0.88
+    payload = parse_artifact(data)
+    assert payload["provenance"]["is_synthetic"] is True
+
+    data["synthetic"] = False
+    with pytest.raises(ArtifactError, match="precision"):
+        parse_artifact(data)
+
+
 def test_parse_artifact_captures_provenance():
     data = load(FIXTURE)
     data["prediction_files"] = {"test": "svm_tfidf_test_predictions.csv.gz"}
