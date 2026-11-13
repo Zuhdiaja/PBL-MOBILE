@@ -378,6 +378,11 @@ export function PreprocessingVisualization({
                     {[
                       ["Raw", activePreview.normalized.raw, activePreview.normalized.text],
                       [
+                        "Input model",
+                        activePreview.normalized.raw,
+                        activePreview.model_input || "—",
+                      ],
+                      [
                         "Host",
                         activePreview.normalized.host || "—",
                         activePreview.normalized.canonical_host || "—",

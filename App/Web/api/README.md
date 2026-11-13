@@ -4,6 +4,63 @@ Flask application factory, PostgreSQL/SQLAlchemy, Redis session, dan RQ untuk im
 
 Semua endpoint memakai `/api/v1`:
 
+### Prediksi URL mobile
+
+Model SVM + TF-IDF berjalan di dalam layanan ini, bukan di perangkat. Artefak
+model dipasang lewat CLI dan disimpan di `PRIVATE_STORAGE`; tidak ada jalur
+unggah model dari request.
+
+```sh
+flask --app app:create_app ml-load-artifact \
+  --path /private/models/svm_tfidf_pipeline.joblib \
+  --run-id <run_id>
+```
+
+Model diekspor dari notebook di `model-experiments/` lalu disalin ke
+`PRIVATE_STORAGE` sebelum perintah di atas dijalankan.
+
+| Method | Endpoint | Akses |
+| --- | --- | --- |
+| POST | `/mobile/scan` | Bearer token mobile |
+
+```json
+POST /api/v1/mobile/scan
+Authorization: Bearer <token>
+{"url": "https://contoh.test/login"}
+```
+
+Respons `201`:
+
+```json
+{
+  "scan": {
+    "scan_id": "…",
+    "url": "https://contoh.test/login",
+    "category": "phishing",
+    "score": 1.4631,
+    "score_kind": "margin",
+    "model_run_id": "…",
+    "created_at": "2026-11-11T00:00:00+00:00"
+  },
+  "message": "Pemindaian selesai."
+}
+```
+
+`score` adalah margin `decision_function` untuk kelas terpilih, bukan
+probabilitas: `LinearSVC` tidak menyediakan `predict_proba`. Nilainya bisa
+negatif dan tidak dibatasi 0–1.
+
+URL dinormalisasi sebelum masuk model: spasi tepi dibuang, seluruh teks
+di-lowercase, dan prefiks `http://`/`https://` dihapus. `www.` dipertahankan.
+Nilai yang benar-benar dipakai model disimpan di kolom `model_input`, terpisah
+dari `url` asli, sehingga prediksi bisa diaudit.
+
+Kegagalan model menghasilkan `503` dengan kode `inference_unavailable`, baik
+ketika belum ada model aktif, artefak hilang, checksum tidak cocok, versi
+scikit-learn berbeda, maupun ketika model bertanda contoh (`is_synthetic`).
+Prediksi hanya dilayani oleh satu run aktif; kolom `ml_runs.is_active` dijaga
+oleh indeks unik parsial di database.
+
 ### Integrasi laporan mobile (Prioritas 2)
 
 Jalankan `flask --app app:create_app db upgrade` sebelum memakai kode ini.

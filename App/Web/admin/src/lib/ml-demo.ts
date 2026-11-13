@@ -1,6 +1,7 @@
 import type { DataRow, Dataset, MLDatasetSummary, MLPreviewResponse, MLRunDetail } from "@/lib/api";
 
 const demoNormalizedText = "http://paypal-login.example/verify?user=1";
+const demoModelInput = "paypal-login.example/verify?user=1";
 
 function buildNgrams(text: string, sizes: Array<3 | 4 | 5>, limit = 20) {
   const result: MLPreviewResponse["ngrams"] = {
@@ -88,6 +89,7 @@ export const demoRows: DataRow[] = [
 ];
 
 export const demoPreview: MLPreviewResponse = {
+  model_input: demoModelInput,
   normalized: {
     raw: "  HTTP://PayPal-Login.Example./verify?user=1  ",
     scheme: "http",
@@ -103,7 +105,7 @@ export const demoPreview: MLPreviewResponse = {
     text: demoNormalizedText,
   },
   steps: ["trim", "lowercase_scheme", "lowercase_host", "strip_root_dot"],
-  ngrams: buildNgrams(demoNormalizedText, [3, 4, 5]),
+  ngrams: buildNgrams(demoModelInput, [3, 4, 5]),
 };
 
 export const exampleNgrams: MLPreviewResponse["ngrams"] = {
@@ -204,6 +206,16 @@ export const demoRun: MLRunDetail = {
   row_count: 783705,
   input_features: 75000,
   fit_seconds: 121.5,
+  dataset_id: null,
+  dataset_sha256: null,
+  is_synthetic: true,
+  dataset_matches: null,
   completed_at: "2026-11-05T00:00:00+00:00",
   created_at: "2026-11-05T00:00:00+00:00",
+  provenance: {
+    split_design_version: "icann-domain-disjoint-v3",
+    example_notice:
+      "Matriks direkonstruksi dari recall dan support karena notebook hanya menyimpan matriks sebagai gambar.",
+    is_synthetic: true,
+  },
 };

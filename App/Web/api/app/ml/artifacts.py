@@ -8,6 +8,9 @@ METRIC_KEYS = ("accuracy", "balanced_accuracy", "macro_f1", "weighted_f1")
 REPORT_KEYS = ("precision", "recall", "f1-score", "support")
 AVERAGE_KEYS = ("macro avg", "weighted avg")
 
+# Reports are exported rounded to four decimals, so exact equality never holds.
+TOLERANCE = 1e-3
+
 
 class ArtifactError(ValueError):
     """Raised when an uploaded artefact is not a valid metrics export."""
@@ -26,6 +29,14 @@ def _integer(value, field: str, minimum: int = 0) -> int:
     if isinstance(value, bool) or not isinstance(value, int) or value < minimum:
         raise ArtifactError(f"Field {field} harus berupa bilangan bulat >= {minimum}.")
     return value
+
+
+def _support(value, field: str) -> int:
+    """Support is a row count; accept 60.0 but reject 60.5."""
+    number = _number(value, field)
+    if number != int(number):
+        raise ArtifactError(f"Field {field} harus berupa bilangan bulat.")
+    return int(number)
 
 
 def _metrics(value, field: str) -> dict:
@@ -47,7 +58,7 @@ def _report(value, field: str, classes: list[str]) -> dict:
             "precision": _number(row.get("precision"), f"{field}.{label}.precision", 0.0, 1.0),
             "recall": _number(row.get("recall"), f"{field}.{label}.recall", 0.0, 1.0),
             "f1-score": _number(row.get("f1-score"), f"{field}.{label}.f1-score", 0.0, 1.0),
-            "support": _number(row.get("support"), f"{field}.{label}.support", 0.0),
+            "support": _support(row.get("support"), f"{field}.{label}.support"),
         }
     return result
 
@@ -81,6 +92,54 @@ def _completed_at(value) -> datetime:
         return datetime.fromisoformat(value.replace("Z", "+00:00"))
     except ValueError as exc:
         raise ArtifactError("Field completed_at_utc bukan tanggal ISO-8601 yang valid.") from exc
+
+
+def _check_average_rows(report: dict, classes: list[str]) -> None:
+    """Recompute macro/weighted averages from the per-class rows."""
+    total = sum(report[label]["support"] for label in classes)
+    for key in ("precision", "recall", "f1-score"):
+        macro = sum(report[label][key] for label in classes) / len(classes)
+        if abs(report["macro avg"][key] - macro) > TOLERANCE:
+            raise ArtifactError(f"Field macro avg.{key} tidak sesuai rata-rata kelas.")
+        if total:
+            weighted = sum(
+                report[label][key] * report[label]["support"] for label in classes
+            ) / total
+            if abs(report["weighted avg"][key] - weighted) > TOLERANCE:
+                raise ArtifactError(
+                    f"Field weighted avg.{key} tidak sesuai bobot support kelas."
+                )
+
+
+def _check_matrix_rows(
+    matrix: list[list[int]], report: dict, classes: list[str]
+) -> None:
+    """Every row sum is a class support, so a reordered matrix must be rejected."""
+    for index, label in enumerate(classes):
+        if sum(matrix[index]) != report[label]["support"]:
+            raise ArtifactError(
+                f"Baris {index + 1} test_confusion_matrix harus sama dengan support {label}."
+            )
+
+
+def _check_matrix_metrics(
+    matrix: list[list[int]], report: dict, classes: list[str]
+) -> None:
+    """Precision, recall, and f1 must be derivable from the matrix itself."""
+    size = len(classes)
+    row_totals = [sum(row) for row in matrix]
+    column_totals = [sum(matrix[row][column] for row in range(size)) for column in range(size)]
+    for index, label in enumerate(classes):
+        diagonal = matrix[index][index]
+        recall = diagonal / row_totals[index] if row_totals[index] else 0.0
+        precision = diagonal / column_totals[index] if column_totals[index] else 0.0
+        f1 = 2 * precision * recall / (precision + recall) if precision + recall else 0.0
+        for key, expected in (("precision", precision), ("recall", recall), ("f1-score", f1)):
+            if abs(report[label][key] - expected) > TOLERANCE:
+                raise ArtifactError(
+                    f"Field test_report.{label}.{key} tidak konsisten dengan "
+                    "test_confusion_matrix."
+                )
 
 
 def parse_artifact(data: object) -> dict:
@@ -126,7 +185,30 @@ def parse_artifact(data: object) -> dict:
     if support_total and sum(sum(row) for row in matrix) != int(support_total):
         raise ArtifactError("Total test_confusion_matrix harus sama dengan total support test_report.")
 
+    split_counts = _split_counts(data.get("split_counts"))
     row_count = _integer(data.get("row_count"), "row_count")
+    if sum(split_counts.values()) != row_count:
+        raise ArtifactError("Total split_counts harus sama dengan row_count.")
+    if sum(sum(row) for row in matrix) != split_counts["test"]:
+        raise ArtifactError("Total test_confusion_matrix harus sama dengan split_counts.test.")
+
+    # A reordered or mislabelled matrix still matches the grand total, so verify
+    # every row against its support before trusting the per-class numbers.
+    _check_matrix_rows(matrix, test_report, classes)
+
+    # Marking a run synthetic is an explicit declaration, never an inference from
+    # a free-text note: real exports may carry a note explaining how the matrix
+    # was produced. Consistency of the matrix itself is the real guard, and it
+    # runs for every artefact that is not declared synthetic.
+    notice = data.get("example_notice")
+    synthetic = data.get("synthetic") is True
+    if not synthetic:
+        _check_matrix_metrics(matrix, test_report, classes)
+
+    _check_average_rows(test_report, classes)
+    if report["validation"]:
+        _check_average_rows(report["validation"], classes)
+
     input_features = data.get("input_features")
     fit_seconds = data.get("fit_seconds")
     preprocessing = data.get("preprocessing")
@@ -156,11 +238,17 @@ def parse_artifact(data: object) -> dict:
         "metrics": metrics,
         "report": report,
         "confusion_matrix": matrix,
-        "split_counts": _split_counts(data.get("split_counts")),
+        "split_counts": split_counts,
         "params": params,
         "preprocessing": preprocessing,
         "fit_seconds": _number(fit_seconds, "fit_seconds") if fit_seconds is not None else None,
         "input_features": _integer(input_features, "input_features") if input_features is not None else None,
         "row_count": row_count,
         "completed_at": _completed_at(data.get("completed_at_utc")),
+        "provenance": {
+            "split_design_version": data.get("split_design_version"),
+            "prediction_files": data.get("prediction_files"),
+            "example_notice": notice,
+            "is_synthetic": synthetic,
+        },
     }

@@ -3,7 +3,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
 WORKDIR /app
 COPY requirements.lock requirements.lock
 RUN pip install --no-cache-dir -r requirements.lock && useradd --create-home --uid 10001 linkguard \
-    && mkdir -p /private/imports /private/avatars && chown -R linkguard:linkguard /private
+    && mkdir -p /private/imports /private/avatars /private/models && chown -R linkguard:linkguard /private
 COPY --chown=linkguard:linkguard . .
 USER linkguard
 EXPOSE 5000

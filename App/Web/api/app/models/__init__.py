@@ -138,11 +138,36 @@ class MLRun(db.Model):
     fit_seconds = db.Column(db.Float)
     input_features = db.Column(db.Integer)
     row_count = db.Column(db.BigInteger, nullable=False)
+    # Dataset version this run was trained on. The digest changes whenever the
+    # dataset shape changes, including rows appended by report synchronisation.
+    dataset_id = db.Column(
+        db.String(36), db.ForeignKey("datasets.id", ondelete="SET NULL"), index=True
+    )
+    dataset_sha256 = db.Column(db.String(64))
+    provenance = db.Column(JSONB, nullable=False, default=dict)
+    # The trained pipeline itself. Only an imported, non-synthetic run can be
+    # activated, and exactly one run may be active at a time.
+    artifact_path = db.Column(db.String(255))
+    artifact_sha256 = db.Column(db.String(64))
+    artifact_sklearn_version = db.Column(db.String(32))
+    is_active = db.Column(db.Boolean, nullable=False, default=False)
     completed_at = db.Column(db.DateTime(timezone=True))
     created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=now)
-    __table_args__ = (db.Index("ml_runs_completed_at", "completed_at"),)
+    __table_args__ = (
+        db.Index("ml_runs_completed_at", "completed_at"),
+        db.Index(
+            "one_active_ml_run",
+            db.text("(1)"),
+            unique=True,
+            postgresql_where=db.text("is_active"),
+        ),
+    )
 
-    def public(self, detail=False):
+    @property
+    def is_synthetic(self) -> bool:
+        return bool((self.provenance or {}).get("is_synthetic"))
+
+    def public(self, detail=False, dataset_digest=None):
         data = dict(
             id=self.id,
             model=self.model,
@@ -152,6 +177,17 @@ class MLRun(db.Model):
             row_count=self.row_count,
             input_features=self.input_features,
             fit_seconds=self.fit_seconds,
+            dataset_id=self.dataset_id,
+            dataset_sha256=self.dataset_sha256,
+            is_synthetic=self.is_synthetic,
+            artifact_sha256=self.artifact_sha256,
+            artifact_sklearn_version=self.artifact_sklearn_version,
+            is_active=self.is_active,
+            dataset_matches=(
+                None
+                if dataset_digest is None or self.dataset_sha256 is None
+                else self.dataset_sha256 == dataset_digest
+            ),
             completed_at=self.completed_at.isoformat() if self.completed_at else None,
             created_at=self.created_at.isoformat() if self.created_at else None,
         )
@@ -163,7 +199,46 @@ class MLRun(db.Model):
                 split_counts=self.split_counts,
                 params=self.params,
                 preprocessing=self.preprocessing,
+                provenance=self.provenance or {},
             )
         else:
             data["metrics"] = {"test": (self.metrics or {}).get("test", {})}
         return data
+
+
+class Scan(db.Model):
+    """One prediction made for a signed-in mobile user."""
+
+    __tablename__ = "scans"
+    id = db.Column(db.String(36), primary_key=True)
+    mobile_user_id = db.Column(
+        db.Integer,
+        db.ForeignKey("mobile_users.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    # The URL exactly as submitted, kept for audit, plus the normalised text
+    # that actually reached the model.
+    url = db.Column(db.Text, nullable=False)
+    model_input = db.Column(db.Text, nullable=False)
+    category = db.Column(db.String(32), nullable=False)
+    score = db.Column(db.Float, nullable=False)
+    score_kind = db.Column(db.String(16), nullable=False, default="margin")
+    model_run_id = db.Column(
+        db.String(36), db.ForeignKey("ml_runs.id", ondelete="SET NULL")
+    )
+    created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=now)
+
+    __table_args__ = (
+        db.Index("scans_owner_created", "mobile_user_id", "created_at"),
+    )
+
+    def public(self):
+        return dict(
+            scan_id=self.id,
+            url=self.url,
+            category=self.category,
+            score=self.score,
+            score_kind=self.score_kind,
+            model_run_id=self.model_run_id,
+            created_at=self.created_at.isoformat() if self.created_at else None,
+        )

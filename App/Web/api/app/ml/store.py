@@ -19,6 +19,9 @@ FIELDS = (
     "input_features",
     "row_count",
     "completed_at",
+    "dataset_id",
+    "dataset_sha256",
+    "provenance",
 )
 
 
