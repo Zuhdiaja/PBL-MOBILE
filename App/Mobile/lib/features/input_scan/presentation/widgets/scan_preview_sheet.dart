@@ -1,31 +1,32 @@
-import 'dart:async';
-
-import '../../domain/usecases/prepare_scan_preview.dart';
-
 import 'package:flutter/material.dart';
 
 import '../../../../theme/app_colors.dart';
 import '../../../../widgets/scan_components.dart';
 import '../../domain/entities/scan_preview.dart';
+import '../../domain/usecases/submit_scan.dart';
+import '../controllers/scan_submission_controller.dart';
 
-Future<void> showScanPreview(
+/// Runs the check and, when it finishes, summarises the outcome.
+///
+/// Returns the submission only when the user asks to see the results; closing
+/// the summary leaves the caller on the input screen.
+Future<ScanSubmission?> showScanPreview(
   BuildContext context,
   ScanPreview preview, {
-  required VoidCallback onViewResults,
-  required FutureOr<PreviewResult> Function() preparePreview,
+  required ScanSubmissionController controller,
 }) async {
   FocusManager.instance.primaryFocus?.unfocus();
-  final ready = await Navigator.of(context).push<bool>(
+  final submission = await Navigator.of(context).push<ScanSubmission>(
     MaterialPageRoute(
       builder: (_) => ScanProcessingScreen(
         urls: preview.urls.map((url) => url.value).toList(),
-        preparePreview: preparePreview,
+        controller: controller,
       ),
     ),
   );
-  if (!context.mounted || ready != true) return;
-  FocusManager.instance.primaryFocus?.unfocus();
-  return showModalBottomSheet<void>(
+  if (!context.mounted || submission == null) return null;
+
+  final openResults = await showModalBottomSheet<bool>(
     context: context,
     isScrollControlled: true,
     useSafeArea: true,
@@ -39,146 +40,103 @@ Future<void> showScanPreview(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Pratinjau pemeriksaan', style: sectionTitleStyle),
+            const Text('Pemeriksaan selesai', style: sectionTitleStyle),
             const SizedBox(height: 8),
-            const Text(
-              'Tautan siap diperiksa. Belum ada penilaian keamanan pada pratinjau ini.',
+            Text(
+              submission.failed == 0
+                  ? '${submission.succeeded} tautan berhasil diperiksa.'
+                  : '${submission.succeeded} tautan diperiksa, ${submission.failed} gagal.',
               style: bodyStyle,
             ),
             const SizedBox(height: 20),
-            for (final url in preview.urls)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Icon(Icons.link, size: 21, color: context.colors.blue),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        url.value,
-                        style: TextStyle(
-                          color: context.colors.ink,
-                          fontSize: 14,
-                          height: 1.5,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            const SizedBox(height: 12),
             ScanButton(
-              label: 'Lihat hasil contoh',
+              label: 'Lihat hasil',
               icon: Icons.shield_outlined,
-              onPressed: () {
-                Navigator.of(context).pop();
-                onViewResults();
-              },
+              onPressed: () => Navigator.of(context).pop(true),
             ),
             const SizedBox(height: 8),
             ScanButton(
               label: 'Kembali',
               icon: Icons.arrow_back_rounded,
-              onPressed: () => Navigator.of(context).pop(),
+              onPressed: () => Navigator.of(context).pop(false),
             ),
           ],
         ),
       ),
     ),
   );
+  return openResults == true ? submission : null;
 }
 
-/// The phases follow local preparation work, not an animation's elapsed time.
+/// Checks the URLs one by one and reports real progress.
 class ScanProcessingScreen extends StatefulWidget {
   const ScanProcessingScreen({
     super.key,
     required this.urls,
-    required this.preparePreview,
+    required this.controller,
   });
   final List<String> urls;
-  final FutureOr<PreviewResult> Function() preparePreview;
+  final ScanSubmissionController controller;
   @override
   State<ScanProcessingScreen> createState() => _ScanProcessingScreenState();
 }
 
 class _ScanProcessingScreenState extends State<ScanProcessingScreen> {
-  int _stage = 0;
-  bool _cancelled = false;
-  bool _failed = false;
   @override
   void initState() {
     super.initState();
-    _prepare();
+    _run();
   }
 
-  Future<void> _prepare() async {
-    for (var stage = 0; stage < 3; stage++) {
-      // Give each completed phase a frame; never add a fake network delay.
-      await WidgetsBinding.instance.endOfFrame;
-      if (!mounted || _cancelled) return;
-      setState(() {
-        _stage = stage;
-        _failed = false;
-      });
-      try {
-        if (stage == 1) {
-          final result = await widget.preparePreview();
-          if (result.failure != null) {
-            throw StateError('Preview preparation failed');
-          }
-        }
-      } catch (_) {
-        if (mounted && !_cancelled) setState(() => _failed = true);
-        return;
-      }
-      if (!mounted || _cancelled) return;
-    }
-    if (mounted && !_cancelled && ModalRoute.of(context)?.isCurrent == true) {
-      Navigator.of(context).pop(true);
+  Future<void> _run() async {
+    final submission = await widget.controller.submit(widget.urls);
+    if (!mounted) return;
+    if (submission != null && ModalRoute.of(context)?.isCurrent == true) {
+      Navigator.of(context).pop(submission);
     }
   }
 
   @override
-  void dispose() {
-    _cancelled = true;
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) => Scaffold(
-    body: SafeArea(
-      child: _failed
-          ? ScanPage(
+  Widget build(BuildContext context) => AnimatedBuilder(
+    animation: widget.controller,
+    builder: (context, _) {
+      final controller = widget.controller;
+      if (controller.stage == ScanSubmissionStage.failed) {
+        return Scaffold(
+          body: SafeArea(
+            child: ScanPage(
               children: [
-                const Text(
-                  'Pratinjau belum dapat disiapkan.',
-                  style: sectionTitleStyle,
+                const Text('Pemeriksaan gagal', style: sectionTitleStyle),
+                const SizedBox(height: 12),
+                Text(
+                  controller.error ?? 'Tautan belum dapat diperiksa.',
+                  style: bodyStyle,
                 ),
                 const SizedBox(height: 20),
                 ScanButton(
                   label: 'Coba lagi',
                   icon: Icons.refresh_rounded,
-                  onPressed: () {
-                    setState(() => _failed = false);
-                    _prepare();
-                  },
+                  onPressed: _run,
                 ),
                 TextButton(
-                  onPressed: () => Navigator.of(context).pop(false),
+                  onPressed: () => Navigator.of(context).pop(),
                   child: const Text('Kembali'),
                 ),
               ],
-            )
-          : ScanProcessingBody(
-              urls: widget.urls,
-              stage: _stage,
-              onCancel: () {
-                _cancelled = true;
-                Navigator.of(context).pop(false);
-              },
             ),
-    ),
+          ),
+        );
+      }
+      return ScanProcessingBody(
+        urls: widget.urls,
+        done: controller.done,
+        total: controller.total,
+        onCancel: () {
+          controller.cancel();
+          Navigator.of(context).pop();
+        },
+      );
+    },
   );
 }
 
@@ -186,116 +144,101 @@ class ScanProcessingBody extends StatelessWidget {
   const ScanProcessingBody({
     super.key,
     required this.urls,
-    required this.stage,
+    required this.done,
+    required this.total,
     required this.onCancel,
   });
   final List<String> urls;
-  final int stage;
+  final int done;
+  final int total;
   final VoidCallback onCancel;
+
   @override
-  Widget build(BuildContext context) => ScanPage(
-    children: [
-      Row(
-        children: [
-          const Expanded(child: LinkGuardBrand(size: 19)),
-          TextButton(onPressed: onCancel, child: const Text('Batalkan')),
-        ],
-      ),
-      const SizedBox(height: 32),
-      Container(
-        width: 68,
-        height: 68,
-        decoration: BoxDecoration(
-          color: context.colors.paleBlue,
-          borderRadius: BorderRadius.circular(18),
+  Widget build(BuildContext context) {
+    final count = total == 0 ? urls.length : total;
+    return ScanPage(
+      children: [
+        Row(
+          children: [
+            const Expanded(child: LinkGuardBrand(size: 19)),
+            TextButton(onPressed: onCancel, child: const Text('Batalkan')),
+          ],
         ),
-        child: Icon(
-          Icons.crop_free_rounded,
-          size: 34,
-          color: context.colors.blue,
-        ),
-      ),
-      const SizedBox(height: 24),
-      const Text('Menyiapkan tautan.', style: pageTitleStyle),
-      const SizedBox(height: 10),
-      Text(
-        'Sebentar, pratinjau Anda sedang disiapkan.',
-        style: TextStyle(
-          color: context.colors.muted,
-          fontSize: 13,
-          height: 1.6,
-        ),
-      ),
-      const SizedBox(height: 24),
-      Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: context.colors.surface,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Text(
-          urls.length == 1 ? urls.first : '${urls.length} tautan',
-          style: const TextStyle(fontSize: 13),
-        ),
-      ),
-      const SizedBox(height: 24),
-      for (var i = 0; i < 3; i++)
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          child: Row(
-            children: [
-              AnimatedSwitcher(
-                duration: MediaQuery.disableAnimationsOf(context)
-                    ? Duration.zero
-                    : const Duration(milliseconds: 180),
-                child: stage == i && !MediaQuery.disableAnimationsOf(context)
-                    ? SizedBox(
-                        key: ValueKey('active-$i'),
-                        width: 24,
-                        height: 24,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: context.colors.blue,
-                          semanticsLabel: const [
-                            'Menyiapkan tautan',
-                            'Memvalidasi format URL',
-                            'Menyiapkan pratinjau',
-                          ][i],
-                        ),
-                      )
-                    : Icon(
-                        key: ValueKey('stage-$i-${stage > i}'),
-                        stage > i
-                            ? Icons.check_circle_outline_rounded
-                            : Icons.radio_button_checked_rounded,
-                        color: stage >= i
-                            ? context.colors.blue
-                            : context.colors.line,
-                        size: 24,
-                      ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  const [
-                    'Menyiapkan tautan',
-                    'Memvalidasi format URL',
-                    'Menyiapkan pratinjau',
-                  ][i],
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: stage >= i
-                        ? context.colors.ink
-                        : context.colors.muted,
-                  ),
-                ),
-              ),
-            ],
+        const SizedBox(height: 32),
+        Container(
+          width: 68,
+          height: 68,
+          decoration: BoxDecoration(
+            color: context.colors.paleBlue,
+            borderRadius: BorderRadius.circular(18),
+          ),
+          child: Icon(
+            Icons.crop_free_rounded,
+            size: 34,
+            color: context.colors.blue,
           ),
         ),
-      const SizedBox(height: 20),
-      const InfoNote('Pratinjau lokal, tanpa penilaian keamanan URL.'),
-    ],
-  );
+        const SizedBox(height: 24),
+        const Text('Memeriksa tautan.', style: pageTitleStyle),
+        const SizedBox(height: 10),
+        Text(
+          'Model memeriksa setiap URL satu per satu.',
+          style: TextStyle(
+            color: context.colors.muted,
+            fontSize: 13,
+            height: 1.6,
+          ),
+        ),
+        const SizedBox(height: 20),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(6),
+          child: LinearProgressIndicator(
+            value: count == 0 ? null : done / count,
+            minHeight: 6,
+            backgroundColor: context.colors.line,
+            color: context.colors.blue,
+          ),
+        ),
+        const SizedBox(height: 10),
+        Text(
+          '$done dari $count tautan selesai',
+          style: TextStyle(fontSize: 11, color: context.colors.muted),
+        ),
+        const SizedBox(height: 20),
+        for (var index = 0; index < urls.length; index++)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Row(
+              children: [
+                Icon(
+                  index < done
+                      ? Icons.check_circle_outline_rounded
+                      : Icons.radio_button_unchecked_rounded,
+                  color: index < done
+                      ? context.colors.success
+                      : context.colors.muted,
+                  size: 20,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    urls[index],
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: index < done
+                          ? context.colors.ink
+                          : context.colors.muted,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        const SizedBox(height: 20),
+        const InfoNote('Model berjalan di server LinkGuard.'),
+      ],
+    );
+  }
 }

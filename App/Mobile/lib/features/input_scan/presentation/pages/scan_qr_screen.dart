@@ -2,20 +2,39 @@ import 'package:flutter/material.dart';
 
 import '../../../../widgets/scan_components.dart';
 import '../../../../theme/app_colors.dart';
+import '../../domain/usecases/submit_scan.dart';
 import '../controllers/scan_qr_controller.dart';
+import '../controllers/scan_submission_controller.dart';
 import '../widgets/scan_preview_sheet.dart';
 
 class ScanQrScreen extends StatelessWidget {
   const ScanQrScreen({
     super.key,
     required this.controller,
+    required this.submissionController,
     required this.onNavigate,
-    required this.onViewResults,
+    required this.onSubmitted,
   });
 
   final ScanQrController controller;
-  final VoidCallback onViewResults;
+  final ScanSubmissionController submissionController;
+  final ValueChanged<ScanSubmission> onSubmitted;
   final ValueChanged<int> onNavigate;
+
+  Future<void> _scanExample(BuildContext context) async {
+    final result = controller.prepareExamplePreview();
+    if (result.failure != null) {
+      showScanMessage(context, result.failure!.message);
+      return;
+    }
+    final submission = await showScanPreview(
+      context,
+      result.preview!,
+      controller: submissionController,
+    );
+    if (!context.mounted || submission == null) return;
+    onSubmitted(submission);
+  }
 
   @override
   Widget build(BuildContext context) => ScanSubpage(
@@ -91,19 +110,7 @@ class ScanQrScreen extends StatelessWidget {
       const SizedBox(height: 24),
       ScanButton(
         label: 'Pindai contoh QR',
-        onPressed: () {
-          final result = controller.prepareExamplePreview();
-          if (result.failure != null) {
-            showScanMessage(context, result.failure!.message);
-            return;
-          }
-          showScanPreview(
-            context,
-            result.preview!,
-            preparePreview: controller.prepareExamplePreview,
-            onViewResults: onViewResults,
-          );
-        },
+        onPressed: () => _scanExample(context),
       ),
       const SizedBox(height: 18),
       const InfoNote(

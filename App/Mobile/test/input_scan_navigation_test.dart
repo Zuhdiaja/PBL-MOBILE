@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:pbl_semester5/data/scan_result.dart';
@@ -33,14 +33,14 @@ void main() {
         'https://contoh.com/draft',
       );
       await tapVisible(tester, find.text('Periksa URL'));
-      await tapVisible(tester, find.text('Lihat hasil contoh'));
+      await tapVisible(tester, find.text('Lihat hasil'));
       expect(find.text('Hasil pindai'), findsOneWidget);
       expect(find.textContaining('Hasil simulasi'), findsOneWidget);
       await tester.binding.handlePopRoute();
       await tester.pumpAndSettle();
       expect(find.text('Pindai URL'), findsOneWidget);
       expect(find.text('https://contoh.com/draft'), findsOneWidget);
-      expect(find.text('Pratinjau pemeriksaan'), findsNothing);
+      expect(find.text('Pemeriksaan selesai'), findsNothing);
       expect(tester.takeException(), isNull);
     },
   );

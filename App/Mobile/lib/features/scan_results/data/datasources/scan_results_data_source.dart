@@ -1,16 +1,12 @@
-import '../../../../data/scan_result.dart';
+import '../../domain/entities/failed_scan.dart';
 import '../models/scan_result_model.dart';
 
-/// Adapter for the example results owned by the legacy results data.
-///
-/// The legacy model and its dummy list stay untouched so features that are
-/// still migrating keep reading the same source.
-class ScanResultsDataSource {
-  List<ScanResultModel> readResults() => [
-    for (var i = 0; i < demoScanResults.length; i++)
-      ScanResultModel(id: '$i', item: demoScanResults[i]),
-  ];
+/// Source of the results shown on the results screen.
+abstract class ScanResultsDataSource {
+  List<ScanResultModel> readResults();
 
-  ScanResultModel readResult(String id) =>
-      ScanResultModel(id: id, item: demoScanResults[int.parse(id)]);
+  ScanResultModel readResult(String id);
+
+  /// URLs of the latest submission that could not be checked.
+  List<FailedScan> readFailures();
 }

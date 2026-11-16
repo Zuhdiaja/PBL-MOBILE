@@ -1,21 +1,35 @@
+import '../config/api_config.dart';
+import '../features/auth/data/datasources/token_store.dart';
 import '../features/input_scan/data/datasources/clipboard_data_source.dart';
 import '../features/input_scan/data/datasources/demo_input_scan_examples.dart';
 import '../features/input_scan/data/datasources/demo_recent_scans_data_source.dart';
+import '../features/input_scan/data/datasources/demo_url_predictor.dart';
 import '../features/input_scan/data/datasources/plugin_share_intent_source.dart';
+import '../features/input_scan/data/datasources/remote_url_predictor.dart';
 import '../features/input_scan/data/repositories/clipboard_repository_impl.dart';
 import '../features/input_scan/data/repositories/recent_scans_repository_impl.dart';
 import '../features/input_scan/domain/repositories/share_intent_source.dart';
+import '../features/input_scan/domain/repositories/url_predictor.dart';
 import '../features/input_scan/domain/usecases/extract_shared_url.dart';
 import '../features/input_scan/domain/usecases/prepare_scan_preview.dart';
+import '../features/input_scan/domain/usecases/submit_scan.dart';
 import '../features/input_scan/presentation/controllers/home_controller.dart';
 import '../features/input_scan/presentation/controllers/scan_qr_controller.dart';
+import '../features/input_scan/presentation/controllers/scan_submission_controller.dart';
 import '../features/input_scan/presentation/controllers/scan_url_controller.dart';
 import '../features/input_scan/presentation/controllers/share_link_controller.dart';
 
 /// Composition root: keeps concrete/legacy data out of feature widgets.
+///
+/// Passing a [tokenStore] connects URL checks to the LinkGuard API; without one
+/// the feature uses the offline demo predictor so previews and widget tests
+/// never reach the network.
 class InputScanDependencies {
-  InputScanDependencies({ShareIntentSource? shareIntent})
-    : shareIntent = shareIntent ?? PluginShareIntentSource() {
+  InputScanDependencies({
+    ShareIntentSource? shareIntent,
+    TokenStore? tokenStore,
+    String? apiBaseUrl,
+  }) : shareIntent = shareIntent ?? PluginShareIntentSource() {
     final clipboard = ClipboardRepositoryImpl(
       const SystemClipboardDataSource(),
     );
@@ -33,6 +47,16 @@ class InputScanDependencies {
     _clipboard = clipboard;
     _preparePreview = preparePreview;
     _examples = examples;
+    predictor = tokenStore == null
+        ? const DemoUrlPredictor()
+        : RemoteUrlPredictor(
+            baseUrl: apiBaseUrl ?? defaultApiBaseUrl(),
+            tokenStore: tokenStore,
+          );
+    submission = ScanSubmissionController(
+      submitScan: const SubmitScan(),
+      predictor: predictor,
+    );
   }
 
   final _recentScans = DemoRecentScansDataSource();
@@ -45,6 +69,12 @@ class InputScanDependencies {
 
   /// Picks the URL out of the shared text.
   final ExtractSharedUrl extractSharedUrl = const ExtractSharedUrl();
+
+  /// Checks one URL against the classification service.
+  late final UrlPredictor predictor;
+
+  /// Drives one submission and reports its progress.
+  late final ScanSubmissionController submission;
 
   late final HomeController home;
   late final ScanUrlController scanUrl;
@@ -66,6 +96,7 @@ class InputScanDependencies {
   void dispose() {
     home.dispose();
     scanUrl.dispose();
+    submission.dispose();
     shareIntent.dispose();
   }
 }

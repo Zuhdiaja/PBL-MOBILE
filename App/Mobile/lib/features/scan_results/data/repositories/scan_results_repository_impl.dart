@@ -1,3 +1,4 @@
+import '../../domain/entities/failed_scan.dart';
 import '../../domain/entities/scan_result.dart';
 import '../../domain/repositories/scan_results_repository.dart';
 import '../datasources/scan_results_data_source.dart';
@@ -14,4 +15,8 @@ class ScanResultsRepositoryImpl implements ScanResultsRepository {
 
   @override
   ScanResult findById(String id) => _dataSource.readResult(id).toEntity();
+
+  @override
+  List<FailedScan> getFailures() =>
+      List.unmodifiable(_dataSource.readFailures());
 }

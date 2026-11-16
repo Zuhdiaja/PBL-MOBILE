@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../../../../theme/app_colors.dart';
 import '../../../../widgets/scan_components.dart';
 import '../../domain/entities/url_input.dart';
+import '../../domain/usecases/submit_scan.dart';
+import '../controllers/scan_submission_controller.dart';
 import '../controllers/scan_url_controller.dart';
 import '../widgets/scan_preview_sheet.dart';
 
@@ -10,13 +12,15 @@ class ScanUrlScreen extends StatefulWidget {
   const ScanUrlScreen({
     super.key,
     required this.controller,
+    required this.submissionController,
     required this.onQr,
     required this.onShare,
-    required this.onViewResults,
+    required this.onSubmitted,
   });
 
   final ScanUrlController controller;
-  final VoidCallback onViewResults;
+  final ScanSubmissionController submissionController;
+  final ValueChanged<ScanSubmission> onSubmitted;
   final VoidCallback onQr;
   final VoidCallback onShare;
 
@@ -33,19 +37,20 @@ class _ScanUrlScreenState extends State<ScanUrlScreen> {
     if (mounted && message != null) showScanMessage(context, message);
   }
 
-  void _scan() {
+  Future<void> _scan() async {
     if (!_formKey.currentState!.validate()) return;
     final result = widget.controller.preparePreview();
     if (result.failure != null) {
       showScanMessage(context, result.failure!.message);
       return;
     }
-    showScanPreview(
+    final submission = await showScanPreview(
       context,
       result.preview!,
-      preparePreview: widget.controller.preparePreview,
-      onViewResults: widget.onViewResults,
+      controller: widget.submissionController,
     );
+    if (!mounted || submission == null) return;
+    widget.onSubmitted(submission);
   }
 
   @override
@@ -162,7 +167,7 @@ class _ScanUrlScreenState extends State<ScanUrlScreen> {
         const InfoNote('Maksimal 5 URL per pemindaian.'),
         const SizedBox(height: 10),
         Text(
-          'Mode pratinjau. Hasil pemeriksaan keamanan belum tersedia.',
+          'Setiap URL diperiksa model SVM + TF-IDF di server LinkGuard.',
           style: TextStyle(color: context.colors.muted, fontSize: 11),
         ),
       ],

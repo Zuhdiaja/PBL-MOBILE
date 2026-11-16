@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../../../../theme/app_colors.dart';
 import '../../../../widgets/scan_components.dart';
 import '../../domain/entities/url_input.dart';
+import '../../domain/usecases/submit_scan.dart';
+import '../controllers/scan_submission_controller.dart';
 import '../controllers/share_link_controller.dart';
 import '../widgets/scan_preview_sheet.dart';
 
@@ -10,13 +12,15 @@ class ShareLinkScreen extends StatefulWidget {
   const ShareLinkScreen({
     super.key,
     required this.controller,
+    required this.submissionController,
     required this.onNavigate,
-    required this.onViewResults,
+    required this.onSubmitted,
   });
 
   /// The route owns and disposes this controller.
   final ShareLinkController controller;
-  final VoidCallback onViewResults;
+  final ScanSubmissionController submissionController;
+  final ValueChanged<ScanSubmission> onSubmitted;
   final ValueChanged<int> onNavigate;
 
   @override
@@ -50,19 +54,20 @@ class _ShareLinkScreenState extends State<ShareLinkScreen> {
     _state.field.text = result.text!;
   }
 
-  void _scan() {
+  Future<void> _scan() async {
     if (!_formKey.currentState!.validate()) return;
     final result = _state.preparePreview();
     if (result.failure != null) {
       showScanMessage(context, result.failure!.message);
       return;
     }
-    showScanPreview(
+    final submission = await showScanPreview(
       context,
       result.preview!,
-      preparePreview: _state.preparePreview,
-      onViewResults: widget.onViewResults,
+      controller: widget.submissionController,
     );
+    if (!mounted || submission == null) return;
+    widget.onSubmitted(submission);
   }
 
   @override

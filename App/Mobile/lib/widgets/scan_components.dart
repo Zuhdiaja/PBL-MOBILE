@@ -236,12 +236,14 @@ class CategoryBadge extends StatelessWidget {
 
 String categoryLabel(String category) => switch (category) {
   'Benign' => 'Aman',
+  'Legitimate' => 'Sah',
   'Defacement' => 'Perusakan situs',
   'Exploit' => 'Eksploitasi',
   _ => category,
 };
 IconData categoryIcon(String category) => switch (category) {
   'Aman' || 'Benign' => Icons.verified_user_outlined,
+  'Legitimate' => Icons.verified_outlined,
   'Malware' => Icons.bug_report_outlined,
   'Spam' => Icons.mail_outline_rounded,
   'Defacement' => Icons.web_asset_off_rounded,
