@@ -96,6 +96,7 @@ class InputScanDependencies {
   void dispose() {
     home.dispose();
     scanUrl.dispose();
+    scanQr.dispose();
     submission.dispose();
     shareIntent.dispose();
   }
