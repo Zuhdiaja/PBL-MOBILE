@@ -1,7 +1,20 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pbl_semester5/features/scan_results/domain/entities/scan_category.dart';
+import 'package:pbl_semester5/widgets/scan_components.dart';
 
 void main() {
+  group('categoryLabel', () {
+    test('shows legitimate as Aman, the same wording as benign', () {
+      expect(categoryLabel('Legitimate'), 'Aman');
+      expect(categoryLabel('Benign'), 'Aman');
+    });
+
+    test('keeps dangerous classes readable', () {
+      expect(categoryLabel('Phishing'), 'Phishing');
+      expect(categoryLabel('Malware'), 'Malware');
+      expect(categoryLabel('Spam'), 'Spam');
+    });
+  });
   group('ScanCategory', () {
     test('maps every label the model can return', () {
       expect(ScanCategory.fromRaw('benign'), ScanCategory.benign);

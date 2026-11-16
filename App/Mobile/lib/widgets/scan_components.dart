@@ -236,7 +236,7 @@ class CategoryBadge extends StatelessWidget {
 
 String categoryLabel(String category) => switch (category) {
   'Benign' => 'Aman',
-  'Legitimate' => 'Sah',
+  'Legitimate' => 'Aman',
   'Defacement' => 'Perusakan situs',
   'Exploit' => 'Eksploitasi',
   _ => category,
