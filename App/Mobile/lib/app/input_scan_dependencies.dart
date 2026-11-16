@@ -1,10 +1,13 @@
 import '../config/api_config.dart';
+import '../data/scans_api.dart';
 import '../features/auth/data/datasources/token_store.dart';
 import '../features/input_scan/data/datasources/clipboard_data_source.dart';
 import '../features/input_scan/data/datasources/demo_input_scan_examples.dart';
 import '../features/input_scan/data/datasources/demo_recent_scans_data_source.dart';
 import '../features/input_scan/data/datasources/demo_url_predictor.dart';
 import '../features/input_scan/data/datasources/plugin_share_intent_source.dart';
+import '../features/input_scan/data/datasources/recent_scans_data_source.dart';
+import '../features/input_scan/data/datasources/remote_recent_scans_data_source.dart';
 import '../features/input_scan/data/datasources/remote_url_predictor.dart';
 import '../features/input_scan/data/repositories/clipboard_repository_impl.dart';
 import '../features/input_scan/data/repositories/recent_scans_repository_impl.dart';
@@ -35,7 +38,18 @@ class InputScanDependencies {
     );
     const preparePreview = PrepareScanPreview();
     const examples = DemoInputScanExamples();
-    home = HomeController(RecentScansRepositoryImpl(_recentScans));
+    final RecentScansDataSource recentSource = tokenStore == null
+        ? _recentScans
+        : RemoteRecentScansDataSource(
+            ScansApi(
+              baseUrl: apiBaseUrl ?? defaultApiBaseUrl(),
+              tokenStore: tokenStore,
+            ),
+          );
+    home = HomeController(
+      RecentScansRepositoryImpl(recentSource),
+      isSimulated: tokenStore == null,
+    );
     scanUrl = ScanUrlController(
       clipboardRepository: clipboard,
       prepareScanPreview: preparePreview,

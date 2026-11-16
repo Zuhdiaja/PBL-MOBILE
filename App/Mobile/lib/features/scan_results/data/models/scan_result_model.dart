@@ -1,4 +1,6 @@
 import '../../../../data/scan_result.dart';
+import '../../../../data/scan_time.dart';
+import '../../../../data/scans_api.dart';
 import '../../../input_scan/domain/entities/url_prediction.dart';
 import '../../domain/entities/scan_category.dart';
 import '../../domain/entities/scan_result.dart';
@@ -51,7 +53,7 @@ class ScanResultModel {
       riskLevel: ScanCategory.riskLevel(category),
       confidence: 0,
       isSafe: safe,
-      scanTime: formatWib(prediction.createdAt),
+      scanTime: ScanTime.stamp(prediction.createdAt),
       modelName: runId == null
           ? 'SVM + TF-IDF'
           : 'SVM + TF-IDF (${_shortRun(runId)})',
@@ -61,6 +63,31 @@ class ScanResultModel {
       indicators: ScanCategory.indicators(category),
       score: prediction.score,
       scoreKind: prediction.scoreKind,
+      modelRunId: runId,
+    );
+  }
+
+  /// Maps a scan read back from the history endpoint.
+  factory ScanResultModel.fromScan(ScanRecord record) {
+    final category = record.category;
+    final runId = record.modelRunId;
+    return ScanResultModel._(
+      id: record.id,
+      url: record.url,
+      category: category,
+      riskLevel: ScanCategory.riskLevel(category),
+      confidence: 0,
+      isSafe: record.isSafe,
+      scanTime: ScanTime.stamp(record.createdAt),
+      modelName: runId == null
+          ? 'SVM + TF-IDF'
+          : 'SVM + TF-IDF (${_shortRun(runId)})',
+      method: 'Klasifikasi SVM + TF-IDF',
+      isSimulated: false,
+      recommendation: ScanCategory.recommendation(category),
+      indicators: ScanCategory.indicators(category),
+      score: record.score,
+      scoreKind: record.scoreKind,
       modelRunId: runId,
     );
   }
@@ -101,27 +128,4 @@ class ScanResultModel {
 
   static String _shortRun(String id) =>
       id.length <= 8 ? id : id.substring(0, 8);
-
-  /// Formats an API timestamp in Indonesian time.
-  static String formatWib(DateTime? value) {
-    if (value == null) return '-';
-    final wib = value.toUtc().add(const Duration(hours: 7));
-    const months = [
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'Mei',
-      'Jun',
-      'Jul',
-      'Agu',
-      'Sep',
-      'Okt',
-      'Nov',
-      'Des',
-    ];
-    final hour = wib.hour.toString().padLeft(2, '0');
-    final minute = wib.minute.toString().padLeft(2, '0');
-    return '${wib.day} ${months[wib.month - 1]} ${wib.year}, $hour:$minute WIB';
-  }
 }

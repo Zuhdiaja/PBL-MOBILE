@@ -1,4 +1,6 @@
 """Inference endpoint: predictions come from the active artefact, not a stub."""
+from uuid import uuid4
+
 import pytest
 from werkzeug.security import generate_password_hash
 
@@ -174,6 +176,96 @@ def test_scan_is_owned_by_the_caller(app, client, tmp_path):
         scan = db.session.get(Scan, scan_id)
         user = db.session.scalar(db.select(MobileUser).filter_by(email="owner@example.com"))
         assert scan.mobile_user_id == user.id
+
+
+def _store_scan(app, email, category, url="https://contoh.test", offset=0):
+    """Insert a scan owned by the account with that email."""
+    scan_id = f"scan-{uuid4().hex[:24]}"
+    with app.app_context():
+        user = db.session.scalar(db.select(MobileUser).filter_by(email=email))
+        scan = Scan(
+            id=scan_id,
+            mobile_user_id=user.id,
+            url=url,
+            model_input=url,
+            category=category,
+            score=1.0,
+            score_kind="margin",
+            created_at=now(),
+        )
+        db.session.add(scan)
+        db.session.commit()
+    return scan_id
+
+
+def test_scans_lists_only_the_callers_scans(app, client, tmp_path):
+    _run(app, tmp_path)
+    mine = _token(client, email="mine@example.com")
+    theirs = _token(client, email="theirs@example.com")
+
+    _store_scan(app, "mine@example.com", "phishing", "https://a.test")
+    _store_scan(app, "mine@example.com", "benign", "https://b.test")
+    _store_scan(app, "theirs@example.com", "malware", "https://c.test")
+
+    response = client.get("/api/v1/mobile/scans", headers=mine)
+
+    assert response.status_code == 200
+    body = response.json
+    assert body["row_count"] == 2
+    assert {item["category"] for item in body["items"]} == {"phishing", "benign"}
+    assert all(item["url"] != "https://c.test" for item in body["items"])
+
+
+def test_scans_returns_an_empty_page_for_a_new_account(client):
+    headers = _token(client, email="empty@example.com")
+
+    response = client.get("/api/v1/mobile/scans", headers=headers)
+
+    assert response.status_code == 200
+    assert response.json["items"] == []
+    assert response.json["row_count"] == 0
+    assert response.json["page_count"] == 1
+
+
+def test_scans_rejects_invalid_pagination(client):
+    headers = _token(client, email="paging@example.com")
+
+    assert client.get("/api/v1/mobile/scans?page=0", headers=headers).status_code == 400
+    assert client.get("/api/v1/mobile/scans?page_size=7", headers=headers).status_code == 400
+    assert client.get("/api/v1/mobile/scans?page=abc", headers=headers).status_code == 400
+
+
+def test_scans_requires_a_bearer_token(client):
+    assert client.get("/api/v1/mobile/scans").status_code == 401
+    assert client.get("/api/v1/mobile/scans/summary").status_code == 401
+
+
+def test_summary_counts_every_category_and_treats_legitimate_as_safe(app, client):
+    headers = _token(client, email="summary@example.com")
+    for index, category in enumerate(
+        ["benign", "legitimate", "phishing", "phishing", "malware"]
+    ):
+        _store_scan(app, "summary@example.com", category, offset=index)
+
+    response = client.get("/api/v1/mobile/scans/summary", headers=headers)
+
+    assert response.status_code == 200
+    body = response.json
+    assert body["total"] == 5
+    assert body["safe"] == 2
+    assert body["unsafe"] == 3
+    assert body["by_category"]["phishing"] == 2
+    assert body["by_category"]["legitimate"] == 1
+
+
+def test_summary_is_empty_without_scans(client):
+    headers = _token(client, email="noscan@example.com")
+
+    response = client.get("/api/v1/mobile/scans/summary", headers=headers)
+
+    assert response.status_code == 200
+    assert response.json["total"] == 0
+    assert response.json["by_category"] == {}
 
 
 @pytest.fixture(autouse=True)

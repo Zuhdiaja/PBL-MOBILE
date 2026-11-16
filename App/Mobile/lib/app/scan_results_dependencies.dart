@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import '../config/api_config.dart';
+import '../data/scans_api.dart';
 import '../features/auth/data/datasources/token_store.dart';
 import '../features/input_scan/domain/usecases/submit_scan.dart';
 import '../features/scan_results/data/datasources/demo_prediction_report_data_source.dart';
@@ -29,6 +30,12 @@ class ScanResultsDependencies {
     _resultSource = tokenStore == null
         ? DemoScanResultsDataSource()
         : SessionScanResultsDataSource();
+    _scansApi = tokenStore == null
+        ? null
+        : ScansApi(
+            baseUrl: apiBaseUrl ?? defaultApiBaseUrl(),
+            tokenStore: tokenStore,
+          );
     _resultsRepository = ScanResultsRepositoryImpl(_resultSource);
     scanResults = ScanResultsController(
       repository: _resultsRepository,
@@ -45,6 +52,7 @@ class ScanResultsDependencies {
   }
 
   late final ScanResultsDataSource _resultSource;
+  late final ScansApi? _scansApi;
   late final ScanResultsRepositoryImpl _resultsRepository;
   FutureOr<ScanResult> loadResult(String id) => _resultsRepository.findById(id);
 
@@ -53,6 +61,26 @@ class ScanResultsDependencies {
 
   /// Resolves a result for ids handed out by other features.
   ScanResult findResult(String id) => _resultSource.readResult(id).toEntity();
+
+  /// Resolves a result, fetching it from the API when the session has not
+  /// loaded that scan yet. History and the home list hand out stored scan ids.
+  Future<ScanResult> resolveResult(String id) async {
+    try {
+      return findResult(id);
+    } on StateError {
+      final api = _scansApi;
+      if (api == null) rethrow;
+      final records = await api.listAll();
+      final match = records.where((record) => record.id == id).firstOrNull;
+      if (match == null) {
+        throw StateError('Hasil pindai $id tidak ditemukan.');
+      }
+      final model = ScanResultModel.fromScan(match);
+      final source = _resultSource;
+      if (source is SessionScanResultsDataSource) source.remember([model]);
+      return model.toEntity();
+    }
+  }
 
   /// Keeps the outcome of one submission and refreshes the results screen.
   ///

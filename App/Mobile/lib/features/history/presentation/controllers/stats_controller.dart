@@ -11,11 +11,15 @@ class StatsController extends LoadController {
     required this.historyRepository,
     required this.reportStatusRepository,
     required this.summarizeActivity,
+    this.isSimulated = true,
   });
 
   final HistoryRepository historyRepository;
   final ReportStatusRepository reportStatusRepository;
   final SummarizeActivity summarizeActivity;
+
+  /// True while the scan figures come from example data.
+  final bool isSimulated;
 
   ActivitySummary _summary = const ActivitySummary(
     totalCount: 0,

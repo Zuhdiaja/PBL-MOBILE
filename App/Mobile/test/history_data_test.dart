@@ -14,8 +14,8 @@ void main() {
   group('HistoryRepositoryImpl', () {
     final repository = HistoryRepositoryImpl(DemoHistoryDataSource());
 
-    test('maps every legacy example result to an entry', () {
-      final entries = repository.getEntries();
+    test('maps every legacy example result to an entry', () async {
+      final entries = await repository.getEntries();
 
       expect(entries.length, demoScanResults.length);
       expect(entries.first.url, demoScanResults.first.url);
@@ -24,8 +24,8 @@ void main() {
       expect(entries.first.dayLabel, demoScanResults.first.dayLabel);
     });
 
-    test('keeps ids aligned with the legacy order', () {
-      final entries = repository.getEntries();
+    test('keeps ids aligned with the legacy order', () async {
+      final entries = await repository.getEntries();
 
       for (var i = 0; i < entries.length; i++) {
         expect(entries[i].id, '$i');
@@ -33,11 +33,9 @@ void main() {
       }
     });
 
-    test('returns an unmodifiable list', () {
-      expect(
-        () => repository.getEntries().add(repository.getEntries().first),
-        throwsUnsupportedError,
-      );
+    test('returns an unmodifiable list', () async {
+      final entries = await repository.getEntries();
+      expect(() => entries.add(entries.first), throwsUnsupportedError);
     });
   });
 

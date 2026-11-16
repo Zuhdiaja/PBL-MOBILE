@@ -135,6 +135,20 @@ class _MainShellState extends State<MainShell> {
     ),
   );
 
+  /// Opens the detail of a scan id handed over by the history or home list.
+  ///
+  /// The session may not hold that scan yet, so the result is resolved first.
+  Future<void> _openResultById(String id) async {
+    try {
+      final result = await _scanResults.resolveResult(id);
+      if (!mounted) return;
+      _openDetail(result);
+    } catch (_) {
+      if (!mounted) return;
+      showScanMessage(context, 'Detail pindai belum dapat dibuka.');
+    }
+  }
+
   void _openReport(ScanResult result) => Navigator.of(context).push(
     MaterialPageRoute<void>(
       builder: (_) => ReportPredictionScreen(
@@ -218,8 +232,7 @@ class _MainShellState extends State<MainShell> {
                         (widget.auth.auth.account ?? widget.auth.displayAccount)
                             .initials,
                     onNotifications: _openNotifications,
-                    onRecentScan: (scan) =>
-                        _openDetail(_scanResults.findResult(scan.id)),
+                    onRecentScan: (scan) => _openResultById(scan.id),
                     onScan: _openScan,
                     onPaste: () => _openScan(paste: true),
                     onQr: _openQr,
@@ -237,8 +250,7 @@ class _MainShellState extends State<MainShell> {
                   ),
                   HistoryScreen(
                     controller: _history.history,
-                    onOpenDetail: (entry) =>
-                        _openDetail(_scanResults.findResult(entry.id)),
+                    onOpenDetail: (entry) => _openResultById(entry.id),
                   ),
                   ProfilePage(
                     controller: widget.auth.profile,

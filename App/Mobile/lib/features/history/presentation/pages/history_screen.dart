@@ -181,9 +181,10 @@ class _HistoryScreenState extends State<HistoryScreen> {
         else
           ..._buildGroupedItems(controller.visibleEntries),
         const SizedBox(height: 20),
-        const InfoNote(
-          'Data contoh. Riwayat pindai belum tersimpan di perangkat.',
-        ),
+        if (controller.isSimulated)
+          const InfoNote(
+            'Data contoh. Riwayat pindai belum tersimpan di perangkat.',
+          ),
       ],
     );
   }

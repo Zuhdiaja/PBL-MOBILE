@@ -9,7 +9,7 @@ class DemoAccountDataSource implements AccountDataSource {
   bool _reportNotificationsEnabled = true;
 
   @override
-  int readTotalScans() => totalScans;
+  Future<int> readTotalScans() async => totalScans;
 
   @override
   int readSubmittedReports() => submittedReports;

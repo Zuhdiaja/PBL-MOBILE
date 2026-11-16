@@ -109,7 +109,9 @@ class HistoryRow extends StatelessWidget {
                       ),
                       CategoryBadge(entry.category),
                       Text(
-                        'Keyakinan ${entry.confidence}%',
+                        entry.hasMarginScore
+                            ? 'Skor margin ${entry.formattedScore}'
+                            : 'Keyakinan ${entry.confidence}%',
                         style: TextStyle(
                           color: context.colors.muted,
                           fontSize: 10,
