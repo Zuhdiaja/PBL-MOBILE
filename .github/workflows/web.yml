@@ -15,14 +15,8 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.4.3
-      - name: Frontend checks
-        working-directory: App/Web/admin
-        run: |
-          bun install --frozen-lockfile
-          bun run lint
-          bun run format:check
-          bun run typecheck
-          bun run build
+      # Created before any docker step: the cleanup steps below run even when an
+      # earlier step fails, and compose refuses to start without these values.
       - name: Configure isolated services
         working-directory: App/Web
         run: |
@@ -31,6 +25,17 @@ jobs:
           import secrets
           Path('.env').write_text('SECRET_KEY=' + secrets.token_hex(32) + '\nPOSTGRES_PASSWORD=' + secrets.token_hex(24) + '\n')
           PY
+      - name: Frontend checks
+        working-directory: App/Web/admin
+        run: |
+          bun install --frozen-lockfile
+          bun run lint
+          bun run format:check
+          bun run typecheck
+          bun run build
+      - name: Start services
+        working-directory: App/Web
+        run: |
           docker compose up -d --build --wait
           docker compose exec -T postgres createdb -U linkguard linkguard_test
           docker compose exec -T api flask --app app:create_app db check
