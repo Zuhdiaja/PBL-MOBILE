@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'dart:io' show Platform;
+
+import 'package:flutter/foundation.dart';
+
 import 'app/auth_dependencies.dart';
 import 'app/theme_dependencies.dart';
 import 'features/auth/presentation/pages/login_page.dart';
@@ -12,16 +16,27 @@ import 'theme/app_theme.dart';
 import 'theme/theme_controller.dart';
 import 'theme/theme_preference_store.dart';
 import 'widgets/startup_gate.dart';
+import 'notifications/push_notification_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final theme = ThemeDependencies();
   await theme.controller.load();
-  runApp(MyApp(theme: theme.controller));
+  PushNotificationService? push;
+  if (!kIsWeb && Platform.isAndroid) {
+    try {
+      push = PushNotificationService();
+      await push.initialize();
+    } catch (error) {
+      debugPrint('Notifikasi tidak tersedia: $error');
+      push = null;
+    }
+  }
+  runApp(MyApp(theme: theme.controller, push: push));
 }
 
 class MyApp extends StatefulWidget {
-  const MyApp({super.key, this.theme, this.auth});
+  const MyApp({super.key, this.theme, this.auth, this.push});
 
   /// App-wide theme choice. When omitted the app follows the device theme
   /// without persistence, which keeps widget tests plugin-free.
@@ -29,6 +44,7 @@ class MyApp extends StatefulWidget {
 
   /// Auth wiring override for tests. The app builds the real one when omitted.
   final AuthDependencies? auth;
+  final PushNotificationService? push;
 
   @override
   State<MyApp> createState() => _MyAppState();
@@ -40,6 +56,7 @@ class _MyAppState extends State<MyApp> {
   @override
   void dispose() {
     _theme.dispose();
+    widget.push?.dispose();
     super.dispose();
   }
 
@@ -48,7 +65,7 @@ class _MyAppState extends State<MyApp> {
     controller: _theme,
     child: ListenableBuilder(
       listenable: _theme,
-      child: _LaunchGate(auth: widget.auth),
+      child: _LaunchGate(auth: widget.auth, push: widget.push),
       builder: (context, child) => MaterialApp(
         title: 'LinkGuard',
         debugShowCheckedModeBanner: false,
@@ -78,8 +95,9 @@ class _MyAppState extends State<MyApp> {
 }
 
 class _LaunchGate extends StatefulWidget {
-  const _LaunchGate({this.auth});
+  const _LaunchGate({this.auth, this.push});
   final AuthDependencies? auth;
+  final PushNotificationService? push;
   @override
   State<_LaunchGate> createState() => _LaunchGateState();
 }
@@ -97,13 +115,14 @@ class _LaunchGateState extends State<_LaunchGate> {
   @override
   Widget build(BuildContext context) => StartupGate(
     controller: _auth.auth,
-    child: _WelcomeGate(auth: _auth),
+    child: _WelcomeGate(auth: _auth, push: widget.push),
   );
 }
 
 class _WelcomeGate extends StatefulWidget {
-  const _WelcomeGate({required this.auth});
+  const _WelcomeGate({required this.auth, this.push});
   final AuthDependencies auth;
+  final PushNotificationService? push;
 
   @override
   State<_WelcomeGate> createState() => _WelcomeGateState();
@@ -112,12 +131,65 @@ class _WelcomeGate extends StatefulWidget {
 class _WelcomeGateState extends State<_WelcomeGate> {
   bool _onboardingComplete = false;
 
+  Future<void> _completeOnboarding() async {
+    final permission = widget.push?.permission;
+    if (permission != null && await permission.shouldExplain() && mounted) {
+      await permission.markExplained();
+      if (!mounted) return;
+      final enable = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Notifikasi laporan'),
+          content: const Text(
+            'Aktifkan notifikasi untuk menerima kabar tentang laporan LinkGuard.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Nanti'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Aktifkan'),
+            ),
+          ],
+        ),
+      );
+      if (enable == true) {
+        final granted = await permission.request();
+        if (!granted && mounted) {
+          await showDialog<void>(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: const Text('Notifikasi belum aktif'),
+              content: const Text(
+                'Anda dapat mengaktifkan notifikasi melalui pengaturan aplikasi.',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Tutup'),
+                ),
+                TextButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    permission.openSettings();
+                  },
+                  child: const Text('Buka pengaturan'),
+                ),
+              ],
+            ),
+          );
+        }
+      }
+    }
+    if (mounted) setState(() => _onboardingComplete = true);
+  }
+
   @override
   Widget build(BuildContext context) => _onboardingComplete
-      ? _AuthGate(auth: widget.auth)
-      : OnboardingPage(
-          onComplete: () => setState(() => _onboardingComplete = true),
-        );
+      ? _AuthGate(auth: widget.auth, push: widget.push)
+      : OnboardingPage(onComplete: _completeOnboarding);
 }
 
 /// Swaps between login and the app shell using the launch gate’s session.
@@ -125,8 +197,9 @@ class _WelcomeGateState extends State<_WelcomeGate> {
 /// It lives inside [MaterialApp] and renders the current screen directly
 /// instead of pushing routes. The launch gate owns the shared dependencies.
 class _AuthGate extends StatefulWidget {
-  const _AuthGate({required this.auth});
+  const _AuthGate({required this.auth, this.push});
   final AuthDependencies auth;
+  final PushNotificationService? push;
 
   @override
   State<_AuthGate> createState() => _AuthGateState();
@@ -155,7 +228,11 @@ class _AuthGateState extends State<_AuthGate> {
   Widget build(BuildContext context) => ListenableBuilder(
     listenable: _auth.auth,
     builder: (context, _) => _auth.auth.isSignedIn
-        ? MainShell(auth: _auth, onSignOut: _signOut)
+        ? MainShell(
+            auth: _auth,
+            onSignOut: _signOut,
+            notificationNavigation: widget.push?.navigation,
+          )
         : _buildLoginPage(),
   );
 }

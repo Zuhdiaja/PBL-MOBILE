@@ -1,0 +1,20 @@
+# Push notification laporan
+
+Backend saat ini menyimpan notifikasi dan menyediakan endpoint mobile untuk daftar, membaca, dan detail laporan. Belum ada endpoint registrasi perangkat maupun pengirim FCM; token hanya disimpan di memori aplikasi dan tidak dikirim ke server.
+
+Backend perlu menyediakan registrasi token dengan autentikasi mobile, mengaitkan token dengan akun dan instalasi, memperbarui token saat berubah, menghapus kaitan saat logout dan menangani token tidak valid. Pengiriman harus dilakukan server menggunakan Firebase Admin SDK dan kredensial server yang aman. Hormati preferensi pengguna sebelum mengirim. Jangan memasukkan service account ke aplikasi.
+
+Kirim FCM HTTP v1/Admin SDK dengan `notification` dan `data` sekaligus, dengan semua nilai `data` berupa string. Contoh struktur pesan (isi dan ID harus berasal dari laporan nyata):
+
+```json
+{
+  "token": "TOKEN_PERANGKAT",
+  "notification": {"title": "LinkGuard - Laporan Baru", "body": "PESAN_LAPORAN"},
+  "data": {"notification_id": "ID_NOTIFIKASI", "report_id": "ID_LAPORAN", "notification_type": "report", "title": "LinkGuard - Laporan Baru", "body": "PESAN_LAPORAN"},
+  "android": {"priority": "high", "notification": {"channel_id": "report_updates"}}
+}
+```
+
+Android menampilkan payload `notification` ketika aplikasi berada di background atau terminated; handler background tidak membuat notifikasi kedua. Pesan data-only tidak ditampilkan pada kondisi tersebut. Foreground menggunakan notifikasi lokal. Ketika laporan tidak ditemukan atau tidak dapat dimuat, aplikasi membuka daftar status laporan. ID detail selalu diperiksa oleh endpoint mobile yang memerlukan bearer token.
+
+Untuk pengujian Firebase Console gunakan build Android yang terhubung ke proyek yang benar dan Google Play services, buka aplikasi setidaknya sekali, selesaikan onboarding, dan aktifkan izin. Dapatkan registration token dari `FcmTokenManager.token` melalui debugger tanpa membagikannya. Di Firebase Console buat kampanye Notifications, masukkan judul dan pesan, gunakan **Send test message** dan masukkan token. Uji foreground, background, dan aplikasi yang ditutup; ketuk setiap notifikasi. Untuk menguji navigasi detail, sertakan custom data `report_id`, `notification_id`, dan `notification_type` dengan ID yang dimiliki akun; periksa kembali apakah mode test Console mendukung custom data pada pesan yang digunakan. Uji penolakan izin dan pengaturan melalui pengaturan Android, lalu uji rotasi token dengan metode yang sesuai pada perangkat uji. Pengiriman console saja tidak memverifikasi integrasi backend.
