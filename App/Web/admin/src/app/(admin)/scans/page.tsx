@@ -34,15 +34,7 @@ import {
 } from "@/lib/api";
 
 /** Class names stay as the dataset spells them; only the wording is Indonesian. */
-const categories = [
-  "benign",
-  "legitimate",
-  "phishing",
-  "malware",
-  "spam",
-  "defacement",
-  "exploit",
-];
+const categories = ["benign", "legitimate", "phishing", "malware", "spam", "defacement", "exploit"];
 
 function categoryTone(category: string) {
   const value = category.toLowerCase();
@@ -365,8 +357,8 @@ export default function ScansPage() {
       </div>
 
       <p className="text-xs text-muted-foreground">
-        Skor margin adalah nilai <code>decision_function</code> LinearSVC untuk kelas terpilih, bukan
-        probabilitas. Nilainya bisa negatif dan tidak dibatasi 0–1.
+        Skor margin adalah nilai <code>decision_function</code> LinearSVC untuk kelas terpilih,
+        bukan probabilitas. Nilainya bisa negatif dan tidak dibatasi 0–1.
       </p>
     </div>
   );
