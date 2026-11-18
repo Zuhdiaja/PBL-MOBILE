@@ -87,9 +87,9 @@ void main() {
     await tapVisible(tester, find.text('Pindai QR'));
     expect(find.text('Pindai kode QR'), findsOneWidget);
     await tapVisible(tester, find.text('Pindai contoh QR'));
-    expect(find.text('Pratinjau pemeriksaan'), findsOneWidget);
-    expect(find.text('https://contoh.com'), findsOneWidget);
-    expect(find.textContaining('Belum ada penilaian keamanan'), findsOneWidget);
+    await tapVisible(tester, find.text('Lanjutkan'));
+    expect(find.text('Pemeriksaan selesai'), findsOneWidget);
+    expect(find.textContaining('berhasil diperiksa'), findsOneWidget);
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
     await tester.binding.handlePopRoute();
@@ -113,7 +113,7 @@ void main() {
       await tester.enterText(find.byType(TextFormField), 'bukan-url');
       await tapVisible(tester, find.text('Periksa URL'));
       expect(find.textContaining('Gunakan URL lengkap'), findsOneWidget);
-      expect(find.text('Pratinjau pemeriksaan'), findsNothing);
+      expect(find.text('Pemeriksaan selesai'), findsNothing);
 
       await tester.enterText(find.byType(TextFormField), 'https://contoh.com');
       await tester.tap(find.text('Beranda').last);
@@ -147,7 +147,7 @@ void main() {
         await tester.enterText(field, 'https://contoh.com/$i');
       }
       await tapVisible(tester, find.text('Periksa URL'));
-      expect(find.text('Pratinjau pemeriksaan'), findsOneWidget);
+      expect(find.text('Pemeriksaan selesai'), findsOneWidget);
       for (var i = 0; i < 4; i++) {
         expect(find.text('https://contoh.com/$i'), findsWidgets);
       }
@@ -201,19 +201,16 @@ void main() {
       await tester.enterText(find.byType(TextFormField), 'tautan-salah');
       await tapVisible(tester, find.text('Periksa URL'));
       expect(find.textContaining('Gunakan URL lengkap'), findsOneWidget);
-      expect(find.text('Pratinjau pemeriksaan'), findsNothing);
+      expect(find.text('Pemeriksaan selesai'), findsNothing);
 
       await tester.enterText(
         find.byType(TextFormField),
         'https://contoh.com/diubah',
       );
       await tapVisible(tester, find.text('Periksa URL'));
-      expect(find.text('Pratinjau pemeriksaan'), findsOneWidget);
+      expect(find.text('Pemeriksaan selesai'), findsOneWidget);
       expect(find.text('https://contoh.com/diubah'), findsWidgets);
-      expect(
-        find.textContaining('Belum ada penilaian keamanan'),
-        findsOneWidget,
-      );
+      expect(find.textContaining('berhasil diperiksa'), findsOneWidget);
       expect(tester.takeException(), isNull);
     },
   );

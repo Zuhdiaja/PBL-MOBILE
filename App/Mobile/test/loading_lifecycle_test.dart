@@ -27,10 +27,14 @@ import 'package:pbl_semester5/features/history/presentation/pages/report_status_
 import 'package:pbl_semester5/features/history/presentation/pages/stats_screen.dart';
 import 'package:pbl_semester5/features/input_scan/domain/entities/recent_scan.dart';
 import 'package:pbl_semester5/features/input_scan/domain/repositories/recent_scans_repository.dart';
-import 'package:pbl_semester5/features/input_scan/domain/usecases/prepare_scan_preview.dart';
+import 'package:pbl_semester5/features/input_scan/domain/entities/url_prediction.dart';
+import 'package:pbl_semester5/features/input_scan/domain/repositories/url_predictor.dart';
+import 'package:pbl_semester5/features/input_scan/domain/usecases/submit_scan.dart';
 import 'package:pbl_semester5/features/input_scan/presentation/controllers/home_controller.dart';
+import 'package:pbl_semester5/features/input_scan/presentation/controllers/scan_submission_controller.dart';
 import 'package:pbl_semester5/features/input_scan/presentation/pages/home_screen.dart';
 import 'package:pbl_semester5/features/input_scan/presentation/widgets/scan_preview_sheet.dart';
+import 'package:pbl_semester5/features/scan_results/domain/entities/failed_scan.dart';
 import 'package:pbl_semester5/features/scan_results/domain/entities/scan_result.dart';
 import 'package:pbl_semester5/features/scan_results/domain/repositories/scan_results_repository.dart';
 import 'package:pbl_semester5/features/scan_results/domain/usecases/summarize_scan_results.dart';
@@ -90,6 +94,15 @@ class ResultsSource implements ScanResultsRepository {
   FutureOr<List<ScanResult>> getScanResults() => read();
   @override
   Future<ScanResult> findById(String id) async => (await read()).first;
+  @override
+  FutureOr<List<FailedScan>> getFailures() => const [];
+}
+
+class PendingPredictor implements UrlPredictor {
+  PendingPredictor(this.pending);
+  final Future<UrlPrediction> pending;
+  @override
+  Future<UrlPrediction> predict(String url) => pending;
 }
 
 class AccountSource implements AccountRepository {
@@ -339,20 +352,25 @@ void main() {
     },
   );
 
-  testWidgets('cancelling preparation ignores a late job response', (
+  testWidgets('cancelling a submission ignores a late response', (
     tester,
   ) async {
-    final pending = Completer<PreviewResult>();
+    final pending = Completer<UrlPrediction>();
+    final controller = ScanSubmissionController(
+      submitScan: const SubmitScan(),
+      predictor: PendingPredictor(pending.future),
+    );
+    addTearDown(controller.dispose);
     await tester.pumpWidget(
       harness(
         Builder(
           builder: (context) => TextButton(
             child: const Text('Open'),
             onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute<bool>(
+              MaterialPageRoute<void>(
                 builder: (_) => ScanProcessingScreen(
                   urls: const ['https://contoh.com'],
-                  preparePreview: () => pending.future,
+                  controller: controller,
                 ),
               ),
             ),
@@ -363,10 +381,18 @@ void main() {
     await tester.tap(find.text('Open'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 350));
-    expect(find.text('Menyiapkan tautan.'), findsOneWidget);
+    expect(find.text('Memeriksa tautan.'), findsOneWidget);
     await tester.tap(find.text('Batalkan'));
     await tester.pumpAndSettle();
-    pending.complete(const PrepareScanPreview()(['https://contoh.com']));
+    pending.complete(
+      const UrlPrediction(
+        scanId: 'late',
+        url: 'https://contoh.com',
+        category: 'Benign',
+        score: 1,
+        scoreKind: 'margin',
+      ),
+    );
     await tester.pumpAndSettle();
     expect(find.text('Open'), findsOneWidget);
     expect(tester.takeException(), isNull);

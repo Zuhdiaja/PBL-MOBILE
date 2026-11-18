@@ -1,9 +1,12 @@
 import '../config/api_config.dart';
+import '../data/scans_api.dart';
 import '../features/auth/data/datasources/token_store.dart';
 import '../features/auth/domain/repositories/account_repository.dart';
 import '../features/history/data/datasources/demo_history_data_source.dart';
 import '../features/history/data/datasources/demo_notifications_data_source.dart';
 import '../features/history/data/datasources/demo_report_status_data_source.dart';
+import '../features/history/data/datasources/history_data_source.dart';
+import '../features/history/data/datasources/remote_history_data_source.dart';
 import '../features/history/data/datasources/remote_report_status_data_source.dart';
 import '../features/history/data/repositories/history_repository_impl.dart';
 import '../features/history/data/repositories/notifications_repository_impl.dart';
@@ -29,14 +32,17 @@ class HistoryDependencies {
     String? apiBaseUrl,
     AccountRepository? accountRepository,
   }) {
-    final history = HistoryRepositoryImpl(DemoHistoryDataSource());
+    final base = apiBaseUrl ?? defaultApiBaseUrl();
+    final HistoryDataSource historySource = tokenStore == null
+        ? DemoHistoryDataSource()
+        : RemoteHistoryDataSource(
+            ScansApi(baseUrl: base, tokenStore: tokenStore),
+          );
+    final history = HistoryRepositoryImpl(historySource);
     final reports = ReportStatusRepositoryImpl(
       tokenStore == null
           ? DemoReportStatusDataSource()
-          : RemoteReportStatusDataSource(
-              baseUrl: apiBaseUrl ?? defaultApiBaseUrl(),
-              tokenStore: tokenStore,
-            ),
+          : RemoteReportStatusDataSource(baseUrl: base, tokenStore: tokenStore),
     );
     final notifications = tokenStore == null || accountRepository == null
         ? NotificationsRepositoryImpl(DemoNotificationsDataSource())
@@ -49,11 +55,13 @@ class HistoryDependencies {
     this.history = HistoryController(
       repository: history,
       filterHistoryEntries: const FilterHistoryEntries(),
+      isSimulated: tokenStore == null,
     );
     stats = StatsController(
       historyRepository: history,
       reportStatusRepository: reports,
       summarizeActivity: const SummarizeActivity(),
+      isSimulated: tokenStore == null,
     );
     reportStatus = ReportStatusController(
       repository: reports,

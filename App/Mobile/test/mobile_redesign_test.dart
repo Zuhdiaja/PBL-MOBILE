@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pbl_semester5/main.dart';
 import 'package:pbl_semester5/app/scan_results_dependencies.dart';
@@ -104,7 +104,7 @@ void main() {
     );
     expect(tester.takeException(), isNull);
   });
-  testWidgets('cancel preparation returns to the unchanged URL form', (
+  testWidgets('closing the summary returns to the unchanged URL form', (
     tester,
   ) async {
     await openApp(tester);
@@ -113,13 +113,10 @@ void main() {
       find.byType(TextFormField),
       'https://contoh.com/cancel',
     );
-    await tester.ensureVisible(find.text('Periksa URL'));
-    await tester.tap(find.text('Periksa URL'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
-    await tester.tap(find.text('Batalkan'));
-    await tester.pumpAndSettle();
-    expect(find.text('Pratinjau pemeriksaan'), findsNothing);
+    await tapVisible(tester, find.text('Periksa URL'));
+    expect(find.text('Pemeriksaan selesai'), findsOneWidget);
+    await tapVisible(tester, find.text('Kembali'));
+    expect(find.text('Pemeriksaan selesai'), findsNothing);
     expect(
       tester.widget<TextFormField>(find.byType(TextFormField)).controller!.text,
       'https://contoh.com/cancel',

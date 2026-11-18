@@ -140,6 +140,38 @@ export type ReportsResponse = {
   summary: ReportsSummary;
 };
 
+/** One URL scanned from the mobile app, with the account that submitted it. */
+export type ScanOwner = {
+  id: number;
+  name: string;
+  email: string;
+  active: boolean;
+};
+export type MobileScan = {
+  scan_id: string;
+  url: string;
+  category: string;
+  score: number;
+  score_kind: string;
+  model_run_id: string | null;
+  created_at: string;
+  user: ScanOwner;
+};
+export type ScansSummary = {
+  total: number;
+  safe: number;
+  unsafe: number;
+  users: number;
+  by_category: Record<string, number>;
+};
+export type ScansResponse = {
+  items: MobileScan[];
+  page: number;
+  page_size: number;
+  page_count: number;
+  row_count: number;
+};
+
 export type MLMetrics = {
   accuracy: number;
   balanced_accuracy: number;

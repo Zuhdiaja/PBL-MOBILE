@@ -13,6 +13,7 @@ import {
   ChevronRight,
   Flag,
   BrainCircuit,
+  ScanLine,
   CalendarClock,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -50,6 +51,7 @@ import { ErrorNotice, Loading } from "./feedback";
 const workspaceLinks = [
   { href: "/datasets", name: "Dataset", Icon: Database },
   { href: "/reports", name: "Laporan", Icon: Flag },
+  { href: "/scans", name: "Pemindaian", Icon: ScanLine },
   { href: "/users", name: "Pengguna", Icon: UsersRound },
   { href: "/ml", name: "Pipeline ML", Icon: BrainCircuit },
   { href: "/training", name: "Jadwal Training", Icon: CalendarClock },

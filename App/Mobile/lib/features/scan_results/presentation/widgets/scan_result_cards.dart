@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../theme/app_colors.dart';
 import '../../../../widgets/scan_components.dart';
+import '../../domain/entities/failed_scan.dart';
 import '../../domain/entities/scan_result.dart';
 
 class ScanSummaryCard extends StatelessWidget {
@@ -18,6 +19,54 @@ class ScanSummaryCard extends StatelessWidget {
         style: TextStyle(color: context.colors.muted, fontSize: 12),
       ),
     ],
+  );
+}
+
+/// One URL that could not be checked.
+class FailedScanCard extends StatelessWidget {
+  const FailedScanCard({super.key, required this.failure});
+  final FailedScan failure;
+  @override
+  Widget build(BuildContext context) => Container(
+    width: double.infinity,
+    padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 14),
+    decoration: BoxDecoration(
+      border: Border(bottom: BorderSide(color: context.colors.line)),
+    ),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(
+          Icons.error_outline_rounded,
+          size: 19,
+          color: context.colors.warning,
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                displayHost(failure.url),
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                failure.message,
+                style: TextStyle(
+                  fontSize: 11,
+                  color: context.colors.muted,
+                  height: 1.6,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    ),
   );
 }
 

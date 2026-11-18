@@ -1,14 +1,14 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pbl_semester5/data/scan_result.dart';
 import 'package:pbl_semester5/features/scan_results/data/datasources/demo_prediction_report_data_source.dart';
-import 'package:pbl_semester5/features/scan_results/data/datasources/scan_results_data_source.dart';
+import 'package:pbl_semester5/features/scan_results/data/datasources/demo_scan_results_data_source.dart';
 import 'package:pbl_semester5/features/scan_results/data/repositories/prediction_report_repository_impl.dart';
 import 'package:pbl_semester5/features/scan_results/data/repositories/scan_results_repository_impl.dart';
 import 'package:pbl_semester5/features/scan_results/domain/entities/prediction_report.dart';
 
 void main() {
   group('ScanResultsRepositoryImpl', () {
-    final repository = ScanResultsRepositoryImpl(ScanResultsDataSource());
+    final repository = ScanResultsRepositoryImpl(DemoScanResultsDataSource());
 
     test('maps every legacy example result to an entity', () {
       final results = repository.getScanResults();

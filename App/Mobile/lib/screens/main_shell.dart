@@ -17,6 +17,7 @@ import '../features/input_scan/presentation/pages/scan_qr_screen.dart';
 import '../features/input_scan/presentation/pages/scan_url_screen.dart';
 import '../features/input_scan/presentation/pages/share_link_screen.dart';
 import '../features/scan_results/domain/entities/scan_result.dart';
+import '../features/input_scan/domain/usecases/submit_scan.dart';
 import '../features/scan_results/presentation/pages/report_prediction_screen.dart';
 import '../features/scan_results/presentation/pages/scan_detail_screen.dart';
 import '../features/scan_results/presentation/pages/scan_result_screen.dart';
@@ -38,7 +39,9 @@ class MainShell extends StatefulWidget {
 
 class _MainShellState extends State<MainShell> {
   int _selectedIndex = 0;
-  final _inputScan = InputScanDependencies();
+  late final _inputScan = InputScanDependencies(
+    tokenStore: widget.auth.apiTokenStore,
+  );
   late final _scanResults = ScanResultsDependencies(
     tokenStore: widget.auth.apiTokenStore,
   );
@@ -89,8 +92,9 @@ class _MainShellState extends State<MainShell> {
         MaterialPageRoute<void>(
           builder: (_) => ShareLinkScreen(
             controller: _inputScan.createShareLink(initialUrl: url),
+            submissionController: _inputScan.submission,
             onNavigate: _selectTab,
-            onViewResults: _openResults,
+            onSubmitted: _handleSubmission,
           ),
         ),
       );
@@ -131,6 +135,20 @@ class _MainShellState extends State<MainShell> {
     ),
   );
 
+  /// Opens the detail of a scan id handed over by the history or home list.
+  ///
+  /// The session may not hold that scan yet, so the result is resolved first.
+  Future<void> _openResultById(String id) async {
+    try {
+      final result = await _scanResults.resolveResult(id);
+      if (!mounted) return;
+      _openDetail(result);
+    } catch (_) {
+      if (!mounted) return;
+      showScanMessage(context, 'Detail pindai belum dapat dibuka.');
+    }
+  }
+
   void _openReport(ScanResult result) => Navigator.of(context).push(
     MaterialPageRoute<void>(
       builder: (_) => ReportPredictionScreen(
@@ -156,8 +174,9 @@ class _MainShellState extends State<MainShell> {
     MaterialPageRoute<void>(
       builder: (_) => ScanQrScreen(
         controller: _inputScan.scanQr,
+        submissionController: _inputScan.submission,
         onNavigate: _selectTab,
-        onViewResults: _openResults,
+        onSubmitted: _handleSubmission,
       ),
     ),
   );
@@ -168,11 +187,18 @@ class _MainShellState extends State<MainShell> {
       MaterialPageRoute<void>(
         builder: (_) => ShareLinkScreen(
           controller: controller,
+          submissionController: _inputScan.submission,
           onNavigate: _selectTab,
-          onViewResults: _openResults,
+          onSubmitted: _handleSubmission,
         ),
       ),
     );
+  }
+
+  /// Keeps the outcome of a submission and opens the results screen.
+  void _handleSubmission(ScanSubmission submission) {
+    _scanResults.storeSubmission(submission);
+    _openResults();
   }
 
   void _openSettings() => Navigator.of(context).push(
@@ -206,8 +232,7 @@ class _MainShellState extends State<MainShell> {
                         (widget.auth.auth.account ?? widget.auth.displayAccount)
                             .initials,
                     onNotifications: _openNotifications,
-                    onRecentScan: (scan) =>
-                        _openDetail(_scanResults.findResult(scan.id)),
+                    onRecentScan: (scan) => _openResultById(scan.id),
                     onScan: _openScan,
                     onPaste: () => _openScan(paste: true),
                     onQr: _openQr,
@@ -218,14 +243,14 @@ class _MainShellState extends State<MainShell> {
                   StatsScreen(controller: _history.stats),
                   ScanUrlScreen(
                     controller: _inputScan.scanUrl,
+                    submissionController: _inputScan.submission,
                     onQr: _openQr,
                     onShare: _openShare,
-                    onViewResults: _openResults,
+                    onSubmitted: _handleSubmission,
                   ),
                   HistoryScreen(
                     controller: _history.history,
-                    onOpenDetail: (entry) =>
-                        _openDetail(_scanResults.findResult(entry.id)),
+                    onOpenDetail: (entry) => _openResultById(entry.id),
                   ),
                   ProfilePage(
                     controller: widget.auth.profile,
