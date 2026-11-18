@@ -1,5 +1,4 @@
 /* oxlint-disable jsx-a11y/no-noninteractive-tabindex -- Scrollable preview tables must be keyboard reachable. */
-import { AlertCircle, Database, FileSpreadsheet, Rows3, Tags } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { ErrorNotice } from "@/components/feedback";
 import type { DataRow, MLDatasetSummary } from "@/lib/api";
@@ -7,34 +6,11 @@ import { number, percent } from "@/lib/api";
 
 function SourceBadge({ isDemo }: { isDemo: boolean }) {
   return isDemo ? (
-    <Badge variant="secondary" className="bg-amber-500/10 text-amber-700">
+    <Badge variant="secondary" className="bg-warning-surface text-warning">
       Data simulasi
     </Badge>
   ) : (
     <Badge variant="outline">Data API</Badge>
-  );
-}
-
-function SummaryCard({
-  label,
-  value,
-  hint,
-  Icon,
-}: {
-  label: string;
-  value: string;
-  hint: string;
-  Icon: typeof Database;
-}) {
-  return (
-    <div className="rounded-xl border bg-card p-4 shadow-xs">
-      <div className="flex items-center justify-between gap-3">
-        <p className="text-xs font-medium text-muted-foreground">{label}</p>
-        <Icon aria-hidden="true" className="size-4 text-primary" />
-      </div>
-      <p className="mt-2 text-xl font-semibold tabular-nums">{value}</p>
-      <p className="mt-1 text-[11px] leading-4 text-muted-foreground">{hint}</p>
-    </div>
   );
 }
 
@@ -47,8 +23,8 @@ function DistributionChart({
   items: MLDatasetSummary["class_counts"];
   total: number;
 }) {
-  const width = 920;
-  const height = 350;
+  const width = Math.max(360, items.length * 90 + 102);
+  const height = 290;
   const plot = { top: 28, right: 30, bottom: 72, left: 72 };
   const plotWidth = width - plot.left - plot.right;
   const plotHeight = height - plot.top - plot.bottom;
@@ -64,11 +40,16 @@ function DistributionChart({
     plot.top + ((logMax - Math.log10(Math.max(value, 1))) / range) * plotHeight;
 
   return (
-    <div className="overflow-x-auto rounded-xl border bg-muted/20 p-3 sm:p-5">
+    <section
+      className="overflow-x-auto rounded-xl border bg-muted/20 p-3 sm:p-5"
+      aria-label="Gulir grafik distribusi kelas"
+      tabIndex={0}
+    >
       <svg
         aria-label={`Grafik batang distribusi ${items.length} kelas, total ${number.format(total)} baris`}
         viewBox={`0 0 ${width} ${height}`}
-        className="block min-w-170 w-full"
+        className="block w-full"
+        style={{ minWidth: width }}
       >
         <title>Distribusi kelas dataset pada skala logaritmik</title>
         {ticks.map((tick) => {
@@ -134,7 +115,7 @@ function DistributionChart({
                 x={x + barWidth / 2}
                 y={Math.max(y - 8, plot.top + 11)}
                 textAnchor="middle"
-                fill={color}
+                fill="var(--foreground)"
                 fontSize="11"
                 fontWeight="600"
               >
@@ -147,7 +128,7 @@ function DistributionChart({
           Jumlah URL · skala logaritmik
         </text>
       </svg>
-    </div>
+    </section>
   );
 }
 
@@ -201,125 +182,121 @@ export function DatasetVisualization({
         <div className="table-toolbar">
           <div>
             <h2>Dataset Awal</h2>
-            <p>Pratinjau data mentah sebelum pembersihan input dan representasi TF-IDF.</p>
+            <p className="break-all">{summary.dataset.filename}</p>
           </div>
-          <div className="flex flex-wrap items-center justify-end gap-2">
-            <SourceBadge isDemo={isDemo} />
-            <Badge variant="outline">{summary.dataset.filename}</Badge>
-          </div>
+          <SourceBadge isDemo={isDemo} />
         </div>
         <div className="space-y-5 p-5">
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <SummaryCard
-              label="Jumlah baris"
-              value={number.format(summary.dataset.row_count)}
-              hint="Seluruh baris pada dataset aktif"
-              Icon={Rows3}
-            />
-            <SummaryCard
-              label="Jumlah kolom"
-              value={number.format(columns.length)}
-              hint="Header CSV dibaca sebagai atribut"
-              Icon={FileSpreadsheet}
-            />
-            <SummaryCard
-              label="Kelas label"
-              value={number.format(summary.class_counts.length)}
-              hint={
-                summary.label_column
-                  ? `Kolom ${summary.label_column}`
-                  : "Kolom label tidak ditemukan"
-              }
-              Icon={Tags}
-            />
-            <SummaryCard
-              label="Missing values"
-              value={number.format(missingTotal)}
-              hint={
-                previewRows.length
-                  ? `Dari ${number.format(previewRows.length)} baris pratinjau`
-                  : "Pratinjau belum tersedia"
-              }
-              Icon={AlertCircle}
-            />
-          </div>
+          <dl className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-4">
+            {[
+              ["Baris CSV", number.format(summary.dataset.row_count)],
+              ["Kolom", number.format(columns.length)],
+              ["Kelas", number.format(summary.class_counts.length)],
+              [
+                "Nilai kosong pada pratinjau",
+                previewRows.length ? number.format(missingTotal) : "—",
+              ],
+            ].map(([label, value]) => (
+              <div key={label}>
+                <dt className="text-xs text-muted-foreground">{label}</dt>
+                <dd className="text-lg font-semibold tabular-nums">{value}</dd>
+              </div>
+            ))}
+          </dl>
 
           {rowsError && <ErrorNotice message={rowsError} />}
 
-          <div>
-            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-              <p className="text-xs font-medium text-muted-foreground">
-                Pratinjau data mentah · maksimal 25 baris
-              </p>
-              <Badge variant="outline">{number.format(columns.length)} kolom</Badge>
-            </div>
-            <div className="table-scroll rounded-lg border" tabIndex={0}>
-              <table>
-                <thead>
-                  <tr>
-                    <th>No.</th>
-                    {columns.map((column, index) => (
-                      <th key={`${column}-${index}`}>{column || `Kolom ${index + 1}`}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {previewRows.map((row) => (
-                    <tr key={row.row_number}>
-                      <td>{number.format(row.row_number)}</td>
-                      {columns.map((_, index) => (
-                        <td key={`${row.row_number}-${index}`}>
-                          {row.values[index] === "" ? (
-                            <span className="text-muted-foreground italic">kosong</span>
-                          ) : (
-                            (row.values[index] ?? "")
-                          )}
-                        </td>
+          <details className="rounded-lg border px-3 py-2 sm:px-4">
+            <summary className="min-h-8 cursor-pointer py-1 text-sm font-medium">
+              Pratinjau dan kualitas data
+            </summary>
+            <div className="mt-3 space-y-4">
+              <div>
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-xs font-medium text-muted-foreground">
+                    Pratinjau data mentah · maksimal 25 baris
+                  </p>
+                  <Badge variant="outline">{number.format(columns.length)} kolom</Badge>
+                </div>
+                <section
+                  className="table-scroll rounded-lg border"
+                  aria-label="Tabel pratinjau CSV"
+                  tabIndex={0}
+                >
+                  <table className="csv-table">
+                    <thead>
+                      <tr>
+                        <th className="table-row-number">No.</th>
+                        {columns.map((column, index) => (
+                          <th key={`${column}-${index}`}>{column || `Kolom ${index + 1}`}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {previewRows.map((row) => (
+                        <tr key={row.row_number}>
+                          <td className="table-row-number">{number.format(row.row_number)}</td>
+                          {columns.map((_, index) => (
+                            <td key={`${row.row_number}-${index}`}>
+                              {row.values[index] === "" ? (
+                                <span className="text-muted-foreground italic">kosong</span>
+                              ) : (
+                                (row.values[index] ?? "")
+                              )}
+                            </td>
+                          ))}
+                        </tr>
                       ))}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              {!rowsLoading && previewRows.length === 0 && (
-                <p className="table-empty">Dataset ini belum memiliki baris data.</p>
-              )}
-              {rowsLoading && <p className="table-empty">Memuat pratinjau dataset.</p>}
-            </div>
-          </div>
+                    </tbody>
+                  </table>
+                  {!rowsLoading && previewRows.length === 0 && (
+                    <p className="table-empty">Dataset ini belum memiliki baris data.</p>
+                  )}
+                  {rowsLoading && <p className="table-empty">Memuat pratinjau dataset.</p>}
+                </section>
+              </div>
 
-          <div>
-            <p className="mb-3 text-xs font-medium text-muted-foreground">
-              Informasi atribut dan missing values pada pratinjau
-            </p>
-            <div className="table-scroll rounded-lg border" tabIndex={0}>
-              <table>
-                <thead>
-                  <tr>
-                    <th>Atribut</th>
-                    <th>Tipe</th>
-                    <th>Contoh nilai</th>
-                    <th>Missing</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {attributes.map((attribute) => (
-                    <tr key={attribute.name}>
-                      <td className="font-medium">{attribute.name || "Tanpa nama"}</td>
-                      <td>Teks (string)</td>
-                      <td className="break-all font-mono text-xs">{attribute.sample}</td>
-                      <td className="tabular-nums">
-                        {number.format(attribute.missing)} / {number.format(previewRows.length)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <div>
+                <p className="mb-3 text-xs font-medium text-muted-foreground">
+                  Informasi atribut dan missing values pada pratinjau
+                </p>
+                <section
+                  className="table-scroll rounded-lg border"
+                  aria-label="Tabel atribut pratinjau"
+                  tabIndex={0}
+                >
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Atribut</th>
+                        <th>Tipe</th>
+                        <th>Contoh nilai</th>
+                        <th>Missing</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {attributes.map((attribute) => (
+                        <tr key={attribute.name}>
+                          <th scope="row" className="table-field-name">
+                            {attribute.name || "Tanpa nama"}
+                          </th>
+                          <td>Teks (string)</td>
+                          <td className="font-mono text-xs">{attribute.sample}</td>
+                          <td className="tabular-nums">
+                            {number.format(attribute.missing)} / {number.format(previewRows.length)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </section>
+                <p className="mt-3 text-xs leading-5 text-muted-foreground">
+                  API saat ini belum menyediakan total missing values seluruh dataset. Angka di atas
+                  dihitung dari baris pratinjau yang ditampilkan.
+                </p>
+              </div>
             </div>
-            <p className="mt-3 text-xs leading-5 text-muted-foreground">
-              API saat ini belum menyediakan total missing values seluruh dataset. Angka di atas
-              hanya dihitung dari baris pratinjau yang ditampilkan, bukan klaim untuk seluruh data.
-            </p>
-          </div>
+          </details>
         </div>
       </section>
 

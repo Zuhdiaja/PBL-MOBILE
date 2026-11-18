@@ -92,6 +92,7 @@ def load_pipeline(run: MLRun):
         if not hasattr(pipeline, "predict"):
             raise InferenceUnavailable("Berkas bukan pipeline yang dapat diprediksi.")
 
+        _cache.clear()
         _cache[key] = pipeline
         return pipeline
 
@@ -114,7 +115,10 @@ def predict(url: str) -> tuple[MLRun, str, str, float]:
         margins = pipeline.decision_function([text])[0]
         classes = list(pipeline.named_steps["classifier"].classes_)
         # LinearSVC has no probabilities, so report the margin of the chosen class.
-        score = float(margins[classes.index(category)])
+        if len(classes) == 2:
+            score = float(margins if category == classes[1] else -margins)
+        else:
+            score = float(margins[classes.index(category)])
     except Exception:  # noqa: BLE001 - margin is optional context, not the answer
         score = 0.0
 

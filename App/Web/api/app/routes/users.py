@@ -15,7 +15,8 @@ ADMIN_MEMBERSHIP_LOCK = 14582544
 
 def managed(user, kind):
     return dict(id=user.id, kind=kind, name=user.name, email=user.email,
-                active=user.active, has_password=bool(user.password_hash))
+                active=user.active, has_password=bool(user.password_hash),
+                has_google=kind == "mobile" and bool(user.google_sub))
 
 
 def valid_email(value):

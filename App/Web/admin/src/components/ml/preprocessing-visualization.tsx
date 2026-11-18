@@ -1,6 +1,6 @@
 /* oxlint-disable jsx-a11y/no-noninteractive-tabindex -- Scrollable preprocessing tables must be keyboard reachable. */
 "use client";
-import { useState, type FormEvent } from "react";
+import { useEffect, useState } from "react";
 import {
   AlertTriangle,
   Binary,
@@ -16,9 +16,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ErrorNotice } from "@/components/feedback";
-import type { DataRow, Dataset, MLPreviewResponse } from "@/lib/api";
-import { number } from "@/lib/api";
-import { demoPreview, demoRows, exampleNgrams } from "@/lib/ml-demo";
+import type { DataRow, Dataset, MLPreprocessingExamples, MLPreviewResponse } from "@/lib/api";
+import { api, messageOf, number } from "@/lib/api";
+import { demoRows, exampleNgrams } from "@/lib/ml-demo";
 
 const stepLabels: Record<string, string> = {
   trim: "Trim spasi/kontrol",
@@ -81,6 +81,10 @@ const stages = [
 
 type StageId = (typeof stages)[number]["id"];
 
+function visibleEdgeSpaces(value: string) {
+  return value.replace(/^\s+|\s+$/g, (spaces) => "␣".repeat(spaces.length));
+}
+
 function NgramGroup({ label, ngrams }: { label: string; ngrams: MLPreviewResponse["ngrams"] }) {
   const sizes = ["3", "4", "5"] as const;
   return (
@@ -128,14 +132,30 @@ export function PreprocessingVisualization({
   rows: DataRow[];
   isDemo: boolean;
   preview: MLPreviewResponse | null;
-  url: string;
+  url: string | null;
   onUrlChange: (value: string) => void;
-  onPreview: (event: FormEvent) => void;
+  onPreview: (url: string) => void;
   previewBusy: boolean;
   previewError: string;
   preprocessing?: string | null;
 }) {
   const [activeStage, setActiveStage] = useState<StageId>("raw");
+  const [examples, setExamples] = useState<MLPreprocessingExamples>();
+  const [examplesError, setExamplesError] = useState("");
+  const datasetId = dataset.id;
+  useEffect(() => {
+    if (isDemo) return;
+    const controller = new AbortController();
+    void api<MLPreprocessingExamples>(
+      `/ml/preprocessing-examples?dataset_id=${encodeURIComponent(datasetId)}`,
+      { signal: controller.signal },
+    )
+      .then(setExamples)
+      .catch((cause) => {
+        if (!controller.signal.aborted) setExamplesError(messageOf(cause));
+      });
+    return () => controller.abort();
+  }, [datasetId, isDemo]);
   const urlIndex = Math.max(
     dataset.columns.findIndex((column) => column.toLowerCase().includes("url")),
     0,
@@ -143,8 +163,15 @@ export function PreprocessingVisualization({
   const labelIndex = dataset.columns.findIndex((column) =>
     ["label", "category", "class", "type"].some((key) => column.toLowerCase().includes(key)),
   );
-  const activePreview = preview ?? demoPreview;
-  const previewIsDemo = !preview;
+  const cleaningExample = examples?.cleaning;
+  const normalizationExample = examples?.normalization;
+  const activePreview = preview ?? normalizationExample?.preview;
+  const sourceRow =
+    activePreview?.normalized.raw === normalizationExample?.preview.normalized.raw
+      ? normalizationExample?.row_number
+      : undefined;
+  const previewUrl = url ?? normalizationExample?.preview.normalized.raw ?? "";
+  const examplesPending = !isDemo && !examples && !examplesError;
   const sampleRow = rows[0] ?? (isDemo ? demoRows[0] : null);
   const sampleUrl = sampleRow?.values[urlIndex] ?? "";
   const sampleLabel = labelIndex >= 0 ? (sampleRow?.values[labelIndex] ?? "") : "";
@@ -188,8 +215,8 @@ export function PreprocessingVisualization({
         </div>
       </div>
 
-      <div className="grid gap-0 lg:grid-cols-[280px_minmax(0,1fr)]">
-        <div className="border-b p-4 lg:border-r lg:border-b-0">
+      <div className="grid grid-cols-1 gap-0 lg:grid-cols-[280px_minmax(0,1fr)]">
+        <div className="min-w-0 border-b p-4 lg:border-r lg:border-b-0">
           <div className="preprocess-timeline" aria-label="Tahapan preprocessing">
             {stages.map((stage, index) => (
               <button
@@ -267,35 +294,61 @@ export function PreprocessingVisualization({
               <div>
                 <h3 className="font-medium">Pembersihan input</h3>
                 <p className="mt-1 text-sm leading-6 text-muted-foreground">
-                  URL di-<code>strip</code> dan label di-<code>strip</code> lalu diubah ke huruf
-                  kecil. Tidak ada baris yang dihapus dan duplikat tetap dipertahankan.
+                  Spasi di tepi URL dan label dipangkas. Label diubah ke huruf kecil.
                 </p>
               </div>
-              <div className="table-scroll rounded-lg border" tabIndex={0}>
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Field</th>
-                      <th>Sebelum</th>
-                      <th>Sesudah</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr>
-                      <td className="font-medium">URL</td>
-                      <td className="break-all font-mono text-xs">{sampleUrl || "—"}</td>
-                      <td className="break-all font-mono text-xs">{sampleUrl.trim() || "—"}</td>
-                    </tr>
-                    <tr>
-                      <td className="font-medium">Label</td>
-                      <td className="font-mono text-xs">{sampleLabel || "—"}</td>
-                      <td className="font-mono text-xs">
-                        {sampleLabel.trim().toLowerCase() || "—"}
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
+              {examplesError && <ErrorNotice message={examplesError} />}
+              {cleaningExample ? (
+                <div className="space-y-2">
+                  <p className="text-sm text-muted-foreground">
+                    Baris {number.format(cleaningExample.row_number)} dari CSV aktif. Simbol{" "}
+                    <code>␣</code> menandai spasi di tepi.
+                  </p>
+                  <section
+                    className="table-scroll rounded-lg border"
+                    aria-label="Perbandingan pembersihan input"
+                    tabIndex={0}
+                  >
+                    <table className="comparison-table">
+                      <thead>
+                        <tr>
+                          <th scope="col">Atribut</th>
+                          <th scope="col">Sebelum</th>
+                          <th scope="col">Sesudah</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr>
+                          <th scope="row">URL</th>
+                          <td className="font-mono text-xs">
+                            {visibleEdgeSpaces(cleaningExample.url)}
+                          </td>
+                          <td className="font-mono text-xs">{cleaningExample.clean_url}</td>
+                        </tr>
+                        <tr>
+                          <th scope="row">Label</th>
+                          <td className="font-mono text-xs">
+                            {visibleEdgeSpaces(cleaningExample.label ?? "") || "—"}
+                          </td>
+                          <td className="font-mono text-xs">
+                            {cleaningExample.clean_label || "—"}
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </section>
+                </div>
+              ) : (
+                !examplesError && (
+                  <output className="block text-sm text-muted-foreground">
+                    {isDemo
+                      ? "Unggah dataset untuk melihat contoh pembersihan."
+                      : examplesPending
+                        ? "Mencari baris untuk contoh pembersihan."
+                        : "Belum ada baris yang menunjukkan perubahan pada pembersihan."}
+                  </output>
+                )
+              )}
               <div className="grid gap-3 sm:grid-cols-3">
                 <div className="rounded-lg border p-3 text-sm">
                   <p className="text-[11px] text-muted-foreground">Baris dihapus</p>
@@ -323,92 +376,124 @@ export function PreprocessingVisualization({
               <div>
                 <h3 className="font-medium">Normalisasi URL untuk split domain-disjoint</h3>
                 <p className="mt-1 text-sm leading-6 text-muted-foreground">
-                  Normalisasi hostname dipakai untuk mengelompokkan eTLD+1 saat membagi data. Input
-                  model tetap URL yang sudah di-<code>strip</code>, bukan hasil normalisasi ini.
+                  Normalisasi hostname membantu mengelompokkan domain untuk pembagian data. Untuk
+                  input model, URL dipangkas, diubah ke huruf kecil, dan dibersihkan dari skema
+                  HTTP(S).
                 </p>
               </div>
-              <form className="flex flex-col gap-3 sm:flex-row sm:items-end" onSubmit={onPreview}>
+              <form
+                className="flex flex-col gap-3 sm:flex-row sm:items-end"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  onPreview(previewUrl);
+                }}
+              >
                 <div className="w-full">
-                  <Label htmlFor="ml-url">Coba URL lain</Label>
+                  <Label htmlFor="ml-url">URL yang akan diproses</Label>
                   <Input
                     id="ml-url"
                     className="mt-2"
-                    value={url}
+                    value={previewUrl}
                     maxLength={2048}
-                    placeholder="https://contoh.test/login"
                     onChange={(event) => onUrlChange(event.target.value)}
                   />
                 </div>
-                <Button type="submit" disabled={previewBusy || !url.trim()}>
+                <Button type="submit" disabled={previewBusy || !previewUrl.trim()}>
                   <Play aria-hidden="true" />
                   {previewBusy ? "Memproses." : "Proses"}
                 </Button>
               </form>
               {previewError && <ErrorNotice message={previewError} />}
-              <div className="flex flex-wrap items-center gap-2">
-                {previewIsDemo ? (
-                  <Badge variant="secondary" className="bg-amber-500/10 text-amber-700">
-                    Contoh normalisasi
-                  </Badge>
-                ) : (
-                  <Badge variant="outline">Hasil API</Badge>
-                )}
-                {activePreview.steps.map((step) => (
-                  <Badge key={step} variant="secondary">
-                    {stepLabels[step] ?? step}
-                  </Badge>
-                ))}
-                {activePreview.normalized.parse_failed && (
-                  <Badge variant="destructive">
-                    <AlertTriangle aria-hidden="true" />
-                    Parse gagal
-                  </Badge>
-                )}
-              </div>
-              <div className="table-scroll rounded-lg border" tabIndex={0}>
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Field</th>
-                      <th>Sebelum</th>
-                      <th>Sesudah</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {[
-                      ["Raw", activePreview.normalized.raw, activePreview.normalized.text],
-                      [
-                        "Input model",
-                        activePreview.normalized.raw,
-                        activePreview.model_input || "—",
-                      ],
-                      [
-                        "Host",
-                        activePreview.normalized.host || "—",
-                        activePreview.normalized.canonical_host || "—",
-                      ],
-                      [
-                        "eTLD+1",
-                        activePreview.normalized.site || "—",
-                        activePreview.normalized.site || "—",
-                      ],
-                      [
-                        "IP",
-                        activePreview.normalized.is_ip ? "Ya" : "Tidak",
-                        activePreview.normalized.is_ip
-                          ? activePreview.normalized.canonical_host
-                          : "Tidak",
-                      ],
-                    ].map(([label, before, after]) => (
-                      <tr key={label}>
-                        <td className="font-medium">{label}</td>
-                        <td className="break-all font-mono text-xs">{before}</td>
-                        <td className="break-all font-mono text-xs">{after}</td>
-                      </tr>
+              {examplesError && !preview && <ErrorNotice message={examplesError} />}
+              {activePreview ? (
+                <div className="space-y-3">
+                  <div className="flex flex-wrap items-center gap-2">
+                    {sourceRow !== undefined ? (
+                      <Badge variant="outline">
+                        Baris {number.format(sourceRow)} dari CSV aktif
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline">Hasil API</Badge>
+                    )}
+                    {activePreview.steps.map((step) => (
+                      <Badge key={step} variant="secondary">
+                        {stepLabels[step] ?? step}
+                      </Badge>
                     ))}
-                  </tbody>
-                </table>
-              </div>
+                    {activePreview.normalized.parse_failed && (
+                      <Badge variant="destructive">
+                        <AlertTriangle aria-hidden="true" />
+                        Parse gagal
+                      </Badge>
+                    )}
+                  </div>
+                  <section
+                    className="table-scroll rounded-lg border"
+                    aria-label="Perbandingan normalisasi URL"
+                    tabIndex={0}
+                  >
+                    <table className="comparison-table">
+                      <thead>
+                        <tr>
+                          <th scope="col">Atribut</th>
+                          <th scope="col">Sebelum</th>
+                          <th scope="col">Sesudah</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {[
+                          [
+                            "URL",
+                            visibleEdgeSpaces(activePreview.normalized.raw),
+                            activePreview.normalized.text,
+                          ],
+                          [
+                            "Input model",
+                            visibleEdgeSpaces(activePreview.normalized.raw),
+                            activePreview.model_input || "—",
+                          ],
+                          [
+                            "Host",
+                            activePreview.normalized.host || "—",
+                            activePreview.normalized.canonical_host || "—",
+                          ],
+                          [
+                            "Grup domain",
+                            activePreview.normalized.canonical_host || "—",
+                            activePreview.normalized.site || "—",
+                          ],
+                          [
+                            "IP",
+                            activePreview.normalized.is_ip ? "Ya" : "Tidak",
+                            activePreview.normalized.is_ip
+                              ? activePreview.normalized.canonical_host
+                              : "Tidak",
+                          ],
+                        ].map(([label, before, after]) => (
+                          <tr key={label}>
+                            <th scope="row">{label}</th>
+                            <td className="font-mono text-xs">{before}</td>
+                            <td className="font-mono text-xs">{after}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </section>
+                  {activePreview.normalized.raw !== activePreview.normalized.raw.trim() && (
+                    <p className="text-xs text-muted-foreground">
+                      Simbol <code>␣</code> menandai spasi di tepi.
+                    </p>
+                  )}
+                </div>
+              ) : (
+                !examplesError && (
+                  <output className="block text-sm text-muted-foreground">
+                    {examplesPending
+                      ? "Mencari baris untuk contoh normalisasi."
+                      : "Masukkan URL untuk melihat hasil normalisasi."}
+                  </output>
+                )
+              )}
             </div>
           )}
 
@@ -452,16 +537,18 @@ export function PreprocessingVisualization({
                 </p>
               </div>
               <NgramGroup label="Contoh notebook: login" ngrams={exampleNgrams} />
-              <div className="border-t pt-5">
-                <NgramGroup
-                  label={
-                    previewIsDemo
-                      ? "Contoh token dari URL simulasi"
-                      : "Token dari URL yang baru diproses"
-                  }
-                  ngrams={activePreview.ngrams}
-                />
-              </div>
+              {activePreview && (
+                <div className="border-t pt-5">
+                  <NgramGroup
+                    label={
+                      sourceRow !== undefined
+                        ? "Token dari URL dataset"
+                        : "Token dari URL yang baru diproses"
+                    }
+                    ngrams={activePreview.ngrams}
+                  />
+                </div>
+              )}
               <p className="text-xs leading-5 text-muted-foreground">
                 Jumlah token di sini hanya ilustrasi. Matriks TF-IDF sebenarnya memiliki hingga
                 75.000 fitur dan bobot yang dihitung dari seluruh data training.
@@ -508,11 +595,15 @@ export function PreprocessingVisualization({
                   <p className="text-[11px] text-muted-foreground">dari pratinjau</p>
                 </div>
               </div>
-              <div className="table-scroll rounded-lg border" tabIndex={0}>
-                <table>
+              <section
+                className="table-scroll rounded-lg border"
+                aria-label="Tabel hasil preprocessing"
+                tabIndex={0}
+              >
+                <table className="csv-table">
                   <thead>
                     <tr>
-                      <th>No.</th>
+                      <th className="table-row-number">No.</th>
                       <th>URL mentah</th>
                       <th>URL bersih</th>
                       <th>Label mentah</th>
@@ -523,9 +614,9 @@ export function PreprocessingVisualization({
                   <tbody>
                     {cleanedRows.map((row) => (
                       <tr key={row.rowNumber}>
-                        <td>{number.format(row.rowNumber)}</td>
-                        <td className="break-all font-mono text-xs">{row.rawUrl || "—"}</td>
-                        <td className="break-all font-mono text-xs">{row.cleanUrl || "—"}</td>
+                        <td className="table-row-number">{number.format(row.rowNumber)}</td>
+                        <td className="font-mono text-xs">{row.rawUrl || "—"}</td>
+                        <td className="font-mono text-xs">{row.cleanUrl || "—"}</td>
                         <td className="font-mono text-xs">{row.rawLabel || "—"}</td>
                         <td className="font-mono text-xs">{row.cleanLabel || "—"}</td>
                         <td>
@@ -540,11 +631,10 @@ export function PreprocessingVisualization({
                 {cleanedRows.length === 0 && (
                   <p className="table-empty">Belum ada baris pratinjau yang dapat ditampilkan.</p>
                 )}
-              </div>
+              </section>
               <p className="text-xs leading-5 text-muted-foreground">
-                Perubahan jumlah baris sebelum/sesudah adalah sama karena pipeline tidak melakukan
-                drop, sampling, atau deduplikasi. Tabel hanya menampilkan maksimal 10 baris
-                pratinjau.
+                Tabel mempertahankan maksimal 10 baris pratinjau CSV. Saat training LinkGuard, input
+                URL yang sama dengan label yang sama digabung sebelum pembagian data.
               </p>
             </div>
           )}

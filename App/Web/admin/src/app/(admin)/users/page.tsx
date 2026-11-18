@@ -238,21 +238,17 @@ export default function Page() {
                 </div>
                 <Badge variant="outline">{number.format(current.row_count)} akun</Badge>
               </div>
-              <section
-                className="users-table-scroll"
-                aria-label="Tabel pengguna, gulir untuk melihat kolom lainnya"
-                tabIndex={0}
-              >
-                <Table>
+              <section className="users-table-scroll" aria-label="Tabel pengguna" tabIndex={0}>
+                <Table className="max-lg:table-fixed">
                   <caption className="sr-only">
                     {kinds[kind]}, halaman {page} dari {current.page_count}
                   </caption>
                   <TableHeader>
                     <TableRow>
                       <TableHead>Nama</TableHead>
-                      <TableHead>Email</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Metode masuk</TableHead>
+                      <TableHead className="hidden lg:table-cell">Email</TableHead>
+                      <TableHead className="hidden lg:table-cell">Status</TableHead>
+                      <TableHead className="hidden lg:table-cell">Metode masuk</TableHead>
                       <TableHead className="account-actions">
                         <span className="sr-only">Aksi</span>
                       </TableHead>
@@ -261,30 +257,44 @@ export default function Page() {
                   <TableBody>
                     {current.items.map((account) => {
                       const self = kind === "admin" && account.id === user.id;
+                      const status = (
+                        <Badge
+                          variant="secondary"
+                          className={account.active ? "account-active" : "account-inactive"}
+                        >
+                          {account.active ? "Aktif" : "Nonaktif"}
+                        </Badge>
+                      );
+                      const methods = (
+                        <>
+                          {account.has_password && <Badge variant="outline">Password</Badge>}
+                          {account.has_google && <Badge variant="outline">Google SSO</Badge>}
+                          {!account.has_password && !account.has_google && (
+                            <Badge variant="outline">Belum diatur</Badge>
+                          )}
+                        </>
+                      );
                       return (
                         <TableRow key={account.id}>
-                          <TableCell>
-                            <div className="managed-name">
+                          <TableCell className="whitespace-normal">
+                            <div className="managed-name flex-wrap break-words">
                               {account.name}
                               {self && <Badge variant="outline">Anda</Badge>}
                             </div>
-                          </TableCell>
-                          <TableCell>{account.email}</TableCell>
-                          <TableCell>
-                            <Badge
-                              variant="secondary"
-                              className={account.active ? "account-active" : "account-inactive"}
-                            >
-                              {account.active ? "Aktif" : "Nonaktif"}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            <div className="login-methods">
-                              {account.has_password && <Badge variant="outline">Password</Badge>}
-                              {!account.has_password && (
-                                <Badge variant="outline">Belum diatur</Badge>
-                              )}
+                            <div className="mt-1 space-y-2 lg:hidden">
+                              <p className="break-all text-xs text-muted-foreground">
+                                {account.email}
+                              </p>
+                              <div className="flex flex-wrap items-center gap-1">
+                                {status}
+                                {methods}
+                              </div>
                             </div>
+                          </TableCell>
+                          <TableCell className="hidden lg:table-cell">{account.email}</TableCell>
+                          <TableCell className="hidden lg:table-cell">{status}</TableCell>
+                          <TableCell className="hidden lg:table-cell">
+                            <div className="login-methods">{methods}</div>
                           </TableCell>
                           <TableCell className="account-actions">
                             <DropdownMenu>
@@ -293,6 +303,7 @@ export default function Page() {
                                   <Button
                                     variant="ghost"
                                     size="icon"
+                                    className="max-lg:size-11"
                                     aria-label={`Aksi untuk ${account.email}`}
                                   />
                                 }
