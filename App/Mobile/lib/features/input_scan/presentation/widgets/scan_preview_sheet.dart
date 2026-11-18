@@ -5,6 +5,7 @@ import '../../../../widgets/scan_components.dart';
 import '../../domain/entities/scan_preview.dart';
 import '../../domain/usecases/submit_scan.dart';
 import '../controllers/scan_submission_controller.dart';
+import 'scan_processing_artwork.dart';
 
 /// Runs the check and, when it finishes, summarises the outcome.
 ///
@@ -81,17 +82,40 @@ class ScanProcessingScreen extends StatefulWidget {
   State<ScanProcessingScreen> createState() => _ScanProcessingScreenState();
 }
 
-class _ScanProcessingScreenState extends State<ScanProcessingScreen> {
+class _ScanProcessingScreenState extends State<ScanProcessingScreen>
+    with SingleTickerProviderStateMixin {
+  late final _intro = AnimationController(
+    vsync: this,
+    duration: const Duration(seconds: 2),
+    animationBehavior: AnimationBehavior.preserve,
+  );
+
   @override
   void initState() {
     super.initState();
     _run();
   }
 
+  @override
+  void dispose() {
+    _intro.dispose();
+    super.dispose();
+  }
+
   Future<void> _run() async {
+    final intro = _intro.forward(from: 0);
     final submission = await widget.controller.submit(widget.urls);
     if (!mounted) return;
-    if (submission != null && ModalRoute.of(context)?.isCurrent == true) {
+    if (submission == null) {
+      _intro.stop();
+      return;
+    }
+    try {
+      await intro.orCancel;
+    } on TickerCanceled {
+      return;
+    }
+    if (mounted && ModalRoute.of(context)?.isCurrent == true) {
       Navigator.of(context).pop(submission);
     }
   }
@@ -118,6 +142,7 @@ class _ScanProcessingScreenState extends State<ScanProcessingScreen> {
         urls: widget.urls,
         done: controller.done,
         total: controller.total,
+        intro: _intro,
         onCancel: _cancel,
       );
     },
@@ -209,11 +234,13 @@ class ScanProcessingBody extends StatelessWidget {
     required this.urls,
     required this.done,
     required this.total,
+    required this.intro,
     required this.onCancel,
   });
   final List<String> urls;
   final int done;
   final int total;
+  final Animation<double> intro;
   final VoidCallback onCancel;
 
   @override
@@ -221,18 +248,24 @@ class ScanProcessingBody extends StatelessWidget {
     final count = total == 0 ? urls.length : total;
     final progress = count == 0 ? 0.0 : (done / count).clamp(0.0, 1.0);
     final progressCopy = '$done dari $count tautan selesai';
+    final finished = count > 0 && done == count;
 
     return _ProcessingFrame(
       onCancel: onCancel,
       children: [
         _ProcessingCard(
           children: [
-            const _ProcessingIcon(icon: Icons.crop_free_rounded),
+            ScanProcessingArtwork(intro: intro),
             const SizedBox(height: 18),
-            const Text('Memeriksa tautan.', style: pageTitleStyle),
+            Text(
+              finished ? 'Menyiapkan hasil.' : 'Memeriksa tautan.',
+              style: pageTitleStyle,
+            ),
             const SizedBox(height: 8),
             Text(
-              'Model memeriksa setiap URL satu per satu.',
+              finished
+                  ? 'Ringkasan akan segera ditampilkan.'
+                  : 'Model memeriksa setiap URL satu per satu.',
               style: bodyStyle.copyWith(
                 fontSize: 13,
                 color: context.colors.muted,

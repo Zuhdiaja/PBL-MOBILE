@@ -44,25 +44,42 @@ class GatedPredictor implements UrlPredictor {
 void main() {
   late ScanSubmissionController controller;
 
-  Widget harness(GatedPredictor predictor) => MaterialApp(
-    theme: linkGuardTheme(Brightness.light),
-    home: ScanProcessingScreen(
-      urls: const [
-        'https://bca-verifikasi-akun.net/login',
-        'https://contoh.com/promo',
-      ],
-      controller: controller,
-    ),
-  );
+  const urls = [
+    'https://bca-verifikasi-akun.net/login',
+    'https://contoh.com/promo',
+  ];
 
-  Future<GatedPredictor> open(WidgetTester tester) async {
+  Widget processingScreen() =>
+      ScanProcessingScreen(urls: urls, controller: controller);
+
+  Future<GatedPredictor> open(
+    WidgetTester tester, {
+    bool asRoute = false,
+  }) async {
     final predictor = GatedPredictor();
     controller = ScanSubmissionController(
       submitScan: const SubmitScan(),
       predictor: predictor,
     );
     addTearDown(controller.dispose);
-    await tester.pumpWidget(harness(predictor));
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: linkGuardTheme(Brightness.light),
+        home: asRoute
+            ? Builder(
+                builder: (context) => Scaffold(
+                  body: TextButton(
+                    onPressed: () => Navigator.of(context).push<ScanSubmission>(
+                      MaterialPageRoute(builder: (_) => processingScreen()),
+                    ),
+                    child: const Text('Mulai pemeriksaan'),
+                  ),
+                ),
+              )
+            : processingScreen(),
+      ),
+    );
+    if (asRoute) await tester.tap(find.text('Mulai pemeriksaan'));
     await tester.pump();
     return predictor;
   }
@@ -100,6 +117,41 @@ void main() {
     expect(find.text('Diperiksa'), findsOneWidget);
   });
 
+  testWidgets('quick results wait for the two-second scan animation', (
+    tester,
+  ) async {
+    final predictor = await open(tester, asRoute: true);
+
+    predictor.finish(0, urls[0]);
+    await tester.pump();
+    predictor.finish(1, urls[1]);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 1999));
+
+    expect(find.text('100%'), findsOneWidget);
+    expect(find.text('Menyiapkan hasil.'), findsOneWidget);
+
+    await tester.pump(const Duration(milliseconds: 1));
+    await tester.pumpAndSettle();
+    expect(find.text('Mulai pemeriksaan'), findsOneWidget);
+    expect(find.text('Menyiapkan hasil.'), findsNothing);
+  });
+
+  testWidgets('a slower check remains open with its real progress', (
+    tester,
+  ) async {
+    final predictor = await open(tester, asRoute: true);
+
+    predictor.finish(0, urls[0]);
+    await tester.pump(const Duration(seconds: 3));
+    expect(find.text('50%'), findsOneWidget);
+    expect(find.text('Memeriksa tautan.'), findsOneWidget);
+
+    predictor.finish(1, urls[1]);
+    await tester.pumpAndSettle();
+    expect(find.text('Mulai pemeriksaan'), findsOneWidget);
+  });
+
   testWidgets('cancelling leaves the page without waiting for the model', (
     tester,
   ) async {
@@ -119,14 +171,7 @@ void main() {
   testWidgets('a fatal failure offers a retry on the same layout', (
     tester,
   ) async {
-    final predictor = GatedPredictor();
-    controller = ScanSubmissionController(
-      submitScan: const SubmitScan(),
-      predictor: predictor,
-    );
-    addTearDown(controller.dispose);
-    await tester.pumpWidget(harness(predictor));
-    await tester.pump();
+    final predictor = await open(tester);
 
     predictor.fail(0, kind: ScanFailureKind.auth);
     await tester.pump();
