@@ -1,6 +1,7 @@
 import io
 import json
 from pathlib import Path
+from datetime import datetime, timedelta, timezone
 
 from app.extensions import db
 from app.models import Dataset, DatasetRow, DatasetState, MLRun
@@ -36,9 +37,11 @@ def _seed_dataset(dataset_id, columns, values):
 
 
 def test_ml_endpoints_require_session(client):
+    assert client.get("/api/v1/ml/status").status_code == 401
     assert client.get("/api/v1/ml/runs").status_code == 401
     assert client.get(f"/api/v1/ml/runs/{RUN_ID}").status_code == 401
     assert client.get("/api/v1/ml/dataset-summary").status_code == 401
+    assert client.get("/api/v1/ml/preprocessing-examples").status_code == 401
 
 
 def test_import_list_and_detail(authenticated):
@@ -47,6 +50,7 @@ def test_import_list_and_detail(authenticated):
     assert response.status_code == 201
     run = response.json["run"]
     assert run["id"] == RUN_ID
+    assert run["dataset_matches"] is None
     assert run["model"] == "svm"
     assert run["metrics"]["test"]["accuracy"] == 0.81
     assert len(run["confusion_matrix"]) == 3
@@ -54,7 +58,7 @@ def test_import_list_and_detail(authenticated):
 
     listing = client.get("/api/v1/ml/runs", headers=headers)
     assert listing.status_code == 200
-    assert listing.json["active_id"] == RUN_ID
+    assert listing.json["active_id"] is None
     assert listing.json["items"][0]["id"] == RUN_ID
     assert "confusion_matrix" not in listing.json["items"][0]
 
@@ -62,6 +66,51 @@ def test_import_list_and_detail(authenticated):
     assert detail.status_code == 200
     assert detail.json["run"]["report"]["test"]["benign"]["f1-score"] == 0.8621
     assert detail.json["run"]["split_counts"]["train"] == 750
+
+
+def test_status_and_paginated_history(app, authenticated):
+    client, _ = authenticated
+    now = datetime.now(timezone.utc)
+    with app.app_context():
+        db.session.add_all([
+            MLRun(
+                id=f"history-{index}", model="svm", representation="tfidf",
+                row_count=100, completed_at=now + timedelta(seconds=index),
+                is_active=index == 0,
+            )
+            for index in range(23)
+        ])
+        db.session.commit()
+
+    status = client.get("/api/v1/ml/status").json
+    assert status["active_id"] == status["run"]["id"] == "history-0"
+    assert "items" not in status
+    assert "confusion_matrix" not in status["run"]
+    first = client.get("/api/v1/ml/runs").json
+    second = client.get("/api/v1/ml/runs?page=2").json
+    assert first["active_id"] == second["active_id"] == "history-0"
+    assert first["has_next"] and not second["has_next"]
+    assert [run["id"] for run in first["items"]] == [f"history-{index}" for index in range(22, 2, -1)]
+    assert [run["id"] for run in second["items"]] == ["history-2", "history-1", "history-0"]
+    assert client.get("/api/v1/ml/runs?page=0").status_code == 400
+    assert client.get("/api/v1/ml/runs?page=bad").status_code == 400
+
+
+def test_import_validates_train_class_counts(authenticated):
+    client, headers = authenticated
+    artifact = json.loads(FIXTURE.read_text(encoding="utf-8"))
+    artifact["train_class_counts"] = {"benign": 400, "phishing": 250, "malware": 100}
+    response = _upload(client, headers, payload=json.dumps(artifact).encode())
+    assert response.status_code == 201
+    expected = artifact["train_class_counts"].copy()
+    assert response.json["run"]["provenance"]["train_class_counts"] == expected
+
+    artifact["train_class_counts"]["malware"] = 99
+    rejected = _upload(client, headers, payload=json.dumps(artifact).encode())
+    assert rejected.status_code == 400
+    assert "train_class_counts" in rejected.json["error"]["message"]
+    detail = client.get(f"/api/v1/ml/runs/{RUN_ID}").json["run"]
+    assert detail["provenance"]["train_class_counts"] == expected
 
 
 def test_import_replaces_existing_run(app, authenticated):
@@ -177,6 +226,40 @@ def test_dataset_summary_without_label_column(app, authenticated):
     assert response.status_code == 200
     assert response.json["label_column"] is None
     assert response.json["class_counts"] == []
+
+
+def test_preprocessing_examples_use_changed_rows_from_active_csv(app, authenticated):
+    client, headers = authenticated
+    source_url = "HTTPS://Docs.Example.COM./Guide"
+    with app.app_context():
+        _seed_dataset("ml-csv", ["url", "type"], [
+            ["already-clean.example", "benign"],
+            [" example.com/a\xa0", " BENIGN "],
+            ["https://[broken]/", "benign"],
+            [source_url, "benign"],
+        ])
+
+    response = client.get("/api/v1/ml/preprocessing-examples?dataset_id=ml-csv", headers=headers)
+    assert response.status_code == 200
+    assert response.json["cleaning"] == {
+        "row_number": 2, "url": " example.com/a\xa0", "label": " BENIGN ",
+        "clean_url": "example.com/a", "clean_label": "benign",
+    }
+    expected = client.post("/api/v1/ml/preview", json={"url": source_url}, headers=headers)
+    assert expected.status_code == 200
+    assert response.json["normalization"] == {"row_number": 4, "preview": expected.json}
+
+
+def test_preprocessing_examples_for_clean_csv_and_outdated_dataset_id(app, authenticated):
+    client, headers = authenticated
+    with app.app_context():
+        _seed_dataset("ml-csv", ["url"], [["example.com/a"]])
+
+    response = client.get("/api/v1/ml/preprocessing-examples?dataset_id=ml-csv", headers=headers)
+    assert response.status_code == 200
+    assert response.json == {"cleaning": None, "normalization": None}
+    outdated = client.get("/api/v1/ml/preprocessing-examples?dataset_id=previous", headers=headers)
+    assert outdated.status_code == 409
 
 
 def test_cli_imports_artifact(app, tmp_path):
