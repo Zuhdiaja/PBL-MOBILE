@@ -19,10 +19,10 @@ docker compose exec api flask --app app:create_app create-admin \
   --email admin@example.com --name "Admin LinkGuard"
 ```
 
-CLI meminta password minimal 12 karakter secara interaktif. Buka **http://localhost:3000**. Compose menjalankan web Next.js, API Flask, worker RQ, PostgreSQL, Redis, dan migration otomatis. Hanya port web yang dibuka ke host; API, database, dan Redis berada di jaringan internal. CSV sementara dan avatar berada pada volume privat bersama API/worker.
+CLI meminta password minimal 12 karakter secara interaktif. Buka **http://localhost:3000**. Compose menjalankan web Next.js, API Flask, worker RQ, scheduler training, PostgreSQL, Redis, dan migration otomatis. Hanya port web yang dibuka ke host; API, database, dan Redis berada di jaringan internal. CSV sementara dan avatar berada pada volume privat bersama API/worker.
 
 ```sh
-docker compose logs -f api worker web
+docker compose logs -f api worker scheduler web
 docker compose stop
 ```
 
@@ -40,7 +40,7 @@ Menu **Pengguna** memiliki tab **Admin dashboard** dan **Pengguna mobile**. Kedu
 
 Semua admin aktif memiliki izin pengelolaan yang sama. Akun sendiri tidak dapat dinonaktifkan atau diatur ulang passwordnya lewat menu ini; gunakan Profil untuk mengubah password dengan password lama. Perubahan status atau pengaturan ulang password admin membatalkan sesi akun tersebut. Perubahan admin diserialisasi dalam transaksi PostgreSQL untuk menjaga akses saat dua admin saling menonaktifkan.
 
-Akun mobile disimpan terpisah di PostgreSQL dan tidak mempunyai akses dashboard. **Aplikasi Flutter sudah memakai `/api/v1/mobile/auth` untuk masuk dan mendaftar dengan email dan password.** Status serta password mobile yang dikelola di sini berlaku pada API tersebut; reset password atau perubahan status membatalkan token bearer yang aktif. Tidak ada endpoint registrasi web publik. Login Google hanya untuk pengguna mobile: backend memverifikasi ID token Google dan membuat akun mobile otomatis pada login pertama. Aplikasi Flutter mengaktifkan tombol Google-nya bila dibangun dengan `--dart-define=GOOGLE_WEB_CLIENT_ID`. Endpoint Google admin tetap tidak tersedia.
+Akun mobile disimpan terpisah di PostgreSQL dan tidak mempunyai akses dashboard. **Aplikasi Flutter sudah memakai `/api/v1/mobile/auth` untuk masuk dan mendaftar dengan email dan password.** Status serta password mobile yang dikelola di sini berlaku pada API tersebut; reset password atau perubahan status membatalkan token bearer yang aktif. Tidak ada endpoint registrasi web publik. Login Google hanya untuk pengguna mobile: backend memverifikasi ID token Google dan membuat akun mobile otomatis pada login pertama. Aplikasi Flutter mengaktifkan tombol Google-nya bila dibangun dengan `--dart-define=GOOGLE_WEB_CLIENT_ID`. Tabel **Pengguna → Mobile** menampilkan metode **Google SSO** untuk akun yang tertaut dan **Password** untuk akun yang memiliki password. Kedua metode dapat tampil bersama.
 
 Login desktop memakai dua kolom (form dan penjelasan akses); layar di bawah 1024px memakai satu kolom.
 
@@ -76,16 +76,31 @@ Alur, aturan kategori, kode error, serta cara menguji dengan dataset MURL asli d
 
 ## Pipeline ML
 
-Menu **Pipeline ML** menampilkan artefak metrik dari notebook SVM + TF-IDF tanpa menjalankan training atau inference di server. Impor `svm_tfidf_metrics.json` lewat tombol **Impor hasil** atau CLI:
+**Pipeline ML** menampilkan model aktif yang melayani pemindaian mobile. Halaman memeriksa status setiap 15 detik selama tab terlihat. Buka **Riwayat model** untuk menelusuri hasil sebelumnya per halaman dan membandingkan metrik, split, laporan klasifikasi, serta confusion matrix. Distribusi kelas menggambarkan dataset CSV aktif, sementara jumlah baris sumber dan URL unik pada hasil training menggambarkan dataset yang benar-benar dilatih. Contoh demo diberi label saat dataset atau hasil model belum tersedia.
+
+Di **Alur Pipeline**, tahap **Pembersihan input** dan **Normalisasi URL** menampilkan perubahan dari baris CSV aktif beserta nomor baris sumber. Form normalisasi juga menerima URL pilihan admin.
+
+Di **Detail Training**, pilih kartu **Train**, **Validation**, atau **Test** untuk melihat jumlah dan persentase label dari split model terpilih. Run baru mencatat jumlah kelas Train saat split dibuat. Untuk run lama, Validation dan Test memakai jumlah aktual dari laporan evaluasi jika tersedia.
+
+### Training manual
+
+Di **Pipeline ML**, klik **Train sekarang** saat dataset aktif sudah selesai diimpor dan belum berhasil dilatih. Permintaan masuk ke antrean scheduler yang juga menangani jadwal harian. Status antrean, proses, dan hasil tampil di Pipeline ML. Saat training manual berhasil, jadwal harian melewati dataset yang sama.
+
+### Training terjadwal
+
+1. Unggah CSV melalui **Dataset** dan tunggu impor selesai. Training membutuhkan tepat satu kolom `url` dan satu kolom kelas (`label`, `category`, `class`, atau `type`).
+2. Buka **Jadwal Training**, aktifkan jadwal, pilih jam WIB, lalu simpan. Jadwal awal nonaktif.
+3. Scheduler berjalan di proses sendiri dan memeriksa dataset aktif setiap hari pada menit yang dipilih. Dataset yang sudah berhasil dilatih dilewati. Penyuntingan melalui sinkronisasi laporan saja tidak memicu retraining. Jika scheduler mati pada menit jadwal, pemeriksaan berikutnya berlangsung pada jadwal hari berikutnya.
+4. Training memakai preprocessing URL yang sama dengan inference, menghapus duplikat URL hasil preprocessing, dan membagi data berdasarkan grup domain. CSV harus memiliki minimal dua kelas yang dapat terwakili di train, validation, dan test. Hasil dan berkas model dipublikasikan bersama setelah verifikasi. Selama training, pemindaian memakai model yang sudah aktif. Jika training gagal atau dataset berubah saat proses berjalan, model aktif dipertahankan.
+
+Untuk membandingkan metrik notebook tanpa mengubah model pemindaian, gunakan **Impor hasil** atau perintah berikut:
 
 ```sh
 docker compose exec api flask --app app:create_app ml-import \
   --path /path/to/svm_tfidf_metrics.json
 ```
 
-Halaman menampilkan alur lengkap: dataset dan distribusi kelas, timeline preprocessing dengan contoh before/after, normalisasi URL untuk split domain, parameter TF-IDF karakter 3–5, pembagian train/validation/test, training LinearSVC, perbandingan metrik validation/test, classification report, dan confusion matrix. Preview URL hanya memperlihatkan hasil normalisasi dan frekuensi n-gram karakter; file model `.pkl` tidak dipakai.
-
-Jika dataset atau artefak model belum tersedia dari API, halaman memakai data simulasi yang diberi label jelas dan tidak dijalankan sebagai model. Artefak hasil notebook ada di `model-experiments/results/hasil_model/svm_tfidf_metrics.json`.
+Impor metrik eksternal tidak memverifikasi asal dataset. Preview URL di dashboard menampilkan normalisasi dan frekuensi n-gram, sementara prediksi memakai endpoint pemindaian mobile.
 
 ## Menjalankan tanpa container web
 
@@ -104,6 +119,8 @@ python -m flask --app app:create_app db upgrade
 python -m flask --app app:create_app run --port 5001
 # Terminal terpisah, environment yang sama:
 python worker.py
+# Terminal terpisah, environment yang sama:
+python scheduler.py
 ```
 
 Frontend memakai `API_URL=http://127.0.0.1:5001` secara default. Geist disajikan lokal, tanpa unduhan font Google saat build.
