@@ -87,6 +87,7 @@ void main() {
     await tapVisible(tester, find.text('Pindai QR'));
     expect(find.text('Pindai kode QR'), findsOneWidget);
     await tapVisible(tester, find.text('Pindai contoh QR'));
+    await tapVisible(tester, find.text('Lanjutkan'));
     expect(find.text('Pemeriksaan selesai'), findsOneWidget);
     expect(find.textContaining('berhasil diperiksa'), findsOneWidget);
     await tester.binding.handlePopRoute();

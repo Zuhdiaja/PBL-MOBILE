@@ -6,6 +6,7 @@ import '../../domain/usecases/submit_scan.dart';
 import '../controllers/scan_qr_controller.dart';
 import '../controllers/scan_submission_controller.dart';
 import '../widgets/qr_camera_view.dart';
+import '../widgets/scan_confirm_dialog.dart';
 import '../widgets/scan_preview_sheet.dart';
 
 /// Builds the camera area. Tests pass a fake so no camera is needed.
@@ -42,7 +43,8 @@ class ScanQrScreen extends StatefulWidget {
 }
 
 class _ScanQrScreenState extends State<ScanQrScreen> {
-  /// True while the check runs, so one code cannot start several submissions.
+  /// True while the confirmation or the check runs, so one code cannot start
+  /// several submissions.
   bool _handling = false;
   String? _shownMessage;
 
@@ -54,6 +56,8 @@ class _ScanQrScreenState extends State<ScanQrScreen> {
     }
     setState(() => _handling = true);
     try {
+      final confirmed = await showScanConfirmDialog(context, result.preview!);
+      if (!mounted || !confirmed) return;
       final submission = await showScanPreview(
         context,
         result.preview!,
@@ -110,7 +114,7 @@ class _ScanQrScreenState extends State<ScanQrScreen> {
         Center(
           child: Text(
             _handling
-                ? 'Tautan sedang diperiksa.'
+                ? 'Konfirmasi tautan untuk melanjutkan.'
                 : 'Tempatkan kode QR di dalam bingkai.',
             textAlign: TextAlign.center,
             style: bodyStyle,

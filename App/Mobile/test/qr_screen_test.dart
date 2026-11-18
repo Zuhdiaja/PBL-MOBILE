@@ -66,7 +66,7 @@ void main() {
     expect(cameraActive, isTrue);
   });
 
-  testWidgets('a scanned link starts the check and shows the summary', (
+  testWidgets('a scanned link waits for confirmation before the check', (
     tester,
   ) async {
     await pumpScreen(tester);
@@ -74,8 +74,31 @@ void main() {
     emit('https://pindai.example.test/promo');
     await tester.pumpAndSettle();
 
+    expect(find.text('Lanjutkan pindai?'), findsOneWidget);
+    expect(find.text('https://pindai.example.test/promo'), findsOneWidget);
+    expect(find.text('Pemeriksaan selesai'), findsNothing);
+
+    await tester.tap(find.text('Lanjutkan'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Lanjutkan pindai?'), findsNothing);
     expect(find.text('Pemeriksaan selesai'), findsOneWidget);
     expect(find.textContaining('berhasil diperiksa'), findsOneWidget);
+  });
+
+  testWidgets('cancelling the confirmation keeps the camera ready', (
+    tester,
+  ) async {
+    await pumpScreen(tester);
+
+    emit('https://pindai.example.test/promo');
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Batal'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Pemeriksaan selesai'), findsNothing);
+    expect(find.text('kamera palsu'), findsOneWidget);
+    expect(cameraActive, isTrue);
   });
 
   testWidgets('a QR without a link is refused with a clear message', (
@@ -94,6 +117,9 @@ void main() {
     await pumpScreen(tester);
 
     await tester.tap(find.text('Pindai contoh QR'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Lanjutkan'));
     await tester.pumpAndSettle();
 
     expect(find.text('Pemeriksaan selesai'), findsOneWidget);
