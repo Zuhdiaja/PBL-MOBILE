@@ -42,14 +42,20 @@ void main() {
   }
 
   Future<void> pumpScreen(WidgetTester tester) async {
+    final navigatorKey = GlobalKey<NavigatorState>();
     await tester.pumpWidget(
       MaterialApp(
+        navigatorKey: navigatorKey,
         theme: linkGuardTheme(Brightness.light),
         home: ScanQrScreen(
           controller: controller,
           submissionController: submission,
           onNavigate: (_) {},
-          onSubmitted: (_) {},
+          onSubmitted: (_) => navigatorKey.currentState!.push(
+            MaterialPageRoute<void>(
+              builder: (_) => const Scaffold(body: Text('Hasil pindai')),
+            ),
+          ),
           cameraBuilder: fakeCamera,
         ),
       ),
@@ -84,6 +90,40 @@ void main() {
     expect(find.text('Lanjutkan pindai?'), findsNothing);
     expect(find.text('Pemeriksaan selesai'), findsOneWidget);
     expect(find.textContaining('berhasil diperiksa'), findsOneWidget);
+  });
+
+  testWidgets('pauses and ignores QR readings until returning from results', (
+    tester,
+  ) async {
+    await pumpScreen(tester);
+
+    emit('https://pindai.example.test/promo');
+    await tester.pumpAndSettle();
+    expect(cameraActive, isFalse);
+    await tester.tap(find.text('Lanjutkan'));
+    await tester.pumpAndSettle();
+    expect(cameraActive, isFalse);
+    await tester.tap(find.text('Lihat hasil'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Hasil pindai'), findsOneWidget);
+    expect(cameraActive, isFalse);
+
+    const nextUrl = 'https://pindai.example.test/berikutnya';
+    emit(nextUrl);
+    await tester.pumpAndSettle();
+    expect(find.text('Lanjutkan pindai?'), findsNothing);
+    expect(find.text('Hasil pindai'), findsOneWidget);
+
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.text('Pindai kode QR'), findsOneWidget);
+    expect(cameraActive, isTrue);
+
+    emit(nextUrl);
+    await tester.pumpAndSettle();
+    expect(find.text('Lanjutkan pindai?'), findsOneWidget);
+    expect(find.text(nextUrl), findsOneWidget);
   });
 
   testWidgets('cancelling the confirmation keeps the camera ready', (

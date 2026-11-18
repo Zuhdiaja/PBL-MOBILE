@@ -71,7 +71,9 @@ class _ScanQrScreenState extends State<ScanQrScreen> {
   }
 
   void _handleDetected(String raw) {
-    if (_handling) return;
+    if (!mounted || _handling || ModalRoute.of(context)?.isCurrent == false) {
+      return;
+    }
     final result = widget.controller.handleDetected(raw);
     if (result == null) {
       final message = widget.controller.rejection;
@@ -106,7 +108,7 @@ class _ScanQrScreenState extends State<ScanQrScreen> {
             child: widget.cameraBuilder(
               context,
               onDetect: _handleDetected,
-              active: !_handling,
+              active: ModalRoute.isCurrentOf(context) != false && !_handling,
             ),
           ),
         ),

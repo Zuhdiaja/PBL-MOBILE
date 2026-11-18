@@ -22,28 +22,39 @@ class QrCameraView extends StatefulWidget {
 
 class _QrCameraViewState extends State<QrCameraView> {
   final _controller = MobileScannerController(
+    autoStart: false,
     formats: const [BarcodeFormat.qrCode],
     detectionSpeed: DetectionSpeed.noDuplicates,
   );
+  Future<void> _cameraUpdate = Future<void>.value();
+
+  @override
+  void initState() {
+    super.initState();
+    _syncCamera();
+  }
 
   @override
   void didUpdateWidget(QrCameraView oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.active == widget.active) return;
-    // A closed camera also turns the torch off with it.
-    _toggleRunning(widget.active);
+    _syncCamera();
   }
 
-  Future<void> _toggleRunning(bool running) async {
-    try {
-      if (running) {
-        await _controller.start();
-      } else {
-        await _controller.stop();
+  void _syncCamera() {
+    // A stop requested during startup must wait for the camera to open.
+    _cameraUpdate = _cameraUpdate.then((_) async {
+      if (!mounted) return;
+      try {
+        if (widget.active) {
+          await _controller.start();
+        } else {
+          await _controller.stop();
+        }
+      } on Exception {
+        // The platform may already have stopped the camera.
       }
-    } catch (_) {
-      // The camera may already be stopped by the platform; nothing to recover.
-    }
+    });
   }
 
   @override
@@ -53,6 +64,7 @@ class _QrCameraViewState extends State<QrCameraView> {
   }
 
   void _handleDetect(BarcodeCapture capture) {
+    if (!mounted || !widget.active) return;
     for (final barcode in capture.barcodes) {
       final value = barcode.rawValue?.trim();
       if (value != null && value.isNotEmpty) {
