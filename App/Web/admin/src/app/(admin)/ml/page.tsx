@@ -1,22 +1,26 @@
 /* oxlint-disable react/set-state-in-effect -- Synchronize the dashboard with async API data. */
 /* oxlint-disable jsx-a11y/no-noninteractive-tabindex -- Scrollable tables must be keyboard reachable. */
 "use client";
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import {
   ArrowRight,
   CheckCircle2,
   Cpu,
   Database,
   Gauge,
-  Info,
+  ChevronLeft,
+  ChevronRight,
   Layers,
   ScanSearch,
+  Play,
   Upload,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Dialog,
   DialogContent,
@@ -28,6 +32,7 @@ import { ErrorNotice, Loading } from "@/components/feedback";
 import { DatasetVisualization } from "@/components/ml/dataset-visualization";
 import { PipelineOverview } from "@/components/ml/pipeline-overview";
 import { PreprocessingVisualization } from "@/components/ml/preprocessing-visualization";
+import { SplitDistribution } from "@/components/ml/split-distribution";
 import {
   ApiError,
   api,
@@ -35,15 +40,16 @@ import {
   number,
   percent,
   type MLDatasetSummary,
-  type MLMetrics,
   type MLPreviewResponse,
   type MLReport,
   type MLRunDetail,
   type MLRunSummary,
   type MLRunsResponse,
+  type MLStatusResponse,
+  type MLTrainingSchedule,
   type RowsResponse,
 } from "@/lib/api";
-import { demoDatasetSummary, demoPreview, demoRows, demoRun } from "@/lib/ml-demo";
+import { demoDatasetSummary, demoRows, demoRun } from "@/lib/ml-demo";
 
 const trainingParameters = [
   ["C", "C"],
@@ -76,28 +82,6 @@ const metricDefinitions = [
   ["Weighted F1", "Rata-rata F1 yang mempertimbangkan jumlah support setiap kelas."],
 ];
 
-function MetricGroup({ title, metrics }: { title: string; metrics: MLMetrics }) {
-  const values = [
-    ["Accuracy", metrics.accuracy],
-    ["Balanced accuracy", metrics.balanced_accuracy],
-    ["Macro F1", metrics.macro_f1],
-    ["Weighted F1", metrics.weighted_f1],
-  ] as const;
-  return (
-    <div className="rounded-xl border bg-card p-4 shadow-xs">
-      <p className="text-xs font-medium text-muted-foreground">{title}</p>
-      <div className="mt-3 grid grid-cols-2 gap-3">
-        {values.map(([label, value]) => (
-          <div key={label}>
-            <p className="text-[11px] text-muted-foreground">{label}</p>
-            <p className="text-lg font-semibold tabular-nums">{percent.format(value)}</p>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 function MetricComparison({ metrics }: { metrics: MLRunDetail["metrics"] }) {
   const rows = [
     ["Accuracy", metrics.validation.accuracy, metrics.test.accuracy],
@@ -106,14 +90,18 @@ function MetricComparison({ metrics }: { metrics: MLRunDetail["metrics"] }) {
     ["Weighted F1", metrics.validation.weighted_f1, metrics.test.weighted_f1],
   ] as const;
   return (
-    <div className="table-scroll rounded-lg border" tabIndex={0}>
-      <table>
+    <section
+      className="table-scroll rounded-lg border"
+      aria-label="Tabel perbandingan metrik"
+      tabIndex={0}
+    >
+      <table className="ml-metrics-table">
         <thead>
           <tr>
             <th>Metrik</th>
             <th>Validation</th>
             <th>Test</th>
-            <th>Selisih test − validation</th>
+            <th>Selisih</th>
           </tr>
         </thead>
         <tbody>
@@ -121,7 +109,7 @@ function MetricComparison({ metrics }: { metrics: MLRunDetail["metrics"] }) {
             const difference = test - validation;
             return (
               <tr key={label}>
-                <td className="font-medium">{label}</td>
+                <th scope="row">{label}</th>
                 <td className="tabular-nums">{percent.format(validation)}</td>
                 <td className="tabular-nums">{percent.format(test)}</td>
                 <td className="tabular-nums">
@@ -133,7 +121,7 @@ function MetricComparison({ metrics }: { metrics: MLRunDetail["metrics"] }) {
           })}
         </tbody>
       </table>
-    </div>
+    </section>
   );
 }
 
@@ -170,15 +158,19 @@ function SplitBar({ split }: { split: { train: number; validation: number; test:
   );
 }
 
-function ReportTable({ report }: { report: MLReport }) {
-  const rows = Object.entries(report);
+function ReportTable({ report, classes }: { report: MLReport; classes: string[] }) {
+  const rows = [...classes, "macro avg", "weighted avg"].filter((label) => label in report);
   if (!rows.length) {
     return (
       <p className="text-sm text-muted-foreground">Report untuk partisi ini tidak tersedia.</p>
     );
   }
   return (
-    <div className="table-scroll rounded-lg border" tabIndex={0}>
+    <section
+      className="table-scroll rounded-lg border"
+      aria-label="Tabel evaluasi per kelas"
+      tabIndex={0}
+    >
       <table>
         <thead>
           <tr>
@@ -190,18 +182,18 @@ function ReportTable({ report }: { report: MLReport }) {
           </tr>
         </thead>
         <tbody>
-          {rows.map(([label, row]) => (
+          {rows.map((label) => (
             <tr key={label}>
-              <td className="font-medium">{label}</td>
-              <td className="tabular-nums">{percent.format(row.precision)}</td>
-              <td className="tabular-nums">{percent.format(row.recall)}</td>
-              <td className="tabular-nums">{percent.format(row["f1-score"])}</td>
-              <td className="tabular-nums">{number.format(row.support)}</td>
+              <th scope="row">{label}</th>
+              <td className="tabular-nums">{percent.format(report[label].precision)}</td>
+              <td className="tabular-nums">{percent.format(report[label].recall)}</td>
+              <td className="tabular-nums">{percent.format(report[label]["f1-score"])}</td>
+              <td className="tabular-nums">{number.format(report[label].support)}</td>
             </tr>
           ))}
         </tbody>
       </table>
-    </div>
+    </section>
   );
 }
 
@@ -245,54 +237,66 @@ function ConfusionMatrix({
           </Button>
         </div>
       </div>
-      <div className="table-scroll rounded-lg border pb-2" tabIndex={0}>
-        <div
-          className="grid min-w-160 gap-1 p-2 text-xs"
-          style={{
-            gridTemplateColumns: `minmax(130px, 1.4fr) repeat(${classes.length}, minmax(58px, 1fr))`,
-          }}
-        >
-          <div />
-          {classes.map((label) => (
-            <div
-              key={`head-${label}`}
-              className="truncate px-2 py-1 text-center font-medium text-muted-foreground"
-            >
-              {label}
-            </div>
-          ))}
-          {matrix.map((row, rowIndex) => (
-            <div key={`row-${classes[rowIndex]}`} className="contents">
-              <div className="truncate px-2 py-1 font-medium">{classes[rowIndex]}</div>
-              {row.map((value, columnIndex) => {
-                const ratio = rowTotals[rowIndex] ? value / rowTotals[rowIndex] : 0;
-                const intensity = mode === "recall" ? ratio : value / max;
-                return (
-                  <div
-                    key={`cell-${classes[rowIndex]}-${classes[columnIndex]}`}
-                    className="rounded-md border px-1 py-2 text-center tabular-nums"
-                    style={{
-                      backgroundColor:
-                        intensity > 0 ? `rgba(37, 99, 235, ${0.08 + intensity * 0.82})` : undefined,
-                      color: intensity > 0.55 ? "#fff" : undefined,
-                    }}
-                    title={`${classes[rowIndex]} → ${classes[columnIndex]}: ${number.format(value)}`}
-                  >
-                    {mode === "recall" ? percent.format(ratio) : number.format(value)}
-                  </div>
-                );
-              })}
-            </div>
-          ))}
-        </div>
-      </div>
+      <section
+        className="overflow-x-auto rounded-lg border p-1"
+        aria-label="Gulir confusion matrix"
+        tabIndex={0}
+      >
+        <table className="min-w-full border-separate border-spacing-1 text-xs whitespace-nowrap">
+          <caption className="sr-only">Confusion matrix untuk data test</caption>
+          <thead>
+            <tr>
+              <th scope="col" className="min-w-20 p-1 text-left text-muted-foreground">
+                Aktual
+              </th>
+              {classes.map((label) => (
+                <th
+                  scope="col"
+                  key={label}
+                  className="min-w-12 px-1 py-2 font-medium text-muted-foreground"
+                >
+                  {label}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {matrix.map((row, rowIndex) => (
+              <tr key={classes[rowIndex]}>
+                <th scope="row" className="px-1 py-2 text-left font-medium">
+                  {classes[rowIndex]}
+                </th>
+                {row.map((value, columnIndex) => {
+                  const ratio = rowTotals[rowIndex] ? value / rowTotals[rowIndex] : 0;
+                  const intensity = mode === "recall" ? ratio : value / max;
+                  return (
+                    <td
+                      key={classes[columnIndex]}
+                      className="rounded-md border px-1 py-2 text-center tabular-nums text-foreground"
+                      style={{
+                        backgroundColor:
+                          intensity > 0
+                            ? `color-mix(in srgb, var(--primary) ${4 + intensity * 24}%, var(--background))`
+                            : undefined,
+                      }}
+                      title={`${classes[rowIndex]} → ${classes[columnIndex]}: ${number.format(value)}`}
+                    >
+                      {mode === "recall" ? percent.format(ratio) : number.format(value)}
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </section>
     </div>
   );
 }
 
 function SourceBadge({ isDemo }: { isDemo: boolean }) {
   return isDemo ? (
-    <Badge variant="secondary" className="bg-amber-500/10 text-amber-700">
+    <Badge variant="secondary" className="bg-warning-surface text-warning">
       Data simulasi
     </Badge>
   ) : (
@@ -300,49 +304,141 @@ function SourceBadge({ isDemo }: { isDemo: boolean }) {
   );
 }
 
-function DemoBanner({ runIsDemo, datasetIsDemo }: { runIsDemo: boolean; datasetIsDemo: boolean }) {
-  if (!runIsDemo && !datasetIsDemo) return null;
-  const parts = [
-    runIsDemo ? "metrik, split, dan evaluasi" : null,
-    datasetIsDemo ? "dataset, atribut, dan distribusi" : null,
-  ]
-    .filter(Boolean)
-    .join(" serta ");
+const runDate = new Intl.DateTimeFormat("id-ID", {
+  timeZone: "Asia/Jakarta",
+  dateStyle: "medium",
+  timeStyle: "short",
+});
+
+function ModelHistory({
+  activeId,
+  selectedId,
+  onSelect,
+  revision,
+}: {
+  activeId: string | null;
+  selectedId: string | null;
+  onSelect: (id: string) => void;
+  revision: string | null | undefined;
+}) {
+  const [page, setPage] = useState(1);
+  const [data, setData] = useState<MLRunsResponse>();
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [retry, setRetry] = useState(0);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    setLoading(true);
+    setError("");
+    api<MLRunsResponse>(`/ml/runs?page=${page}`, { signal: controller.signal })
+      .then((result) => {
+        if (!controller.signal.aborted) setData(result);
+      })
+      .catch((cause) => {
+        if (!controller.signal.aborted) setError(messageOf(cause));
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoading(false);
+      });
+    return () => controller.abort();
+  }, [page, retry, revision]);
+
   return (
-    <div className="flex flex-wrap items-start gap-3 rounded-xl border border-amber-500/25 bg-amber-500/10 p-4 text-sm">
-      <Info aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-amber-700" />
-      <div className="min-w-0 flex-1">
-        <p className="font-medium">Mode simulasi aktif</p>
-        <p className="mt-1 text-xs leading-5 text-amber-800">
-          Bagian {parts} memakai data contoh karena API belum menyediakan data tersebut. Angka
-          simulasi hanya untuk memperlihatkan alur; bukan klaim hasil penelitian terbaru.
-        </p>
-      </div>
-      <Badge variant="secondary" className="bg-amber-500/15 text-amber-800">
-        Data simulasi
-      </Badge>
+    <div id="model-history" className="space-y-3 border-t p-4 sm:px-5">
+      {loading ? (
+        <output className="text-sm text-muted-foreground">Memuat riwayat model…</output>
+      ) : error ? (
+        <ErrorNotice message={error} retry={() => setRetry(retry + 1)} />
+      ) : data?.items.length ? (
+        <>
+          <ul className="divide-y rounded-lg border">
+            {data.items.map((run) => (
+              <li key={run.id}>
+                <button
+                  type="button"
+                  aria-pressed={run.id === selectedId}
+                  className="flex min-h-11 w-full flex-wrap items-center justify-between gap-2 px-3 py-2.5 text-left text-sm hover:bg-muted aria-pressed:bg-muted"
+                  onClick={() => onSelect(run.id)}
+                >
+                  <span className="flex flex-wrap items-baseline gap-x-2">
+                    {run.completed_at
+                      ? runDate.format(new Date(run.completed_at)) + " WIB"
+                      : "Waktu selesai belum dicatat"}
+                    <span className="font-mono text-xs text-muted-foreground">
+                      {run.id.slice(0, 8)}
+                    </span>
+                  </span>
+                  {run.id === activeId && <Badge>Aktif</Badge>}
+                </button>
+              </li>
+            ))}
+          </ul>
+          {(page > 1 || data.has_next) && (
+            <nav aria-label="Halaman riwayat model" className="flex items-center justify-end gap-2">
+              <Button
+                variant="outline"
+                size="icon"
+                aria-label="Riwayat sebelumnya"
+                disabled={page === 1}
+                onClick={() => setPage(page - 1)}
+              >
+                <ChevronLeft />
+              </Button>
+              <span className="text-xs text-muted-foreground">Halaman {page}</span>
+              <Button
+                variant="outline"
+                size="icon"
+                aria-label="Riwayat berikutnya"
+                disabled={!data.has_next}
+                onClick={() => setPage(page + 1)}
+              >
+                <ChevronRight />
+              </Button>
+            </nav>
+          )}
+        </>
+      ) : (
+        <p className="text-sm text-muted-foreground">Belum ada riwayat model.</p>
+      )}
     </div>
   );
 }
 
 export default function PipelineMLPage() {
-  const [runs, setRuns] = useState<MLRunSummary[]>([]);
+  const [preferredRun, setPreferredRun] = useState<MLRunSummary | null>(null);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [historyRevision, setHistoryRevision] = useState(0);
+  const [training, setTraining] = useState<MLTrainingSchedule>();
+  const [trainingSubmitting, setTrainingSubmitting] = useState(false);
+  const [trainingError, setTrainingError] = useState("");
+  const runsRequest = useRef(0);
+  const historyTrigger = useRef<HTMLButtonElement>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [datasetDigest, setDatasetDigest] = useState<string | null>();
+  const [chosenId, setChosenId] = useState<string | null>(null);
+  const selectedId = chosenId ?? preferredRun?.id ?? null;
   const [detail, setDetail] = useState<MLRunDetail | null>(null);
+  const [datasetStatus, setDatasetStatus] = useState<"loading" | "ready" | "empty" | "failed">(
+    "loading",
+  );
   const [datasetSummary, setDatasetSummary] = useState<MLDatasetSummary | null>(null);
   const [datasetRows, setDatasetRows] = useState<RowsResponse | null>(null);
   const [datasetRowsLoading, setDatasetRowsLoading] = useState(false);
   const [datasetRowsError, setDatasetRowsError] = useState("");
   const [loading, setLoading] = useState(true);
   const [detailLoading, setDetailLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [runsError, setRunsError] = useState("");
+  const [datasetError, setDatasetError] = useState("");
+  const [detailError, setDetailError] = useState("");
+  const [detailRetry, setDetailRetry] = useState(0);
+  const error = runsError || datasetError || detailError;
   const [success, setSuccess] = useState("");
   const [importOpen, setImportOpen] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [importBusy, setImportBusy] = useState(false);
   const [importError, setImportError] = useState("");
-  const [url, setUrl] = useState(demoPreview.normalized.raw.trim());
+  const [url, setUrl] = useState<string | null>(null);
   const [preview, setPreview] = useState<MLPreviewResponse | null>(null);
   const [previewBusy, setPreviewBusy] = useState(false);
   const [previewError, setPreviewError] = useState("");
@@ -353,12 +449,15 @@ export default function PipelineMLPage() {
   );
 
   const loadDataset = useCallback(async () => {
+    setDatasetStatus("loading");
     setDatasetRowsLoading(true);
     setDatasetRowsError("");
     setDatasetRows(null);
     try {
       const summary = await api<MLDatasetSummary>("/ml/dataset-summary");
       setDatasetSummary(summary);
+      setDatasetStatus("ready");
+      setDatasetError("");
       try {
         const rows = await api<RowsResponse>(
           `/dataset/rows?dataset_id=${encodeURIComponent(summary.dataset.id)}&page=1&page_size=25`,
@@ -370,31 +469,52 @@ export default function PipelineMLPage() {
     } catch (cause) {
       if (cause instanceof ApiError && cause.code === "no_dataset") {
         setDatasetSummary(null);
+        setDatasetStatus("empty");
+        setDatasetError("");
         return;
       }
-      setError(messageOf(cause));
+      setDatasetStatus("failed");
+      setDatasetError(messageOf(cause));
     } finally {
       setDatasetRowsLoading(false);
     }
   }, []);
 
-  const loadRuns = useCallback(async (selectId?: string) => {
-    setError("");
+  const loadStatus = useCallback(async () => {
+    const requestId = ++runsRequest.current;
     try {
-      const data = await api<MLRunsResponse>("/ml/runs");
-      setRuns(data.items);
+      const data = await api<MLStatusResponse>("/ml/status");
+      if (requestId !== runsRequest.current) return;
+      setTraining(data.training);
+      setRunsError("");
+      setPreferredRun(data.run);
       setActiveId(data.active_id);
-      setSelectedId(selectId ?? data.active_id ?? data.items[0]?.id ?? null);
+      setDatasetDigest(data.dataset_sha256);
+      setChosenId((current) => (current === data.active_id ? null : current));
     } catch (cause) {
-      setError(messageOf(cause));
+      if (requestId === runsRequest.current) setRunsError(messageOf(cause));
     }
   }, []);
 
   useEffect(() => {
-    void Promise.all([loadRuns(), loadDataset()]).finally(() => setLoading(false));
-  }, [loadRuns, loadDataset]);
+    function refreshVisible() {
+      if (document.visibilityState === "visible") void loadStatus();
+    }
+    void loadStatus().finally(() => setLoading(false));
+    const timer = window.setInterval(refreshVisible, 15_000);
+    document.addEventListener("visibilitychange", refreshVisible);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", refreshVisible);
+    };
+  }, [loadStatus]);
 
   useEffect(() => {
+    if (datasetDigest !== undefined) void loadDataset();
+  }, [datasetDigest, loadDataset]);
+
+  useEffect(() => {
+    setDetailError("");
     if (!selectedId) {
       setDetail(null);
       return;
@@ -407,7 +527,7 @@ export default function PipelineMLPage() {
         if (!cancelled) setDetail(data.run);
       })
       .catch((cause) => {
-        if (!cancelled) setError(messageOf(cause));
+        if (!cancelled) setDetailError(messageOf(cause));
       })
       .finally(() => {
         if (!cancelled) setDetailLoading(false);
@@ -415,13 +535,19 @@ export default function PipelineMLPage() {
     return () => {
       cancelled = true;
     };
-  }, [selectedId]);
+  }, [selectedId, detailRetry]);
 
-  const selected = runs.find((run) => run.id === selectedId) ?? null;
-  const runView = detail ?? demoRun;
-  const runIsDemo = !detail && !detailLoading;
+  const currentDetail = detail?.id === selectedId ? detail : null;
+  const selected = currentDetail ?? (preferredRun?.id === selectedId ? preferredRun : null);
+  const datasetMatches =
+    selected?.dataset_matches == null || !datasetDigest
+      ? null
+      : selected.dataset_sha256 === datasetDigest;
+  const runView = currentDetail ?? demoRun;
+  const runIsDemo = !selectedId && !runsError;
   const datasetView = datasetSummary ?? demoDatasetSummary;
-  const datasetIsDemo = !datasetSummary;
+  const datasetIsDemo = datasetStatus === "empty";
+  const showDataset = datasetIsDemo || datasetStatus === "ready";
   const rows = datasetIsDemo ? demoRows : (datasetRows?.rows ?? []);
   const split = runView.split_counts;
   const report = runView.report[reportSplit];
@@ -434,12 +560,9 @@ export default function PipelineMLPage() {
       ? classRows.reduce((lowest, row) => (row["f1-score"] < lowest["f1-score"] ? row : lowest))
       : null;
   const exploitSupport = runView.report.test.exploit?.support ?? 0;
-  const showDetailLoading = runs.length > 0 && detailLoading && !detail;
-  const summaryCards = [
-    ["Total dataset", number.format(datasetView.dataset.row_count), Database],
-    ["Jumlah kelas", number.format(datasetView.class_counts.length), Layers],
-    ["Skor model", percent.format(runView.metrics.test.accuracy), Gauge],
-  ] as const;
+  const showDetailLoading = Boolean(selectedId && detailLoading && !currentDetail);
+  const scheduledRun = Boolean(currentDetail?.provenance.dataset_filename);
+  const detailUnavailable = Boolean(selectedId && !currentDetail && !showDetailLoading);
 
   async function handleImport() {
     if (!file) return;
@@ -456,11 +579,11 @@ export default function PipelineMLPage() {
       setFile(null);
       setSuccess(data.message);
       setDetail(data.run);
-      setSelectedId(data.run.id);
+      setChosenId(data.run.id);
       setMatrixMode("count");
       setReportSplit("test");
-      await loadRuns(data.run.id);
-      await loadDataset();
+      setHistoryRevision((value) => value + 1);
+      await loadStatus();
     } catch (cause) {
       setImportError(messageOf(cause));
     } finally {
@@ -468,8 +591,42 @@ export default function PipelineMLPage() {
     }
   }
 
-  async function handlePreview(event: FormEvent) {
-    event.preventDefault();
+  const trainingBusy = training?.last_status === "queued" || training?.last_status === "running";
+  const canTrain = Boolean(
+    training?.pending_dataset && !trainingBusy && !trainingSubmitting && !runsError,
+  );
+
+  async function handleTrain() {
+    if (!canTrain || !training?.dataset) return;
+    setTrainingSubmitting(true);
+    setTrainingError("");
+    try {
+      const next = await api<MLTrainingSchedule>("/ml/train", {
+        method: "POST",
+        body: JSON.stringify({ dataset_id: training.dataset.id }),
+      });
+      setTraining(next);
+      setChosenId(null);
+    } catch (cause) {
+      setTrainingError(messageOf(cause));
+    } finally {
+      await loadStatus();
+      setTrainingSubmitting(false);
+    }
+  }
+
+  function navigateStage(tab: typeof activeTab, id: string) {
+    setActiveTab(tab);
+    window.requestAnimationFrame(() => {
+      const section = document.getElementById(id);
+      if (!section) return;
+      section.setAttribute("tabindex", "-1");
+      section.focus({ preventScroll: true });
+      section.scrollIntoView({ block: "start" });
+    });
+  }
+
+  async function handlePreview(url: string) {
     if (!url.trim()) return;
     setPreviewBusy(true);
     setPreviewError("");
@@ -493,21 +650,33 @@ export default function PipelineMLPage() {
       <div className="page-heading">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Pipeline ML</h1>
-          <p>
-            Visualisasi alur dataset, preprocessing, TF-IDF, training LinearSVC, dan evaluasi model.
-            Halaman ini tidak menjalankan training atau inference.
-          </p>
+          <p>Kelola training dan evaluasi model LinearSVC + TF-IDF untuk pemindaian URL.</p>
         </div>
-        <Button
-          onClick={() => {
-            setImportError("");
-            setImportOpen(true);
-          }}
-        >
-          <Upload aria-hidden="true" />
-          Impor hasil
-        </Button>
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
+          <Button
+            variant="outline"
+            className="min-h-9 max-md:min-h-11"
+            onClick={() => {
+              setImportError("");
+              setImportOpen(true);
+            }}
+          >
+            <Upload aria-hidden="true" />
+            Impor hasil
+          </Button>
+          <Button
+            className="min-h-9 max-md:min-h-11"
+            disabled={!canTrain}
+            aria-describedby={loading ? undefined : "training-status"}
+            onClick={() => void handleTrain()}
+          >
+            <Play aria-hidden="true" />
+            {trainingSubmitting ? "Mengajukan…" : "Train sekarang"}
+          </Button>
+        </div>
       </div>
+
+      {trainingError && <ErrorNotice message={trainingError} />}
 
       {success && (
         <div className="success-notice">
@@ -522,8 +691,9 @@ export default function PipelineMLPage() {
         <ErrorNotice
           message={error}
           retry={() => {
-            void loadRuns();
-            void loadDataset();
+            void loadStatus();
+            if (datasetError) void loadDataset();
+            if (detailError) setDetailRetry((current) => current + 1);
           }}
         />
       )}
@@ -532,115 +702,169 @@ export default function PipelineMLPage() {
         <Loading text="Memuat data pipeline." />
       ) : (
         <>
-          <div className="rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <p className="font-medium">Preview interaktif</p>
-                <p className="mt-1 text-xs text-blue-800">
-                  Data dashboard diambil dari API saat tersedia; mode demo akan ditandai dengan
-                  jelas.
-                </p>
-              </div>
-              <Badge variant="outline" className="border-blue-200 bg-white text-blue-800">
-                Linear SVM + Char TF-IDF
-              </Badge>
-            </div>
-          </div>
+          <section
+            aria-labelledby="model-overview"
+            className="overflow-hidden rounded-xl border bg-card"
+          >
+            <output
+              id="training-status"
+              className="block border-b px-4 py-3 text-sm leading-5 text-muted-foreground sm:px-5"
+            >
+              {runsError || !training ? (
+                runsError ? (
+                  "Status training belum tersedia."
+                ) : (
+                  "Memeriksa status training…"
+                )
+              ) : trainingBusy ? (
+                <>
+                  <strong className="text-foreground">
+                    {training.last_status === "queued"
+                      ? "Training dalam antrean."
+                      : "Training sedang berjalan."}
+                  </strong>
+                  {activeId && " Pemindaian tetap memakai model aktif."}
+                </>
+              ) : training.last_status === "failed" ? (
+                <>
+                  <strong className="text-foreground">Training terakhir gagal.</strong>{" "}
+                  {training.last_message}
+                </>
+              ) : training.dataset && training.pending_dataset ? (
+                <>
+                  <strong className="break-all text-foreground">{training.dataset.filename}</strong>{" "}
+                  siap dilatih.
+                </>
+              ) : training.dataset ? (
+                training.last_status === "completed" ? (
+                  training.last_message
+                ) : (
+                  "Dataset aktif sudah berhasil dilatih."
+                )
+              ) : (
+                <>
+                  Unggah CSV di{" "}
+                  <Link className="text-primary underline underline-offset-4" href="/datasets">
+                    Dataset
+                  </Link>{" "}
+                  untuk memulai training.
+                </>
+              )}
+            </output>
 
-          <DemoBanner runIsDemo={runIsDemo} datasetIsDemo={datasetIsDemo} />
-
-          {runs.length > 0 ? (
-            <div className="flex flex-col gap-4 rounded-xl border bg-card p-4 shadow-xs sm:flex-row sm:items-end sm:justify-between">
-              <div className="w-full sm:max-w-sm">
-                <Label
-                  htmlFor="ml-run"
-                  className="mb-2 block text-xs font-medium text-muted-foreground"
-                >
-                  Hasil model
-                </Label>
-                <select
-                  id="ml-run"
-                  className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
-                  value={selectedId ?? ""}
-                  onChange={(event) => setSelectedId(event.target.value)}
-                >
-                  {runs.map((run) => (
-                    <option key={run.id} value={run.id}>
-                      {run.id} — {run.model}/{run.representation}
-                    </option>
-                  ))}
-                </select>
+            <div className="flex flex-wrap items-start justify-between gap-3 p-4 sm:p-5">
+              <div className="min-w-0 space-y-2">
+                <h2 id="model-overview" className="text-base font-semibold">
+                  {selectedId && selectedId === activeId
+                    ? "Model aktif"
+                    : selectedId
+                      ? "Hasil evaluasi"
+                      : "Belum ada model aktif"}
+                </h2>
+                {selectedId ? (
+                  <>
+                    <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                      <span className="font-mono">{selectedId.slice(0, 8)}</span>
+                      {selected?.completed_at && (
+                        <span>{runDate.format(new Date(selected.completed_at))} WIB</span>
+                      )}
+                      {selectedId !== activeId && <Badge variant="outline">Riwayat</Badge>}
+                      {selected?.is_synthetic && (
+                        <Badge variant="secondary" className="bg-warning-surface text-warning">
+                          Matriks rekonstruksi
+                        </Badge>
+                      )}
+                      {selected && datasetMatches === null && (
+                        <Badge variant="outline">Dataset training belum terverifikasi</Badge>
+                      )}
+                      {datasetMatches === false && (
+                        <Badge variant="outline" className="text-destructive">
+                          Dataset berbeda
+                        </Badge>
+                      )}
+                    </div>
+                    {currentDetail?.provenance.dataset_filename && (
+                      <p className="text-xs leading-5 text-muted-foreground">
+                        <strong className="break-all text-foreground">
+                          {currentDetail.provenance.dataset_filename}
+                        </strong>
+                        {" · "}
+                        {number.format(currentDetail.provenance.source_row_count ?? 0)} baris sumber
+                        {" · "}
+                        {number.format(currentDetail.row_count ?? 0)} URL unik setelah preprocessing
+                      </p>
+                    )}
+                    {activeId && selectedId !== activeId && (
+                      <Button
+                        variant="link"
+                        className="h-auto p-0"
+                        onClick={() => setChosenId(null)}
+                      >
+                        Kembali ke model aktif
+                      </Button>
+                    )}
+                  </>
+                ) : runIsDemo ? (
+                  <p className="text-sm text-muted-foreground">
+                    Tab Detail Training dan Evaluasi menampilkan contoh berlabel.
+                  </p>
+                ) : null}
               </div>
-              <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                <Badge variant="outline">{selected?.model?.toUpperCase() ?? "SVM"}</Badge>
-                <Badge variant="outline">
-                  {selected?.representation?.toUpperCase() ?? "TF-IDF"}
-                </Badge>
-                <Badge variant="outline">{selected?.status ?? "completed"}</Badge>
-                {activeId === selectedId && <Badge>Aktif</Badge>}
-                {selected?.is_synthetic && (
-                  <Badge variant="outline" className="border-amber-300 text-amber-700">
-                    Matriks rekonstruksi
-                  </Badge>
+              <div className="flex flex-wrap items-start gap-3">
+                {selected?.metrics.test.accuracy !== undefined && (
+                  <div className="pr-1">
+                    <p className="text-xs text-muted-foreground">
+                      Akurasi uji{selected.is_synthetic ? " (simulasi)" : ""}
+                    </p>
+                    <p className="text-xl font-semibold tabular-nums">
+                      {percent.format(selected.metrics.test.accuracy)}
+                    </p>
+                  </div>
                 )}
-                {selected?.dataset_matches === false && (
-                  <Badge variant="outline" className="border-red-300 text-red-700">
-                    Dataset berbeda
-                  </Badge>
+                {preferredRun && (
+                  <Button
+                    ref={historyTrigger}
+                    variant="outline"
+                    aria-expanded={historyOpen}
+                    aria-controls={historyOpen ? "model-history" : undefined}
+                    onClick={() => setHistoryOpen(!historyOpen)}
+                  >
+                    Riwayat model
+                  </Button>
                 )}
               </div>
             </div>
-          ) : (
-            <div className="flex flex-wrap items-center gap-3 rounded-xl border bg-card p-4 text-sm shadow-xs">
-              <Info aria-hidden="true" className="size-4 text-primary" />
-              <p className="min-w-0 flex-1 text-muted-foreground">
-                Belum ada artefak model di API. Bagian split, training, dan evaluasi memakai contoh
-                artefak notebook. Unggah <code>svm_tfidf_metrics.json</code> untuk memakai hasil
-                asli.
-              </p>
-              <SourceBadge isDemo />
-            </div>
-          )}
+            {historyOpen && (
+              <ModelHistory
+                activeId={activeId}
+                selectedId={selectedId}
+                revision={`${activeId ?? ""}:${preferredRun?.id ?? ""}:${historyRevision}`}
+                onSelect={(id) => {
+                  setChosenId(id === preferredRun?.id ? null : id);
+                  setHistoryOpen(false);
+                  historyTrigger.current?.focus();
+                }}
+              />
+            )}
+          </section>
 
-          <div className="grid gap-3 sm:grid-cols-3">
-            {summaryCards.map(([label, value, Icon]) => (
-              <div key={label} className="rounded-xl border bg-card p-5 shadow-xs">
-                <div className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                  <Icon aria-hidden="true" className="size-3.5 text-primary" /> {label}
-                </div>
-                <p className="mt-5 text-2xl font-semibold tabular-nums">{value}</p>
-              </div>
-            ))}
-          </div>
-
-          <div className="flex flex-wrap gap-2" role="tablist" aria-label="Tampilan pipeline ML">
-            {[
-              ["summary", "Ringkasan"],
-              ["flow", "Alur Pipeline"],
-              ["simulator", "Simulator"],
-              ["evaluation", "Evaluasi"],
-            ].map(([value, label]) => (
-              <Button
-                key={value}
-                type="button"
-                size="sm"
-                variant={activeTab === value ? "default" : "outline"}
-                role="tab"
-                aria-selected={activeTab === value}
-                onClick={() => setActiveTab(value as typeof activeTab)}
-              >
-                {label}
-              </Button>
-            ))}
-          </div>
-
-          {activeTab === "flow" && <PipelineOverview />}
-
-          {showDetailLoading ? (
-            <Loading text="Memuat detail hasil model." />
-          ) : (
-            <>
-              {activeTab === "summary" && (
+          <Tabs
+            value={activeTab}
+            onValueChange={(value) => setActiveTab(value as typeof activeTab)}
+            className="min-w-0 gap-4"
+          >
+            <TabsList
+              aria-label="Tampilan pipeline ML"
+              className="grid h-auto! w-full grid-cols-2 gap-1 sm:inline-flex sm:w-fit [&>button]:min-h-10 [&>button]:px-3"
+            >
+              <TabsTrigger value="summary">Ringkasan</TabsTrigger>
+              <TabsTrigger value="flow">Alur Pipeline</TabsTrigger>
+              <TabsTrigger value="simulator">Detail Training</TabsTrigger>
+              <TabsTrigger value="evaluation">Evaluasi</TabsTrigger>
+            </TabsList>
+            <TabsContent value="summary">
+              {datasetStatus === "loading" && <Loading text="Memuat dataset aktif." />}
+              {showDataset && (
                 <DatasetVisualization
                   summary={datasetView}
                   rows={rows}
@@ -649,276 +873,285 @@ export default function PipelineMLPage() {
                   rowsError={datasetRowsError}
                 />
               )}
-
-              {activeTab === "flow" && (
+            </TabsContent>
+            <TabsContent value="flow" className="space-y-4">
+              <PipelineOverview onNavigate={navigateStage} />
+              {datasetStatus === "loading" && <Loading text="Memuat dataset aktif." />}
+              {showDataset && (
                 <PreprocessingVisualization
+                  key={`${datasetView.dataset.id}:${datasetView.dataset.row_count}`}
                   dataset={datasetView.dataset}
                   rows={rows}
-                  isDemo={datasetIsDemo || runIsDemo}
+                  isDemo={datasetIsDemo}
                   preview={preview}
                   url={url}
                   onUrlChange={setUrl}
                   onPreview={handlePreview}
                   previewBusy={previewBusy}
                   previewError={previewError}
-                  preprocessing={runView.preprocessing}
+                  preprocessing={
+                    currentDetail?.preprocessing ?? (runIsDemo ? demoRun.preprocessing : null)
+                  }
                 />
               )}
+            </TabsContent>
+            <TabsContent value="simulator" className="space-y-4">
+              {showDetailLoading ? (
+                <Loading text="Memuat detail hasil model." />
+              ) : detailUnavailable ? (
+                <p className="text-sm text-muted-foreground">Detail hasil model belum tersedia.</p>
+              ) : (
+                <>
+                  <section id="split" className="data-section scroll-mt-24">
+                    <div className="table-toolbar">
+                      <div>
+                        <h2>Pembagian Dataset</h2>
+                        <p>
+                          {scheduledRun
+                            ? "Target 70/15/15 berdasarkan grup domain. Proporsi baris mengikuti ukuran grup."
+                            : "Jumlah baris per partisi sesuai catatan evaluasi model."}
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap items-center justify-end gap-2">
+                        <SourceBadge isDemo={runIsDemo} />
+                        {scheduledRun && <Badge variant="outline">Grup domain</Badge>}
+                      </div>
+                    </div>
+                    <div className="space-y-5 p-5">
+                      <SplitBar split={split} />
+                      <SplitDistribution key={runView.id} run={runView} />
+                      {scheduledRun && (
+                        <p className="text-xs leading-5 text-muted-foreground">
+                          Untuk training LinkGuard, input URL dipangkas, diubah ke huruf kecil, dan
+                          dibersihkan dari skema HTTP(S). URL dengan input model yang sama dihitung
+                          sekali sebelum pembagian berdasarkan grup domain.
+                        </p>
+                      )}
+                    </div>
+                  </section>
 
-              {activeTab === "simulator" && (
-                <section id="split" className="data-section scroll-mt-24">
-                  <div className="table-toolbar">
-                    <div>
-                      <h2>Pembagian Dataset</h2>
-                      <p>
-                        Split domain-disjoint 70/15/15 memakai eTLD+1 ICANN; tidak ada domain yang
-                        muncul di lebih dari satu partisi.
-                      </p>
+                  <section id="training" className="data-section scroll-mt-24">
+                    <div className="table-toolbar">
+                      <div>
+                        <h2>Training LinearSVC</h2>
+                        <p>Konfigurasi model dan durasi pelatihan yang tercatat.</p>
+                      </div>
+                      <div className="flex flex-wrap items-center justify-end gap-2">
+                        <SourceBadge isDemo={runIsDemo} />
+                        <Badge variant="outline">LinearSVC</Badge>
+                      </div>
                     </div>
-                    <div className="flex flex-wrap items-center justify-end gap-2">
-                      <SourceBadge isDemo={runIsDemo} />
-                      <Badge variant="outline">70 / 15 / 15</Badge>
-                    </div>
-                  </div>
-                  <div className="space-y-5 p-5">
-                    <SplitBar split={split} />
-                    <div className="grid gap-3 sm:grid-cols-3">
-                      {[
-                        ["Train", split.train, "Melatih LinearSVC"],
-                        ["Validation", split.validation, "Membandingkan konfigurasi"],
-                        ["Test", split.test, "Evaluasi akhir"],
-                      ].map(([label, value, hint]) => (
-                        <div key={String(label)} className="rounded-lg border bg-card p-3">
-                          <p className="text-[11px] text-muted-foreground">{label}</p>
-                          <p className="mt-1 text-lg font-semibold tabular-nums">
-                            {number.format(Number(value))}
-                          </p>
-                          <p className="text-[11px] text-muted-foreground">{hint}</p>
-                        </div>
-                      ))}
-                    </div>
-                    <p className="text-xs leading-5 text-muted-foreground">
-                      Normalisasi hostname dipakai untuk mengelompokkan domain saat split, sedangkan
-                      input model hanya di-
-                      <code>strip</code>. Kelas pada dataset dapat berbeda dari kelas artefak.
-                    </p>
-                  </div>
-                </section>
-              )}
-
-              {activeTab === "simulator" && (
-                <section id="training" className="data-section scroll-mt-24">
-                  <div className="table-toolbar">
-                    <div>
-                      <h2>Training LinearSVC</h2>
-                      <p>Informasi model final dan biaya pelatihan dari artefak notebook.</p>
-                    </div>
-                    <div className="flex flex-wrap items-center justify-end gap-2">
-                      <SourceBadge isDemo={runIsDemo} />
-                      <Badge variant="outline">LinearSVC</Badge>
-                    </div>
-                  </div>
-                  <div className="space-y-6 p-5">
-                    <div className="flex flex-col gap-2 lg:flex-row lg:items-center">
-                      {trainingFlow.map((step, index) => (
-                        <div key={step.label} className="flex min-w-0 flex-1 items-center gap-2">
-                          <div className="w-full rounded-lg border bg-muted/30 p-3">
-                            <step.Icon aria-hidden="true" className="size-4 text-primary" />
-                            <p className="mt-2 text-sm font-medium">{step.label}</p>
-                            <p className="mt-0.5 text-[11px] leading-4 text-muted-foreground">
-                              {step.hint}
-                            </p>
-                          </div>
-                          {index < trainingFlow.length - 1 && (
-                            <ArrowRight
-                              aria-hidden="true"
-                              className="hidden size-4 shrink-0 text-muted-foreground lg:block"
-                            />
-                          )}
-                        </div>
-                      ))}
-                    </div>
-
-                    <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
-                      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                        {trainingParameters.map(([label, key]) => (
-                          <div key={key} className="rounded-lg border bg-card p-3">
-                            <p className="font-mono text-[11px] text-muted-foreground">{label}</p>
-                            <p className="mt-1 break-all text-sm font-medium">
-                              {runView.params[key] === undefined || runView.params[key] === null
-                                ? "—"
-                                : String(runView.params[key])}
-                            </p>
+                    <div className="space-y-6 p-5">
+                      <div className="flex flex-col gap-2 lg:flex-row lg:items-center">
+                        {trainingFlow.map((step, index) => (
+                          <div key={step.label} className="flex min-w-0 flex-1 items-center gap-2">
+                            <div className="w-full rounded-lg border bg-muted/30 p-3">
+                              <step.Icon aria-hidden="true" className="size-4 text-primary" />
+                              <p className="mt-2 text-sm font-medium">{step.label}</p>
+                              <p className="mt-0.5 text-[11px] leading-4 text-muted-foreground">
+                                {step.hint}
+                              </p>
+                            </div>
+                            {index < trainingFlow.length - 1 && (
+                              <ArrowRight
+                                aria-hidden="true"
+                                className="hidden size-4 shrink-0 text-muted-foreground lg:block"
+                              />
+                            )}
                           </div>
                         ))}
                       </div>
-                      <div className="space-y-3">
-                        <div className="flex items-center justify-between rounded-lg border bg-card p-3 text-sm">
-                          <span className="flex items-center gap-2 text-muted-foreground">
-                            <Database aria-hidden="true" className="size-4" /> Baris training
-                          </span>
-                          <span className="font-semibold tabular-nums">
-                            {number.format(split.train)}
-                          </span>
-                        </div>
-                        <div className="flex items-center justify-between rounded-lg border bg-card p-3 text-sm">
-                          <span className="flex items-center gap-2 text-muted-foreground">
-                            <Layers aria-hidden="true" className="size-4" /> Fitur TF-IDF
-                          </span>
-                          <span className="font-semibold tabular-nums">
-                            {runView.input_features ? number.format(runView.input_features) : "—"}
-                          </span>
-                        </div>
-                        <div className="flex items-center justify-between rounded-lg border bg-card p-3 text-sm">
-                          <span className="flex items-center gap-2 text-muted-foreground">
-                            <Gauge aria-hidden="true" className="size-4" /> Waktu fit
-                          </span>
-                          <span className="font-semibold tabular-nums">
-                            {runView.fit_seconds === null
-                              ? "—"
-                              : `${runView.fit_seconds.toFixed(1)} dtk`}
-                          </span>
-                        </div>
-                        <p className="text-xs leading-5 text-muted-foreground">
-                          Model dilatih pada seluruh train. Validation dan test hanya dipakai untuk
-                          evaluasi, bukan untuk menyesuaikan bobot model.
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </section>
-              )}
 
-              {activeTab === "evaluation" && (
-                <section id="validation" className="data-section scroll-mt-24">
-                  <div className="table-toolbar">
-                    <div>
-                      <h2>Validasi dan Perbandingan Metrik</h2>
-                      <p>Perbandingan hasil validation dan test dari artefak model.</p>
-                    </div>
-                    <SourceBadge isDemo={runIsDemo} />
-                  </div>
-                  <div className="space-y-5 p-5">
-                    <div className="grid gap-4 md:grid-cols-2">
-                      <MetricGroup title="Validation" metrics={runView.metrics.validation} />
-                      <MetricGroup title="Test" metrics={runView.metrics.test} />
-                    </div>
-                    <MetricComparison metrics={runView.metrics} />
-                    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                      {metricDefinitions.map(([label, explanation]) => (
-                        <div key={label} className="rounded-lg border bg-muted/30 p-3">
-                          <p className="text-xs font-medium">{label}</p>
-                          <p className="mt-1 text-[11px] leading-5 text-muted-foreground">
-                            {explanation}
+                      <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
+                        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                          {trainingParameters.map(([label, key]) => (
+                            <div key={key} className="rounded-lg border bg-card p-3">
+                              <p className="font-mono text-[11px] text-muted-foreground">{label}</p>
+                              <p className="mt-1 break-all text-sm font-medium">
+                                {runView.params[key] === undefined || runView.params[key] === null
+                                  ? "—"
+                                  : String(runView.params[key])}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between rounded-lg border bg-card p-3 text-sm">
+                            <span className="flex items-center gap-2 text-muted-foreground">
+                              <Database aria-hidden="true" className="size-4" /> Baris training
+                            </span>
+                            <span className="font-semibold tabular-nums">
+                              {number.format(split.train)}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between rounded-lg border bg-card p-3 text-sm">
+                            <span className="flex items-center gap-2 text-muted-foreground">
+                              <Layers aria-hidden="true" className="size-4" /> Fitur TF-IDF
+                            </span>
+                            <span className="font-semibold tabular-nums">
+                              {runView.input_features ? number.format(runView.input_features) : "—"}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between rounded-lg border bg-card p-3 text-sm">
+                            <span className="flex items-center gap-2 text-muted-foreground">
+                              <Gauge aria-hidden="true" className="size-4" /> Waktu fit
+                            </span>
+                            <span className="font-semibold tabular-nums">
+                              {runView.fit_seconds === null
+                                ? "—"
+                                : `${runView.fit_seconds.toFixed(1)} dtk`}
+                            </span>
+                          </div>
+                          <p className="text-xs leading-5 text-muted-foreground">
+                            Model dilatih pada seluruh train. Validation dan test hanya dipakai
+                            untuk evaluasi, bukan untuk menyesuaikan bobot model.
                           </p>
                         </div>
-                      ))}
-                    </div>
-                  </div>
-                </section>
-              )}
-
-              {activeTab === "evaluation" && (
-                <section id="evaluation" className="data-section scroll-mt-24">
-                  <div className="table-toolbar">
-                    <div>
-                      <h2>Evaluasi Akhir</h2>
-                      <p>Classification report per kelas dan confusion matrix pada test set.</p>
-                    </div>
-                    <div className="flex flex-wrap items-center justify-end gap-2">
-                      <SourceBadge isDemo={runIsDemo} />
-                      <Badge variant="outline">
-                        {reportSplit === "test" ? "Test set" : "Validation set"}
-                      </Badge>
-                    </div>
-                  </div>
-                  <div className="space-y-6 p-5">
-                    <div className="flex flex-wrap items-start gap-3 rounded-lg border border-amber-500/25 bg-amber-500/10 p-4 text-sm">
-                      <ScanSearch
-                        aria-hidden="true"
-                        className="mt-0.5 size-4 shrink-0 text-amber-600"
-                      />
-                      <p>
-                        {weakest ? (
-                          <>
-                            F1 terendah pada test set ada di kelas <strong>{weakest.label}</strong>{" "}
-                            ({percent.format(weakest["f1-score"])}).
-                          </>
-                        ) : (
-                          "Report per kelas tidak tersedia."
-                        )}{" "}
-                        {exploitSupport > 0 && exploitSupport < 100 && (
-                          <>
-                            Kelas <code>exploit</code> hanya memiliki{" "}
-                            {number.format(exploitSupport)} contoh uji, jadi angkanya sensitif dan
-                            jangan dibandingkan langsung dengan kelas besar.
-                          </>
-                        )}
-                      </p>
-                    </div>
-
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                      <p className="text-xs font-medium text-muted-foreground">
-                        Classification report per kelas
-                      </p>
-                      <div className="flex gap-2">
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant={reportSplit === "validation" ? "default" : "outline"}
-                          aria-pressed={reportSplit === "validation"}
-                          onClick={() => setReportSplit("validation")}
-                        >
-                          Validation
-                        </Button>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant={reportSplit === "test" ? "default" : "outline"}
-                          aria-pressed={reportSplit === "test"}
-                          onClick={() => setReportSplit("test")}
-                        >
-                          Test
-                        </Button>
                       </div>
                     </div>
-                    <ReportTable report={report} />
-
-                    <div>
-                      <p className="mb-3 text-xs font-medium text-muted-foreground">
-                        Confusion matrix
-                      </p>
-                      <ConfusionMatrix
-                        detail={runView}
-                        mode={matrixMode}
-                        onModeChange={setMatrixMode}
-                      />
-                      {runIsDemo && (
-                        <p className="mt-3 text-xs leading-5 text-muted-foreground">
-                          Confusion matrix contoh artefak direkonstruksi dari recall dan support
-                          karena notebook hanya menyimpan matriks asli sebagai gambar.
-                        </p>
-                      )}
-                      {selected?.is_synthetic && !runIsDemo && (
-                        <p className="mt-3 text-xs leading-5 text-amber-700">
-                          Artefak ini bertanda sintetis: matriksnya direkonstruksi, sehingga
-                          precision per kelas tidak dapat diturunkan dari matriks dan angka ini
-                          tidak boleh dianggap hasil eksperimen asli.
-                        </p>
-                      )}
-                      {selected?.dataset_matches === false && (
-                        <p className="mt-3 text-xs leading-5 text-red-700">
-                          Metrik ini berasal dari dataset {selected.dataset_id ?? "lain"} yang
-                          berbeda dari dataset aktif. Sinkronkan ulang atau latih model pada dataset
-                          terbaru sebelum memakai angka ini.
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                </section>
+                  </section>
+                </>
               )}
-            </>
-          )}
+            </TabsContent>
+            <TabsContent value="evaluation" className="space-y-4">
+              {showDetailLoading ? (
+                <Loading text="Memuat detail hasil model." />
+              ) : detailUnavailable ? (
+                <p className="text-sm text-muted-foreground">Detail hasil model belum tersedia.</p>
+              ) : (
+                <>
+                  <section id="validation" className="data-section scroll-mt-24">
+                    <div className="table-toolbar">
+                      <div>
+                        <h2>Validasi dan Perbandingan Metrik</h2>
+                        <p>Perbandingan hasil validation dan test dari artefak model.</p>
+                      </div>
+                      <SourceBadge isDemo={runIsDemo} />
+                    </div>
+                    <div className="space-y-5 p-5">
+                      <MetricComparison metrics={runView.metrics} />
+                      <details className="rounded-lg border px-3 py-2">
+                        <summary className="cursor-pointer text-sm font-medium">
+                          Arti metrik
+                        </summary>
+                        <dl className="mt-3 grid gap-3 sm:grid-cols-2">
+                          {metricDefinitions.map(([label, explanation]) => (
+                            <div key={label}>
+                              <dt className="text-xs font-medium">{label}</dt>
+                              <dd className="mt-1 text-xs leading-5 text-muted-foreground">
+                                {explanation}
+                              </dd>
+                            </div>
+                          ))}
+                        </dl>
+                      </details>
+                    </div>
+                  </section>
+
+                  <section id="evaluation" className="data-section scroll-mt-24">
+                    <div className="table-toolbar">
+                      <div>
+                        <h2>Evaluasi Akhir</h2>
+                        <p>Classification report per kelas dan confusion matrix pada test set.</p>
+                      </div>
+                      <div className="flex flex-wrap items-center justify-end gap-2">
+                        <SourceBadge isDemo={runIsDemo} />
+                        <Badge variant="outline">
+                          {reportSplit === "test" ? "Test set" : "Validation set"}
+                        </Badge>
+                      </div>
+                    </div>
+                    <div className="space-y-6 p-5">
+                      <div className="flex flex-wrap items-start gap-3 rounded-lg border border-amber-500/25 bg-amber-500/10 p-4 text-sm">
+                        <ScanSearch
+                          aria-hidden="true"
+                          className="mt-0.5 size-4 shrink-0 text-amber-600"
+                        />
+                        <p>
+                          {weakest ? (
+                            <>
+                              F1 terendah pada test set ada di kelas{" "}
+                              <strong>{weakest.label}</strong> (
+                              {percent.format(weakest["f1-score"])}).
+                            </>
+                          ) : (
+                            "Report per kelas tidak tersedia."
+                          )}{" "}
+                          {exploitSupport > 0 && exploitSupport < 100 && (
+                            <>
+                              Kelas <code>exploit</code> hanya memiliki{" "}
+                              {number.format(exploitSupport)} contoh uji, jadi angkanya sensitif dan
+                              jangan dibandingkan langsung dengan kelas besar.
+                            </>
+                          )}
+                        </p>
+                      </div>
+
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <p className="text-xs font-medium text-muted-foreground">
+                          Classification report per kelas
+                        </p>
+                        <div className="flex gap-2">
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant={reportSplit === "validation" ? "default" : "outline"}
+                            aria-pressed={reportSplit === "validation"}
+                            onClick={() => setReportSplit("validation")}
+                          >
+                            Validation
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant={reportSplit === "test" ? "default" : "outline"}
+                            aria-pressed={reportSplit === "test"}
+                            onClick={() => setReportSplit("test")}
+                          >
+                            Test
+                          </Button>
+                        </div>
+                      </div>
+                      <ReportTable report={report} classes={runView.classes} />
+
+                      <div>
+                        <p className="mb-3 text-xs font-medium text-muted-foreground">
+                          Confusion matrix · Test set
+                        </p>
+                        <ConfusionMatrix
+                          detail={runView}
+                          mode={matrixMode}
+                          onModeChange={setMatrixMode}
+                        />
+                        {runIsDemo && (
+                          <p className="mt-3 text-xs leading-5 text-muted-foreground">
+                            Confusion matrix contoh artefak direkonstruksi dari recall dan support
+                            karena notebook hanya menyimpan matriks asli sebagai gambar.
+                          </p>
+                        )}
+                        {selected?.is_synthetic && !runIsDemo && (
+                          <p className="mt-3 text-xs leading-5 text-amber-700">
+                            Artefak ini bertanda sintetis: matriksnya direkonstruksi, sehingga
+                            precision per kelas tidak dapat diturunkan dari matriks dan angka ini
+                            tidak boleh dianggap hasil eksperimen asli.
+                          </p>
+                        )}
+                        {datasetMatches === false && (
+                          <p className="mt-3 text-xs leading-5 text-red-700">
+                            Metrik ini berasal dari versi dataset sebelumnya. Buka{" "}
+                            <Link className="underline" href="/training">
+                              Jadwal Training
+                            </Link>{" "}
+                            untuk memeriksa status dataset terbaru.
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </section>
+                </>
+              )}
+            </TabsContent>
+          </Tabs>
         </>
       )}
 

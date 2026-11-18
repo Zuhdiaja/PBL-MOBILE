@@ -212,19 +212,52 @@ void main() {
   );
 
   test('QR controller delegates the injected example to domain validation', () {
-    const valid = ScanQrController(
+    final valid = ScanQrController(
       prepareScanPreview: prepare,
       exampleUrl: 'https://qr.example.com',
     );
+    addTearDown(valid.dispose);
     expect(
       valid.prepareExamplePreview().preview!.urls.single.host,
       'qr.example.com',
     );
-    const invalid = ScanQrController(
+    final invalid = ScanQrController(
       prepareScanPreview: prepare,
       exampleUrl: 'invalid',
     );
+    addTearDown(invalid.dispose);
     expect(invalid.prepareExamplePreview().preview, isNull);
     expect(invalid.prepareExamplePreview().failure, isNotNull);
+  });
+
+  test('QR controller accepts a scanned link and refuses other payloads', () {
+    final controller = ScanQrController(
+      prepareScanPreview: prepare,
+      exampleUrl: 'https://qr.example.com',
+    );
+    addTearDown(controller.dispose);
+
+    final accepted = controller.handleDetected('https://pindai.example.com/a');
+    expect(accepted!.preview!.urls.single.host, 'pindai.example.com');
+    expect(controller.rejection, isNull);
+
+    expect(controller.handleDetected('WIFI:S:Rumah;T:WPA;P:rahasia;;'), isNull);
+    expect(controller.rejection, contains('Wi-Fi'));
+  });
+
+  test('QR controller does not repeat the same refusal', () {
+    final controller = ScanQrController(
+      prepareScanPreview: prepare,
+      exampleUrl: 'https://qr.example.com',
+    );
+    addTearDown(controller.dispose);
+
+    expect(controller.handleDetected('bukan tautan'), isNull);
+    expect(controller.rejection, isNotNull);
+    // Same payload again is ignored so the camera cannot spam the message.
+    expect(controller.handleDetected('bukan tautan'), isNull);
+
+    controller.clearRejection();
+    expect(controller.handleDetected('https://baru.example.com'), isNotNull);
   });
 }

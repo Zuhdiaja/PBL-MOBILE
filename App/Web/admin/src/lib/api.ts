@@ -97,6 +97,7 @@ export type ManagedUser = {
   email: string;
   active: boolean;
   has_password: boolean;
+  has_google: boolean;
 };
 export type UsersResponse = {
   kind: AccountKind;
@@ -139,6 +140,38 @@ export type ReportsResponse = {
   summary: ReportsSummary;
 };
 
+/** One URL scanned from the mobile app, with the account that submitted it. */
+export type ScanOwner = {
+  id: number;
+  name: string;
+  email: string;
+  active: boolean;
+};
+export type MobileScan = {
+  scan_id: string;
+  url: string;
+  category: string;
+  score: number;
+  score_kind: string;
+  model_run_id: string | null;
+  created_at: string;
+  user: ScanOwner;
+};
+export type ScansSummary = {
+  total: number;
+  safe: number;
+  unsafe: number;
+  users: number;
+  by_category: Record<string, number>;
+};
+export type ScansResponse = {
+  items: MobileScan[];
+  page: number;
+  page_size: number;
+  page_count: number;
+  row_count: number;
+};
+
 export type MLMetrics = {
   accuracy: number;
   balanced_accuracy: number;
@@ -178,6 +211,9 @@ export type MLRunDetail = Omit<MLRunSummary, "metrics"> & {
   preprocessing: string | null;
   provenance: {
     split_design_version?: string | null;
+    train_class_counts?: Record<string, number> | null;
+    dataset_filename?: string;
+    source_row_count?: number;
     prediction_files?: Record<string, string> | null;
     example_notice?: string | null;
     is_synthetic?: boolean;
@@ -185,8 +221,24 @@ export type MLRunDetail = Omit<MLRunSummary, "metrics"> & {
 };
 export type MLRunsResponse = {
   items: MLRunSummary[];
+  has_next: boolean;
+};
+export type MLStatusResponse = {
+  run: MLRunSummary | null;
   active_id: string | null;
   dataset_sha256: string | null;
+  training: MLTrainingSchedule;
+};
+export type MLTrainingSchedule = {
+  enabled: boolean;
+  time: string;
+  timezone: string;
+  dataset: Dataset | null;
+  pending_dataset: boolean;
+  last_date: string | null;
+  last_started_at: string | null;
+  last_status: "queued" | "running" | "completed" | "failed" | "skipped" | null;
+  last_message: string | null;
 };
 export type MLDatasetSummary = {
   dataset: Dataset;
@@ -217,6 +269,16 @@ export type MLPreviewResponse = {
     "5": { token: string; count: number }[];
     total_tokens: number;
   };
+};
+export type MLPreprocessingExamples = {
+  cleaning: {
+    row_number: number;
+    url: string;
+    label: string | null;
+    clean_url: string;
+    clean_label: string | null;
+  } | null;
+  normalization: { row_number: number; preview: MLPreviewResponse } | null;
 };
 export const percent = new Intl.NumberFormat("id-ID", {
   style: "percent",

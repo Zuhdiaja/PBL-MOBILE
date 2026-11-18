@@ -9,10 +9,14 @@ class HistoryController extends LoadController {
   HistoryController({
     required this.repository,
     required this.filterHistoryEntries,
+    this.isSimulated = true,
   });
 
   final HistoryRepository repository;
   final FilterHistoryEntries filterHistoryEntries;
+
+  /// True while the list comes from example data instead of the API.
+  final bool isSimulated;
 
   List<HistoryEntry> _entries = const [];
   String _filter = FilterHistoryEntries.allLabel;

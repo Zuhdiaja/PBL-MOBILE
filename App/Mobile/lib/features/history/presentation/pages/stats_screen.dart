@@ -119,9 +119,10 @@ class _StatsScreenState extends State<StatsScreen> {
             ],
           ),
           const SizedBox(height: 18),
-          const InfoNote(
-            'Data contoh. Statistik dihitung dari riwayat simulasi.',
-          ),
+          if (widget.controller.isSimulated)
+            const InfoNote(
+              'Data contoh. Statistik dihitung dari riwayat simulasi.',
+            ),
         ],
       );
     },

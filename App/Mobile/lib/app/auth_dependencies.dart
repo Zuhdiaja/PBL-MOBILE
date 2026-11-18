@@ -1,4 +1,6 @@
+import '../config/api_config.dart';
 import '../config/google_config.dart';
+import '../data/scans_api.dart';
 import '../features/auth/data/datasources/account_data_source.dart';
 import '../features/auth/data/datasources/auth_data_source.dart';
 import '../features/auth/data/datasources/demo_account_data_source.dart';
@@ -71,7 +73,7 @@ class AuthDependencies {
           (googleSignInConfigured
               ? PluginGoogleIdentitySource()
               : const UnavailableGoogleIdentitySource()),
-      AccountRepositoryImpl(_accountSourceFor(source)),
+      AccountRepositoryImpl(_accountSourceFor(source, store)),
     );
   }
 
@@ -89,10 +91,14 @@ class AuthDependencies {
   late final SettingsController settings;
 
   /// Keeps previews in memory while the real app persists the preferences.
-  static AccountDataSource _accountSourceFor(AuthDataSource source) =>
-      source.isOffline
+  static AccountDataSource _accountSourceFor(
+    AuthDataSource source,
+    TokenStore store,
+  ) => source.isOffline
       ? DemoAccountDataSource()
-      : PreferencesAccountDataSource();
+      : PreferencesAccountDataSource(
+          scans: ScansApi(baseUrl: defaultApiBaseUrl(), tokenStore: store),
+        );
 
   /// Token store handed to API-backed features.
   ///

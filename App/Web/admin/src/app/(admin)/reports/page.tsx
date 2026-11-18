@@ -5,10 +5,8 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   Flag,
-  Database,
   CheckCircle2,
   AlertCircle,
-  Clock,
   Search,
   ChevronLeft,
   ChevronRight,
@@ -16,6 +14,7 @@ import {
   Trash2,
   Layers,
   ArrowRightCircle,
+  MoreHorizontal,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -36,7 +35,15 @@ import {
   DialogTitle,
   DialogDescription,
   DialogFooter,
+  DialogHeader,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { ErrorNotice, Loading } from "@/components/feedback";
 import {
   api,
@@ -55,6 +62,10 @@ const statusLabels: Record<ReportStageStatus, string> = {
   rejected: "Ditolak",
 };
 
+function canSync(report: PredictionReport) {
+  return !report.dataset_synced && report.status !== "rejected";
+}
+
 const categories = ["Benign", "Phishing", "Malware", "Spam", "Defacement", "Exploit"];
 
 export default function ReportsPage() {
@@ -69,6 +80,7 @@ export default function ReportsPage() {
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [actionError, setActionError] = useState("");
   const [success, setSuccess] = useState("");
   const [reports, setReports] = useState<PredictionReport[]>([]);
   const [summary, setSummary] = useState<ReportsSummary>({
@@ -151,6 +163,7 @@ export default function ReportsPage() {
   }
 
   function openReviewDialog(report: PredictionReport) {
+    setActionError("");
     setSelectedReport(report);
     setEditStatus(report.status);
     setEditCategory(report.reported_category);
@@ -159,84 +172,60 @@ export default function ReportsPage() {
   }
 
   function openSyncDialog(report: PredictionReport) {
+    setActionError("");
     setSelectedReport(report);
     setDialogMode("sync");
   }
 
   function openDeleteDialog(report: PredictionReport) {
+    setActionError("");
     setSelectedReport(report);
     setDialogMode("delete");
   }
 
-  async function handleSaveReview() {
-    if (!selectedReport) return;
+  async function runReportAction(path: string, method: string, body?: string) {
     setActionBusy(true);
-    setError("");
+    setActionError("");
     try {
-      const res = await api<{ report: PredictionReport; message: string }>(
-        `/reports/${selectedReport.id}`,
-        {
-          method: "PATCH",
-          body: JSON.stringify({
-            status: editStatus,
-            reported_category: editCategory,
-            admin_notes: editAdminNotes,
-          }),
-        },
-      );
-      setSuccess(res.message);
+      const result = await api<{ message: string }>(path, { method, body });
+      setSuccess(result.message);
       setDialogMode(null);
       void fetchReports();
-    } catch (e) {
-      setError(messageOf(e));
+    } catch (cause) {
+      setActionError(messageOf(cause));
     } finally {
       setActionBusy(false);
     }
   }
 
-  async function handleSyncDataset() {
+  function handleSaveReview() {
     if (!selectedReport) return;
-    setActionBusy(true);
-    setError("");
-    try {
-      const res = await api<{ report: PredictionReport; message: string }>(
-        `/reports/${selectedReport.id}/sync-dataset`,
-        { method: "POST" },
-      );
-      setSuccess(res.message);
-      setDialogMode(null);
-      void fetchReports();
-    } catch (e) {
-      setError(messageOf(e));
-    } finally {
-      setActionBusy(false);
-    }
+    return runReportAction(
+      `/reports/${selectedReport.id}`,
+      "PATCH",
+      JSON.stringify({
+        status: editStatus,
+        reported_category: editCategory,
+        admin_notes: editAdminNotes,
+      }),
+    );
   }
 
-  async function handleDeleteReport() {
+  function handleSyncDataset() {
     if (!selectedReport) return;
-    setActionBusy(true);
-    setError("");
-    try {
-      const res = await api<{ message: string }>(`/reports/${selectedReport.id}`, {
-        method: "DELETE",
-      });
-      setSuccess(res.message);
-      setDialogMode(null);
-      void fetchReports();
-    } catch (e) {
-      setError(messageOf(e));
-    } finally {
-      setActionBusy(false);
-    }
+    return runReportAction(`/reports/${selectedReport.id}/sync-dataset`, "POST");
+  }
+
+  function handleDeleteReport() {
+    if (!selectedReport) return;
+    return runReportAction(`/reports/${selectedReport.id}`, "DELETE");
   }
 
   return (
     <div className="space-y-6">
-      {/* Header and KPI Summary */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="page-heading">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Manajemen Laporan</h1>
+          <h1>Manajemen Laporan</h1>
           <p className="text-sm text-muted-foreground">
             Kelola laporan koreksi URL dari pengguna dan integrasikan ke dataset pelatihan.
           </p>
@@ -260,42 +249,19 @@ export default function ReportsPage() {
 
       {error && <ErrorNotice message={error} retry={() => void fetchReports()} />}
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <div className="rounded-xl border bg-card p-4 shadow-xs">
-          <div className="flex items-center justify-between text-muted-foreground">
-            <span className="text-xs font-medium">Total Laporan</span>
-            <Flag className="size-4 text-primary" />
+      <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border bg-border md:grid-cols-4">
+        {[
+          ["Total laporan", summary.total],
+          ["Perlu ditinjau", summary.submitted + summary.review],
+          ["Selesai", summary.completed],
+          ["Tersinkron", summary.synced],
+        ].map(([label, count]) => (
+          <div key={label} className="grid gap-1 bg-card px-4 py-3">
+            <dt className="text-xs text-muted-foreground">{label}</dt>
+            <dd className="text-xl font-semibold tabular-nums">{number.format(Number(count))}</dd>
           </div>
-          <div className="mt-2 text-2xl font-bold">{number.format(summary.total)}</div>
-        </div>
-
-        <div className="rounded-xl border bg-card p-4 shadow-xs">
-          <div className="flex items-center justify-between text-muted-foreground">
-            <span className="text-xs font-medium">Perlu Ditinjau</span>
-            <Clock className="size-4 text-amber-500" />
-          </div>
-          <div className="mt-2 text-2xl font-bold">
-            {number.format(summary.submitted + summary.review)}
-          </div>
-        </div>
-
-        <div className="rounded-xl border bg-card p-4 shadow-xs">
-          <div className="flex items-center justify-between text-muted-foreground">
-            <span className="text-xs font-medium">Laporan Selesai</span>
-            <CheckCircle2 className="size-4 text-emerald-500" />
-          </div>
-          <div className="mt-2 text-2xl font-bold">{number.format(summary.completed)}</div>
-        </div>
-
-        <div className="rounded-xl border bg-card p-4 shadow-xs">
-          <div className="flex items-center justify-between text-muted-foreground">
-            <span className="text-xs font-medium">Tersinkron Dataset</span>
-            <Database className="size-4 text-blue-500" />
-          </div>
-          <div className="mt-2 text-2xl font-bold">{number.format(summary.synced)}</div>
-        </div>
-      </div>
+        ))}
+      </dl>
 
       {/* Filter and Search Bar */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -304,7 +270,10 @@ export default function ReportsPage() {
           onValueChange={(val) => updateQuery(val, 1)}
           className="w-full sm:w-auto"
         >
-          <TabsList className="grid grid-cols-5 w-full text-xs sm:w-auto sm:text-sm">
+          <TabsList
+            aria-label="Status laporan"
+            className="grid h-auto! min-h-11 w-full grid-cols-3 gap-1 min-[380px]:grid-cols-5 sm:w-auto [&>button]:min-h-11 [&>button]:text-xs sm:[&>button]:text-sm"
+          >
             <TabsTrigger value="all">
               Semua<span className="hidden sm:inline"> ({summary.total})</span>
             </TabsTrigger>
@@ -334,6 +303,7 @@ export default function ReportsPage() {
             <Search className="absolute left-2.5 top-2.5 size-4 text-muted-foreground" />
             <Input
               type="search"
+              aria-label="Cari URL atau catatan laporan"
               placeholder="Cari URL atau catatan…"
               className="pl-8"
               value={searchInput}
@@ -363,117 +333,161 @@ export default function ReportsPage() {
             </p>
           </div>
         ) : (
-          <div className="overflow-x-auto" tabIndex={0}>
-            <Table>
+          <div className="overflow-x-auto">
+            <Table className="max-xl:table-fixed">
+              <caption className="sr-only">Daftar laporan prediksi</caption>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-12">No</TableHead>
+                  <TableHead className="hidden w-12 xl:table-cell">No</TableHead>
                   <TableHead>URL Tautan</TableHead>
-                  <TableHead>Jenis Koreksi</TableHead>
-                  <TableHead>Kategori Dilaporkan</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Integrasi Dataset</TableHead>
-                  <TableHead>Tanggal</TableHead>
-                  <TableHead className="text-right">Aksi</TableHead>
+                  <TableHead className="hidden xl:table-cell">Jenis Koreksi</TableHead>
+                  <TableHead className="hidden xl:table-cell">Kategori Dilaporkan</TableHead>
+                  <TableHead className="hidden xl:table-cell">Status</TableHead>
+                  <TableHead className="hidden xl:table-cell">Integrasi Dataset</TableHead>
+                  <TableHead className="hidden xl:table-cell">Tanggal</TableHead>
+                  <TableHead className="w-16 text-right xl:w-auto">Aksi</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {reports.map((report, idx) => (
-                  <TableRow key={report.id}>
-                    <TableCell className="font-mono text-xs text-muted-foreground">
-                      {(currentPage - 1) * currentPageSize + idx + 1}
-                    </TableCell>
-                    <TableCell className="max-w-xs truncate font-mono text-xs font-medium">
-                      {report.url}
-                    </TableCell>
-                    <TableCell>
-                      <Badge
-                        variant={report.report_type === "False Positive" ? "secondary" : "outline"}
-                        className={
-                          report.report_type === "False Negative"
-                            ? "border-red-500/40 text-red-600 dark:text-red-400"
-                            : "border-amber-500/40 text-amber-600 dark:text-amber-400"
-                        }
-                      >
-                        {report.report_type === "False Positive"
-                          ? "Positif Palsu"
-                          : "Negatif Palsu"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className="font-normal">
-                        {report.reported_category}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <span
-                        className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium ${
-                          report.status === "completed"
-                            ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
-                            : report.status === "review"
-                              ? "bg-blue-500/10 text-blue-700 dark:text-blue-400"
-                              : report.status === "rejected"
-                                ? "bg-muted text-muted-foreground"
-                                : "bg-amber-500/10 text-amber-700 dark:text-amber-400"
-                        }`}
-                      >
-                        {statusLabels[report.status]}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      {report.dataset_synced ? (
-                        <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-600 dark:text-emerald-400">
-                          <CheckCircle2 className="size-3.5" />
-                          Tersinkron
-                        </span>
-                      ) : (
-                        <span className="text-xs text-muted-foreground">Belum</span>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-xs text-muted-foreground">
-                      {report.created_at
-                        ? new Date(report.created_at).toLocaleDateString("id-ID", {
-                            day: "numeric",
-                            month: "short",
-                            year: "numeric",
-                          })
-                        : "-"}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-1">
-                        {!report.dataset_synced && (
+                {reports.map((report, idx) => {
+                  const kind =
+                    report.report_type === "False Positive" ? "Positif Palsu" : "Negatif Palsu";
+                  const status = (
+                    <Badge
+                      variant="secondary"
+                      className={
+                        report.status === "submitted"
+                          ? "bg-warning-surface text-warning"
+                          : report.status === "review"
+                            ? "bg-primary/10 text-primary"
+                            : undefined
+                      }
+                    >
+                      {statusLabels[report.status]}
+                    </Badge>
+                  );
+                  const date = report.created_at
+                    ? new Date(report.created_at).toLocaleDateString("id-ID", {
+                        day: "numeric",
+                        month: "short",
+                        year: "numeric",
+                      })
+                    : "—";
+                  return (
+                    <TableRow key={report.id}>
+                      <TableCell className="hidden font-mono text-xs text-muted-foreground xl:table-cell">
+                        {(currentPage - 1) * currentPageSize + idx + 1}
+                      </TableCell>
+                      <TableCell className="max-w-xs align-top whitespace-normal xl:whitespace-nowrap">
+                        <p className="truncate font-mono text-xs font-medium" title={report.url}>
+                          {report.url}
+                        </p>
+                        <div className="mt-2 grid gap-1 xl:hidden">
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            {status}
+                            <span className="text-xs text-muted-foreground">
+                              {report.reported_category} · {kind}
+                            </span>
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            {date} · {report.dataset_synced ? "Tersinkron" : "Belum tersinkron"}
+                          </p>
+                        </div>
+                      </TableCell>
+                      <TableCell className="hidden xl:table-cell">
+                        <Badge
+                          variant="secondary"
+                          className={
+                            report.report_type === "False Positive"
+                              ? "bg-warning-surface text-warning"
+                              : "text-destructive"
+                          }
+                        >
+                          {kind}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="hidden xl:table-cell">
+                        <Badge variant="outline" className="font-normal">
+                          {report.reported_category}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="hidden xl:table-cell">{status}</TableCell>
+                      <TableCell className="hidden text-xs text-muted-foreground xl:table-cell">
+                        {report.dataset_synced ? "Tersinkron" : "Belum"}
+                      </TableCell>
+                      <TableCell className="hidden text-xs text-muted-foreground xl:table-cell">
+                        {date}
+                      </TableCell>
+                      <TableCell className="text-right align-top xl:align-middle">
+                        <div className="xl:hidden">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger
+                              render={
+                                <Button
+                                  variant="outline"
+                                  size="icon"
+                                  className="size-11"
+                                  aria-label={`Aksi laporan untuk ${report.url}`}
+                                />
+                              }
+                            >
+                              <MoreHorizontal aria-hidden="true" />
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuGroup>
+                                <DropdownMenuItem onClick={() => openReviewDialog(report)}>
+                                  <Pencil aria-hidden="true" /> Tinjau laporan
+                                </DropdownMenuItem>
+                                {canSync(report) && (
+                                  <DropdownMenuItem onClick={() => openSyncDialog(report)}>
+                                    <ArrowRightCircle aria-hidden="true" /> Sinkronkan ke Dataset
+                                  </DropdownMenuItem>
+                                )}
+                                <DropdownMenuItem
+                                  variant="destructive"
+                                  onClick={() => openDeleteDialog(report)}
+                                >
+                                  <Trash2 aria-hidden="true" /> Hapus laporan
+                                </DropdownMenuItem>
+                              </DropdownMenuGroup>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+                        <div className="hidden items-center justify-end gap-1 xl:flex">
+                          {canSync(report) && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="size-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950/50"
+                              title="Sinkronkan ke Dataset"
+                              onClick={() => openSyncDialog(report)}
+                            >
+                              <ArrowRightCircle className="size-4" />
+                            </Button>
+                          )}
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="size-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950/50"
-                            title="Sinkronkan ke Dataset"
-                            onClick={() => openSyncDialog(report)}
+                            className="size-8"
+                            title="Tinjau & Edit Laporan"
+                            onClick={() => openReviewDialog(report)}
                           >
-                            <ArrowRightCircle className="size-4" />
+                            <Pencil className="size-4" />
                           </Button>
-                        )}
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="size-8"
-                          title="Tinjau & Edit Laporan"
-                          onClick={() => openReviewDialog(report)}
-                        >
-                          <Pencil className="size-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="size-8 text-muted-foreground hover:text-destructive"
-                          title="Hapus Laporan"
-                          onClick={() => openDeleteDialog(report)}
-                        >
-                          <Trash2 className="size-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="size-8 text-muted-foreground hover:text-destructive"
+                            title="Hapus Laporan"
+                            onClick={() => openDeleteDialog(report)}
+                          >
+                            <Trash2 className="size-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </div>
@@ -537,15 +551,26 @@ export default function ReportsPage() {
       </div>
 
       {/* Dialog Review & Tindak Lanjut */}
-      <Dialog open={dialogMode === "review"} onOpenChange={(open) => !open && setDialogMode(null)}>
-        <DialogContent className="max-w-lg">
-          <DialogTitle>Tinjau Laporan Prediksi</DialogTitle>
-          <DialogDescription>
-            Periksa detail klaim dari pengguna dan perbarui status peninjauan.
-          </DialogDescription>
+      <Dialog
+        open={dialogMode === "review"}
+        onOpenChange={(open) => !open && !actionBusy && setDialogMode(null)}
+      >
+        <DialogContent
+          className="max-w-lg grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden"
+          aria-busy={actionBusy}
+          showCloseButton={!actionBusy}
+        >
+          <DialogHeader className="pr-10">
+            <DialogTitle>Tinjau Laporan Prediksi</DialogTitle>
+            <DialogDescription>Periksa klaim pengguna dan perbarui statusnya.</DialogDescription>
+          </DialogHeader>
 
           {selectedReport && (
-            <div className="space-y-4 pt-2 text-sm">
+            <section
+              className="min-h-0 space-y-4 overflow-y-auto overscroll-contain p-1 text-sm"
+              aria-label="Detail dan formulir peninjauan"
+              tabIndex={0}
+            >
               <div className="rounded-lg border bg-muted/30 p-3 space-y-1.5">
                 <div className="text-xs text-muted-foreground">URL Tautan:</div>
                 <div className="font-mono text-xs font-semibold break-all text-primary">
@@ -562,7 +587,7 @@ export default function ReportsPage() {
                   </div>
                   <div>
                     <span className="text-muted-foreground">Pelapor: </span>
-                    <span className="font-medium">
+                    <span className="font-medium break-all">
                       {selectedReport.reporter_email || "Pengguna Anonim"}
                     </span>
                   </div>
@@ -577,8 +602,18 @@ export default function ReportsPage() {
 
               <div className="space-y-2">
                 <Label htmlFor="status">Status Peninjauan</Label>
+                {selectedReport.status === "rejected" && !selectedReport.dataset_synced && (
+                  <p id="report-review-required" className="text-xs text-muted-foreground">
+                    Ubah status menjadi Ditinjau dan simpan sebelum menyinkronkan laporan ini.
+                  </p>
+                )}
                 <select
                   id="status"
+                  aria-describedby={
+                    selectedReport.status === "rejected" && !selectedReport.dataset_synced
+                      ? "report-review-required"
+                      : undefined
+                  }
                   className="w-full rounded-md border bg-background px-3 py-2 text-sm"
                   value={editStatus}
                   disabled={selectedReport.dataset_synced}
@@ -627,23 +662,29 @@ export default function ReportsPage() {
                   onChange={(e) => setEditAdminNotes(e.target.value)}
                 />
               </div>
-            </div>
+            </section>
           )}
 
-          <DialogFooter className="mt-4 gap-2">
-            <Button variant="outline" disabled={actionBusy} onClick={() => setDialogMode(null)}>
-              Batal
-            </Button>
-            <Button disabled={actionBusy} onClick={() => void handleSaveReview()}>
-              {actionBusy ? "Menyimpan…" : "Simpan Perubahan"}
-            </Button>
+          <DialogFooter className="flex-col!">
+            {actionError && <ErrorNotice message={actionError} />}
+            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <Button variant="outline" disabled={actionBusy} onClick={() => setDialogMode(null)}>
+                Batal
+              </Button>
+              <Button disabled={actionBusy} onClick={() => void handleSaveReview()}>
+                {actionBusy ? "Menyimpan…" : "Simpan Perubahan"}
+              </Button>
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       {/* Dialog Konfirmasi Sinkronisasi Dataset */}
-      <Dialog open={dialogMode === "sync"} onOpenChange={(open) => !open && setDialogMode(null)}>
-        <DialogContent className="max-w-md">
+      <Dialog
+        open={dialogMode === "sync"}
+        onOpenChange={(open) => !open && !actionBusy && setDialogMode(null)}
+      >
+        <DialogContent className="max-w-md" aria-busy={actionBusy} showCloseButton={!actionBusy}>
           <DialogTitle className="flex items-center gap-2 text-blue-600 dark:text-blue-400">
             <Layers className="size-5" />
             Integrasikan ke Dataset Aktif
@@ -657,7 +698,7 @@ export default function ReportsPage() {
             <div className="rounded-lg border bg-muted/40 p-3 text-xs space-y-1">
               <div>
                 <span className="text-muted-foreground">URL: </span>
-                <span className="font-mono font-medium">{selectedReport.url}</span>
+                <span className="font-mono font-medium break-all">{selectedReport.url}</span>
               </div>
               <div>
                 <span className="text-muted-foreground">Kategori Target: </span>
@@ -666,15 +707,12 @@ export default function ReportsPage() {
             </div>
           )}
 
+          {actionError && <ErrorNotice message={actionError} />}
           <DialogFooter className="mt-4 gap-2">
             <Button variant="outline" disabled={actionBusy} onClick={() => setDialogMode(null)}>
               Batal
             </Button>
-            <Button
-              className="bg-blue-600 hover:bg-blue-700 text-white"
-              disabled={actionBusy}
-              onClick={() => void handleSyncDataset()}
-            >
+            <Button disabled={actionBusy} onClick={() => void handleSyncDataset()}>
               {actionBusy ? "Menyinkronkan…" : "Setujui & Sinkronkan"}
             </Button>
           </DialogFooter>
@@ -682,8 +720,11 @@ export default function ReportsPage() {
       </Dialog>
 
       {/* Dialog Konfirmasi Hapus */}
-      <Dialog open={dialogMode === "delete"} onOpenChange={(open) => !open && setDialogMode(null)}>
-        <DialogContent className="max-w-sm">
+      <Dialog
+        open={dialogMode === "delete"}
+        onOpenChange={(open) => !open && !actionBusy && setDialogMode(null)}
+      >
+        <DialogContent className="max-w-sm" aria-busy={actionBusy} showCloseButton={!actionBusy}>
           <DialogTitle className="text-destructive flex items-center gap-2">
             <AlertCircle className="size-5" />
             Hapus Laporan?
@@ -692,6 +733,7 @@ export default function ReportsPage() {
             Laporan untuk URL ini akan dihapus permanen dari sistem.
           </DialogDescription>
 
+          {actionError && <ErrorNotice message={actionError} />}
           <DialogFooter className="mt-4 gap-2">
             <Button variant="outline" disabled={actionBusy} onClick={() => setDialogMode(null)}>
               Batal

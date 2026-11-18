@@ -145,8 +145,8 @@ void main() {
       repository = AccountRepositoryImpl(source);
     });
 
-    test('reads the prototype counts', () {
-      final stats = repository.readStats();
+    test('reads the prototype counts', () async {
+      final stats = await repository.readStats();
 
       expect(stats.totalScans, 8);
       expect(stats.submittedReports, 3);

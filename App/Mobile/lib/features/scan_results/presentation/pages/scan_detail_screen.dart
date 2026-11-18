@@ -143,7 +143,9 @@ class _ScanDetailScreenState extends State<ScanDetailScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Keyakinan model',
+                        result.hasMarginScore
+                            ? 'Skor margin'
+                            : 'Keyakinan model',
                         style: TextStyle(
                           fontSize: 11,
                           color: context.colors.muted,
@@ -151,7 +153,9 @@ class _ScanDetailScreenState extends State<ScanDetailScreen> {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        '${result.confidence}%',
+                        result.hasMarginScore
+                            ? result.formattedScore
+                            : '${result.confidence}%',
                         style: const TextStyle(
                           fontSize: 17,
                           fontWeight: FontWeight.w600,
@@ -164,13 +168,15 @@ class _ScanDetailScreenState extends State<ScanDetailScreen> {
             ),
           ),
           const SizedBox(height: 22),
-          const Text(
-            'Arti keyakinan model',
-            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+          Text(
+            result.hasMarginScore ? 'Arti skor margin' : 'Arti keyakinan model',
+            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 8),
           Text(
-            'Persentase ini menunjukkan keyakinan model terhadap kategori hasil. Angka ini bukan persentase keamanan atau jaminan bahwa tautan aman.',
+            result.hasMarginScore
+                ? 'Skor ini adalah margin keputusan model untuk kategori terpilih. Nilainya bisa negatif dan tidak dibatasi 0–1, jadi bukan probabilitas maupun persentase keamanan.'
+                : 'Persentase ini menunjukkan keyakinan model terhadap kategori hasil. Angka ini bukan persentase keamanan atau jaminan bahwa tautan aman.',
             style: TextStyle(
               color: context.colors.muted,
               fontSize: 12,
@@ -225,7 +231,12 @@ class _ScanDetailScreenState extends State<ScanDetailScreen> {
             onPressed: () => widget.onReport(result),
           ),
           const SizedBox(height: 18),
-          const InfoNote('Hasil simulasi dari data contoh.'),
+          if (result.isSimulated)
+            const InfoNote('Hasil simulasi dari data contoh.')
+          else
+            const InfoNote(
+              'Hasil dari model SVM + TF-IDF di server, bukan jaminan tautan aman.',
+            ),
         ],
       );
     },

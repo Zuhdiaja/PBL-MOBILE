@@ -185,10 +185,11 @@ class HomeScreen extends StatelessWidget {
         ),
       ],
       const SizedBox(height: 16),
-      Text(
-        'Data contoh',
-        style: TextStyle(color: context.colors.muted, fontSize: 11),
-      ),
+      if (controller.isSimulated)
+        Text(
+          'Data contoh',
+          style: TextStyle(color: context.colors.muted, fontSize: 11),
+        ),
     ],
   );
 }

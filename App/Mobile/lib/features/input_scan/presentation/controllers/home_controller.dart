@@ -3,8 +3,11 @@ import '../../domain/entities/recent_scan.dart';
 import '../../domain/repositories/recent_scans_repository.dart';
 
 class HomeController extends LoadController {
-  HomeController(this.repository);
+  HomeController(this.repository, {this.isSimulated = true});
   final RecentScansRepository repository;
+
+  /// True while the list comes from example data instead of the API.
+  final bool isSimulated;
   List<RecentScan> _recentScans = const [];
   List<RecentScan> get recentScans => _recentScans;
 

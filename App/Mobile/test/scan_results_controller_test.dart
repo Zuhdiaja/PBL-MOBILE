@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pbl_semester5/features/scan_results/data/datasources/demo_prediction_report_data_source.dart';
 import 'package:pbl_semester5/features/scan_results/data/repositories/prediction_report_repository_impl.dart';
+import 'package:pbl_semester5/features/scan_results/domain/entities/failed_scan.dart';
 import 'package:pbl_semester5/features/scan_results/domain/entities/prediction_report.dart';
 import 'package:pbl_semester5/features/scan_results/domain/entities/scan_result.dart';
 import 'package:pbl_semester5/features/scan_results/domain/repositories/scan_results_repository.dart';
@@ -20,6 +23,9 @@ class _FakeScanResultsRepository implements ScanResultsRepository {
   @override
   ScanResult findById(String id) =>
       _results.firstWhere((result) => result.id == id);
+
+  @override
+  FutureOr<List<FailedScan>> getFailures() => const [];
 }
 
 ScanResult _result(String id, {required bool isSafe}) => ScanResult(

@@ -60,17 +60,16 @@ class AppPalette {
   /// Latar plat ikon di dalam kartu ilustrasi.
   Color get artworkTint =>
       dark ? const Color(0xFF233B60) : const Color(0xFFF1F5FC);
-  Color status(String category) => (category == 'Aman' || category == 'Benign')
-      ? success
-      : (category == 'Spam' || category == 'Defacement')
-      ? warning
-      : danger;
-  Color statusBackground(String category) =>
-      (category == 'Aman' || category == 'Benign')
-      ? paleSuccess
-      : (category == 'Spam' || category == 'Defacement')
-      ? paleWarning
-      : paleDanger;
+  Color status(String category) => switch (category) {
+    'Aman' || 'Benign' || 'Legitimate' => success,
+    'Spam' || 'Defacement' || 'Tidak diketahui' => warning,
+    _ => danger,
+  };
+  Color statusBackground(String category) => switch (category) {
+    'Aman' || 'Benign' || 'Legitimate' => paleSuccess,
+    'Spam' || 'Defacement' || 'Tidak diketahui' => paleWarning,
+    _ => paleDanger,
+  };
 }
 
 extension LinkGuardPalette on BuildContext {

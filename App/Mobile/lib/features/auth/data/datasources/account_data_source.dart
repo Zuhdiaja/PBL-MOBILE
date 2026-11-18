@@ -2,9 +2,9 @@
 ///
 /// Two implementations exist: [DemoAccountDataSource] keeps everything in
 /// memory, while PreferencesAccountDataSource stores the notification choice
-/// on the device.
+/// on the device and reads the scan count from the API.
 abstract class AccountDataSource {
-  int readTotalScans();
+  Future<int> readTotalScans();
 
   int readSubmittedReports();
 

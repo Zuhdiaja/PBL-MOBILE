@@ -14,12 +14,18 @@ class ScanResult {
     required this.method,
     this.recommendation,
     this.indicators,
+    this.score,
+    this.scoreKind,
+    this.modelRunId,
+    this.isSimulated = false,
   });
 
   final String id;
   final String url;
   final String category;
   final String riskLevel;
+
+  /// Percentage shown for example results; real scans use [score] instead.
   final int confidence;
   final bool isSafe;
   final String scanTime;
@@ -27,6 +33,24 @@ class ScanResult {
   final String method;
   final String? recommendation;
   final List<String>? indicators;
+
+  /// Model score for real predictions, e.g. the `LinearSVC` margin.
+  final double? score;
+
+  /// How [score] must be read, e.g. `margin`.
+  final String? scoreKind;
+
+  /// Version of the model that produced a real prediction.
+  final String? modelRunId;
+
+  /// True when the entry comes from the example data rather than the API.
+  final bool isSimulated;
+
+  /// True when [score] is a margin, which is not a probability.
+  bool get hasMarginScore => score != null && scoreKind == 'margin';
+
+  /// Score formatted for the detail screen.
+  String get formattedScore => score == null ? '—' : score!.toStringAsFixed(4);
 
   /// Recommendation shown when the source did not provide one.
   String get resolvedRecommendation =>

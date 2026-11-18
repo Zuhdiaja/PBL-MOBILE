@@ -2,6 +2,7 @@ import math
 from flask import jsonify, request
 from sqlalchemy import func
 from app.extensions import db, limiter
+from app.ml.dataset_columns import LABEL_KEYS, column_index
 from app.models import Dataset, DatasetRow, DatasetState, PredictionReport, now
 from app.routes import api, body, error
 
@@ -243,12 +244,9 @@ def reports_sync_dataset(report_id):
     if not active:
         return error("no_active_dataset", "Dataset aktif tidak ditemukan.", 404)
 
-    columns = [col.lower().strip() for col in (active.columns or [])]
-
-    # Exact, unambiguous headers only; substring matches can select feature columns.
-    url_columns = [i for i, col in enumerate(columns) if col == "url"]
-    label_columns = [i for i, col in enumerate(columns) if col in {"label", "category", "class", "type"}]
-    if len(url_columns) != 1 or len(label_columns) != 1:
+    url_column = column_index(active.columns, {"url"})
+    label_column = column_index(active.columns, LABEL_KEYS)
+    if url_column is None or label_column is None:
         return error("unsupported_dataset", "Dataset harus memiliki satu kolom url dan satu kolom label/category/class/type.", 409)
 
     # Only canonical class names may reach the training data.
@@ -272,27 +270,17 @@ def reports_sync_dataset(report_id):
             409,
         )
 
-    url_idx, cat_idx = url_columns[0], label_columns[0]
-
-    values = ["" for _ in range(max(len(columns), 2))]
-    values[url_idx] = report.url
-    if cat_idx < len(values):
-        # Use the spelling this dataset already uses, so no duplicate class appears.
-        labels = dataset_labels(active.id, cat_idx)
-        spelled = labels.get(label.lower())
-        if not spelled:
-            return error(
-                "unsupported_dataset",
-                "Dataset aktif tidak memiliki kategori " + label + ".",
-                409,
-            )
-        values[cat_idx] = spelled
-
-    # Truncate or extend to match dataset column count
-    if columns:
-        values = values[:len(columns)]
-        while len(values) < len(columns):
-            values.append("")
+    labels = dataset_labels(active.id, label_column)
+    spelled = labels.get(label.lower())
+    if not spelled:
+        return error(
+            "unsupported_dataset",
+            "Dataset aktif tidak memiliki kategori " + label + ".",
+            409,
+        )
+    values = [""] * len(active.columns)
+    values[url_column] = report.url
+    values[label_column] = spelled
 
     new_row_number = active.row_count + 1
     active.row_count = new_row_number

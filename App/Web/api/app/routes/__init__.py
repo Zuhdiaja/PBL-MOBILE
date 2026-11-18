@@ -243,3 +243,4 @@ def rows():
 from app.routes import users as _users
 from app.routes import reports as _reports
 from app.routes import ml as _ml
+from app.routes import scans as _scans

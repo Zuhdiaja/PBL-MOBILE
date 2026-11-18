@@ -66,9 +66,10 @@ void main() {
 
   test(
     'recent summaries map to the same legacy detail without duplicating data',
-    () {
+    () async {
       final source = DemoRecentScansDataSource();
-      final summaries = RecentScansRepositoryImpl(source).getRecentScans();
+      final summaries = await RecentScansRepositoryImpl(source)
+          .getRecentScans();
       expect(summaries.length, demoScanResults.length);
       for (var i = 0; i < summaries.length; i++) {
         final summary = summaries[i];
