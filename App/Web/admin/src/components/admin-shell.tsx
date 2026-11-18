@@ -14,6 +14,7 @@ import {
   Flag,
   BrainCircuit,
   ScanLine,
+  CalendarClock,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -47,6 +48,16 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { api, messageOf, setCsrf, type User } from "@/lib/api";
 import { ErrorNotice, Loading } from "./feedback";
+const workspaceLinks = [
+  { href: "/datasets", name: "Dataset", Icon: Database },
+  { href: "/reports", name: "Laporan", Icon: Flag },
+  { href: "/scans", name: "Pemindaian", Icon: ScanLine },
+  { href: "/users", name: "Pengguna", Icon: UsersRound },
+  { href: "/ml", name: "Pipeline ML", Icon: BrainCircuit },
+  { href: "/training", name: "Jadwal Training", Icon: CalendarClock },
+  { href: "/profile", name: "Profil", Icon: UserRound },
+];
+
 const AuthContext = createContext<{
   user: User;
   setUser: (user: User) => void;
@@ -64,14 +75,14 @@ export function Brand() {
         <ShieldCheck aria-hidden="true" size={21} strokeWidth={2} />
       </span>
       <span className="brand-wordmark">
-        LinkGuard<span className="brand-admin">Administrasi</span>
+        LinkGuard <span className="brand-admin">Administrasi</span>
       </span>
     </div>
   );
 }
 function UserAvatar({ user }: { user: User }) {
   return (
-    <Avatar className="size-8 rounded-lg">
+    <Avatar className="size-8 rounded-lg" aria-hidden="true">
       <AvatarImage src={user.avatar_url || undefined} alt="" />
       <AvatarFallback className="rounded-lg bg-primary/10 text-primary text-xs font-medium">
         {user.name
@@ -95,111 +106,114 @@ function Navigation({
 }) {
   const path = usePathname();
   const router = useRouter();
-  const { isMobile, setOpenMobile } = useSidebar();
+  const { isMobile, setOpenMobile, state } = useSidebar();
+  const iconOnly = !isMobile && state === "collapsed";
   return (
     <Sidebar variant="inset" collapsible="icon">
-      <SidebarHeader className="p-3">
-        <Link
-          className="sidebar-brand"
-          href="/datasets"
-          onClick={() => setOpenMobile(false)}
-          aria-label="LinkGuard, buka dataset"
-        >
-          <Brand />
-        </Link>
-      </SidebarHeader>
-      <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupLabel>Ruang kerja</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {[
-                { href: "/datasets", name: "Dataset", Icon: Database },
-                { href: "/reports", name: "Laporan", Icon: Flag },
-                { href: "/scans", name: "Pemindaian", Icon: ScanLine },
-                { href: "/users", name: "Pengguna", Icon: UsersRound },
-                { href: "/ml", name: "Pipeline ML", Icon: BrainCircuit },
-                { href: "/profile", name: "Profil", Icon: UserRound },
-              ].map(({ href, name, Icon }) => (
-                <SidebarMenuItem key={href}>
-                  <SidebarMenuButton
-                    className="navigation-item"
-                    render={
-                      <Link
-                        href={href}
-                        aria-current={path === href ? "page" : undefined}
-                        onClick={() => setOpenMobile(false)}
-                      />
-                    }
-                    isActive={path === href}
-                    tooltip={name}
-                  >
-                    <Icon aria-hidden="true" />
-                    <span>{name}</span>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-      </SidebarContent>
-      <SidebarFooter className="p-3">
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <DropdownMenu>
-              <DropdownMenuTrigger
-                render={
-                  <SidebarMenuButton className="account-trigger" size="lg" aria-label="Menu akun" />
-                }
-              >
-                <UserAvatar user={user} />
-                <div className="account-label">
-                  <span>{user.name}</span>
-                  <span>{user.email}</span>
-                </div>
-                <ChevronsUpDown className="ml-auto size-4 text-muted-foreground" />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent
-                className="min-w-64"
-                side={isMobile ? "top" : "right"}
-                align="end"
-                sideOffset={8}
-              >
-                <DropdownMenuGroup>
-                  <DropdownMenuLabel className="account-menu-label">
-                    <UserAvatar user={user} />
-                    <div className="account-label">
-                      <span>{user.name}</span>
-                      <span>{user.email}</span>
-                    </div>
-                  </DropdownMenuLabel>
+      <nav aria-label="Navigasi admin" className="flex min-h-0 flex-1 flex-col">
+        <SidebarHeader className="p-3">
+          <Link
+            className="sidebar-brand"
+            href="/datasets"
+            onClick={() => setOpenMobile(false)}
+            aria-label={iconOnly ? "LinkGuard Administrasi" : undefined}
+          >
+            <Brand />
+          </Link>
+        </SidebarHeader>
+        <SidebarContent>
+          <SidebarGroup>
+            <SidebarGroupLabel>Ruang kerja</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {workspaceLinks.map(({ href, name, Icon }) => (
+                  <SidebarMenuItem key={href}>
+                    <SidebarMenuButton
+                      className="navigation-item"
+                      render={
+                        <Link
+                          href={href}
+                          aria-current={path === href ? "page" : undefined}
+                          onClick={() => setOpenMobile(false)}
+                        />
+                      }
+                      isActive={path === href}
+                      tooltip={name}
+                    >
+                      <Icon aria-hidden="true" />
+                      <span>{name}</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        </SidebarContent>
+        <SidebarFooter className="p-3">
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <DropdownMenu>
+                <DropdownMenuTrigger
+                  render={
+                    <SidebarMenuButton
+                      className="account-trigger"
+                      size="lg"
+                      aria-label={iconOnly ? `Menu akun ${user.name}` : undefined}
+                    />
+                  }
+                >
+                  <UserAvatar user={user} />
+                  <span className="sr-only">Menu akun </span>
+                  <div className="account-label">
+                    <span>{user.name}</span> <span>{user.email}</span>
+                  </div>
+                  <ChevronsUpDown
+                    aria-hidden="true"
+                    className="ml-auto size-4 text-muted-foreground"
+                  />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent
+                  className="min-w-64"
+                  side={isMobile ? "top" : "right"}
+                  align="end"
+                  sideOffset={8}
+                >
+                  <DropdownMenuGroup>
+                    <DropdownMenuLabel className="account-menu-label">
+                      <UserAvatar user={user} />
+                      <div className="account-label">
+                        <span>{user.name}</span>
+                        <span>{user.email}</span>
+                      </div>
+                    </DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      className="min-h-10"
+                      onClick={() => {
+                        setOpenMobile(false);
+                        router.push("/profile");
+                      }}
+                    >
+                      <UserRound />
+                      Profil
+                    </DropdownMenuItem>
+                  </DropdownMenuGroup>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
                     className="min-h-10"
-                    onClick={() => {
-                      setOpenMobile(false);
-                      router.push("/profile");
-                    }}
+                    variant="destructive"
+                    disabled={leaving}
+                    onClick={() => void logout()}
                   >
-                    <UserRound />
-                    Profil
+                    <LogOut />
+                    {leaving ? "Keluar…" : "Keluar"}
                   </DropdownMenuItem>
-                </DropdownMenuGroup>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  className="min-h-10"
-                  variant="destructive"
-                  disabled={leaving}
-                  onClick={() => void logout()}
-                >
-                  <LogOut />
-                  {leaving ? "Keluar…" : "Keluar"}
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </SidebarMenuItem>
-        </SidebarMenu>
-      </SidebarFooter>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        </SidebarFooter>
+      </nav>
       <SidebarRail />
     </Sidebar>
   );
@@ -220,15 +234,7 @@ function SiteHeader() {
         <span className="breadcrumb-parent">Ruang kerja</span>
         <ChevronRight aria-hidden="true" size={14} className="breadcrumb-parent" />
         <span aria-current="page">
-          {path === "/profile"
-            ? "Profil"
-            : path === "/users"
-              ? "Pengguna"
-              : path === "/reports"
-                ? "Laporan"
-                : path === "/ml"
-                  ? "Pipeline ML"
-                  : "Dataset"}
+          {workspaceLinks.find((item) => item.href === path)?.name ?? "Ruang kerja"}
         </span>
       </nav>
       <Badge variant="outline" className="ml-auto font-normal text-muted-foreground">

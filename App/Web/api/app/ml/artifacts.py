@@ -192,6 +192,17 @@ def parse_artifact(data: object) -> dict:
     if sum(sum(row) for row in matrix) != split_counts["test"]:
         raise ArtifactError("Total test_confusion_matrix harus sama dengan split_counts.test.")
 
+    train_class_counts = data.get("train_class_counts")
+    if train_class_counts is not None:
+        if not isinstance(train_class_counts, dict) or set(train_class_counts) != set(classes):
+            raise ArtifactError("Field train_class_counts harus memuat jumlah untuk setiap kelas.")
+        train_class_counts = {
+            label: _integer(train_class_counts[label], f"train_class_counts.{label}")
+            for label in classes
+        }
+        if sum(train_class_counts.values()) != split_counts["train"]:
+            raise ArtifactError("Total train_class_counts harus sama dengan split_counts.train.")
+
     # A reordered or mislabelled matrix still matches the grand total, so verify
     # every row against its support before trusting the per-class numbers.
     _check_matrix_rows(matrix, test_report, classes)
@@ -247,6 +258,7 @@ def parse_artifact(data: object) -> dict:
         "completed_at": _completed_at(data.get("completed_at_utc")),
         "provenance": {
             "split_design_version": data.get("split_design_version"),
+            "train_class_counts": train_class_counts,
             "prediction_files": data.get("prediction_files"),
             "example_notice": notice,
             "is_synthetic": synthetic,

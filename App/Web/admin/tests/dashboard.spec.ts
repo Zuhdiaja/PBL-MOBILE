@@ -18,7 +18,7 @@ async function logout(page: Page) {
   const menu = page.getByRole("button", { name: "Buka navigasi" });
   if (await menu.isVisible()) await menu.click();
   await page
-    .getByRole("button", { name: "Menu akun", exact: true })
+    .getByRole("button", { name: /^Menu akun / })
     .filter({ visible: true })
     .click();
   await page.getByRole("menuitem", { name: "Keluar", exact: true }).click();

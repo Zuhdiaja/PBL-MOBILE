@@ -104,7 +104,7 @@ def create_app(config=None):
                   help="Path to svm_tfidf_metrics.json.")
     def ml_import(path):
         from app.ml.artifacts import ArtifactError, parse_artifact
-        from app.ml.store import upsert_run
+        from app.ml.store import InstalledRunError, upsert_run
         try:
             data = json.loads(path.read_text(encoding="utf-8"))
         except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
@@ -113,7 +113,10 @@ def create_app(config=None):
             payload = parse_artifact(data)
         except ArtifactError as exc:
             raise click.ClickException(f"Artefak tidak valid: {exc}")
-        run = upsert_run(payload)
+        try:
+            run = upsert_run(payload)
+        except InstalledRunError as exc:
+            raise click.ClickException(str(exc)) from exc
         click.echo(run.id)
 
     @app.cli.command("ml-load-artifact")
@@ -126,8 +129,10 @@ def create_app(config=None):
         import sklearn
         from app.extensions import db
         from app.ml.inference import clear_cache, file_sha256
+        from app.ml.store import activate, lock_model_changes
         from app.models import MLRun
 
+        lock_model_changes()
         run = db.session.get(MLRun, run_id)
         if run is None:
             raise click.ClickException(f"Run {run_id} tidak ditemukan.")
@@ -155,13 +160,10 @@ def create_app(config=None):
                 "Kelas model tidak sama dengan kelas pada artefak metrik."
             )
 
-        db.session.execute(
-            db.update(MLRun).where(MLRun.is_active.is_(True)).values(is_active=False)
-        )
+        activate(run)
         run.artifact_path = relative
         run.artifact_sha256 = file_sha256(resolved)
         run.artifact_sklearn_version = sklearn.__version__
-        run.is_active = True
         db.session.commit()
         clear_cache()
         click.echo(f"{run.id} aktif ({relative}, sha256 {run.artifact_sha256[:12]}).")

@@ -1,33 +1,7 @@
 import type { DataRow, Dataset, MLDatasetSummary, MLPreviewResponse, MLRunDetail } from "@/lib/api";
 
-const demoNormalizedText = "http://paypal-login.example/verify?user=1";
-const demoModelInput = "paypal-login.example/verify?user=1";
-
-function buildNgrams(text: string, sizes: Array<3 | 4 | 5>, limit = 20) {
-  const result: MLPreviewResponse["ngrams"] = {
-    "3": [],
-    "4": [],
-    "5": [],
-    total_tokens: 0,
-  };
-  for (const size of sizes) {
-    const counts = new Map<string, number>();
-    for (let index = 0; index <= text.length - size; index += 1) {
-      const token = text.slice(index, index + size);
-      counts.set(token, (counts.get(token) ?? 0) + 1);
-    }
-    result[String(size) as "3" | "4" | "5"] = [...counts.entries()]
-      .sort((left, right) => right[1] - left[1])
-      .slice(0, limit)
-      .map(([token, count]) => ({ token, count }));
-    result.total_tokens += [...counts.values()].reduce((sum, count) => sum + count, 0);
-  }
-  return result;
-}
-
 /**
- * Data contoh untuk mode simulasi. Semua nilai di file ini hanya dipakai jika
- * dashboard belum menerima dataset atau artefak dari API.
+ * Data simulasi dan contoh untuk menjelaskan tahapan preprocessing.
  */
 export const demoDataset: Dataset = {
   id: "demo-murl-2026",
@@ -87,26 +61,6 @@ export const demoRows: DataRow[] = [
     values: ["http://spam-sample.test/win", "Spam"],
   },
 ];
-
-export const demoPreview: MLPreviewResponse = {
-  model_input: demoModelInput,
-  normalized: {
-    raw: "  HTTP://PayPal-Login.Example./verify?user=1  ",
-    scheme: "http",
-    host: "PayPal-Login.Example.",
-    canonical_host: "paypal-login.example",
-    site: "paypal-login.example",
-    is_ip: false,
-    path: "/verify",
-    query: "user=1",
-    fragment: "",
-    parse_failed: false,
-    steps: ["trim", "lowercase_scheme", "lowercase_host", "strip_root_dot"],
-    text: demoNormalizedText,
-  },
-  steps: ["trim", "lowercase_scheme", "lowercase_host", "strip_root_dot"],
-  ngrams: buildNgrams(demoModelInput, [3, 4, 5]),
-};
 
 export const exampleNgrams: MLPreviewResponse["ngrams"] = {
   "3": [

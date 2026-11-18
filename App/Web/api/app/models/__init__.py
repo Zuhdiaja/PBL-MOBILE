@@ -185,7 +185,8 @@ class MLRun(db.Model):
             is_active=self.is_active,
             dataset_matches=(
                 None
-                if dataset_digest is None or self.dataset_sha256 is None
+                if dataset_digest is None or not self.dataset_sha256
+                or not (self.provenance or {}).get("dataset_filename")
                 else self.dataset_sha256 == dataset_digest
             ),
             completed_at=self.completed_at.isoformat() if self.completed_at else None,
@@ -204,6 +205,18 @@ class MLRun(db.Model):
         else:
             data["metrics"] = {"test": (self.metrics or {}).get("test", {})}
         return data
+
+
+class TrainingSchedule(db.Model):
+    __tablename__ = "training_schedule"
+    id = db.Column(db.Integer, primary_key=True)
+    enabled = db.Column(db.Boolean, nullable=False, default=False)
+    time = db.Column(db.Time, nullable=False)
+    last_date = db.Column(db.Date)
+    last_status = db.Column(db.String(16))
+    last_message = db.Column(db.Text)
+    last_started_at = db.Column(db.DateTime(timezone=True))
+    requested_dataset_id = db.Column(db.String(36))
 
 
 class Scan(db.Model):

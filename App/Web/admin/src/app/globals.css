@@ -19,6 +19,8 @@
   --color-popover: #fff;
   --color-popover-foreground: var(--foreground);
   --color-destructive: #b42332;
+  --color-warning: var(--warning-foreground);
+  --color-warning-surface: var(--warning-surface);
   --color-border: var(--border);
   --color-input: var(--border);
   --color-ring: var(--primary);
@@ -43,6 +45,8 @@
   --muted-foreground: #586579;
   --border: #e2e7ee;
   --sidebar: #f6f7f9;
+  --warning-foreground: #854d0e;
+  --warning-surface: #fef3d7;
   --touch-target: 44px;
 }
 * {
@@ -379,7 +383,6 @@ dd {
   border-collapse: collapse;
   text-align: left;
   width: 100%;
-  min-width: 720px;
 }
 .table-scroll thead {
   position: sticky;
@@ -387,32 +390,74 @@ dd {
   z-index: 1;
   background: var(--muted);
 }
-.table-scroll th {
+.table-scroll th,
+.table-scroll td {
+  padding: 10px 16px;
+  vertical-align: top;
+}
+.table-scroll thead th {
   height: 40px;
   font-size: 12px;
   font-weight: 500;
   color: var(--muted-foreground);
-  white-space: pre-wrap;
+  white-space: normal;
 }
-.table-scroll th,
-.table-scroll td {
-  padding: 10px 18px;
-  vertical-align: middle;
+.table-scroll tbody :is(th, td) {
+  font-size: 13px;
+  line-height: 1.6;
 }
 .table-scroll td {
-  min-width: 130px;
   max-width: 480px;
   overflow-wrap: anywhere;
   white-space: pre-wrap;
-  line-height: 1.6;
-  font-size: 13px;
   font-variant-numeric: tabular-nums;
 }
-.table-scroll th:first-child,
-.table-scroll td:first-child {
-  min-width: 64px;
-  width: 64px;
+.table-scroll tbody th[scope="row"] {
+  width: 1%;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.table-scroll .table-row-number {
+  width: 1%;
+  white-space: nowrap;
   color: var(--muted-foreground);
+}
+.table-scroll .csv-table :is(th, td):not(.table-row-number) {
+  min-width: 8rem;
+  max-width: 30rem;
+  overflow-wrap: anywhere;
+}
+.table-scroll .comparison-table {
+  table-layout: fixed;
+}
+.table-scroll .comparison-table th:first-child {
+  width: 8rem;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.table-scroll .comparison-table tbody tr + tr {
+  border-top: 1px solid var(--border);
+}
+@media (max-width: 639px) {
+  .table-scroll .comparison-table th:first-child {
+    width: 26%;
+  }
+  .table-scroll .comparison-table :is(th, td) {
+    padding-inline: 8px;
+  }
+}
+.table-scroll tbody th.table-field-name {
+  min-width: 8rem;
+  max-width: 16rem;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+.table-scroll .ml-metrics-table :is(th, td) {
+  padding-inline: 0.55rem;
+  white-space: nowrap;
+}
+.table-scroll .ml-metrics-table th[scope="row"] {
+  white-space: normal;
 }
 .pagination {
   display: flex;
@@ -463,7 +508,7 @@ select {
   align-items: center;
   justify-content: center;
   text-align: center;
-  border: 1px dashed #ccd5e3;
+  border: 1px dashed var(--border);
   border-radius: 12px;
   padding: 36px 24px;
 }
@@ -926,8 +971,10 @@ select {
   overflow: auto;
   max-height: min(580px, 60dvh);
 }
-.users-table-scroll table {
-  min-width: 720px;
+@media (min-width: 1024px) {
+  .users-table-scroll table {
+    min-width: 720px;
+  }
 }
 .users-table-scroll th {
   position: sticky;
@@ -1099,8 +1146,8 @@ select {
   gap: 7px;
   padding: 14px;
   border: 1px solid var(--border);
-  border-radius: 10px;
-  background: white;
+  border-radius: var(--radius-xl);
+  background: var(--background);
   color: inherit;
   text-decoration: none;
   transition:
