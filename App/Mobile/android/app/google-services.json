@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "770782614042",
+    "project_id": "link-guard-93626",
+    "storage_bucket": "link-guard-93626.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:770782614042:android:0dd1eb164ebed32395f7a3",
+        "android_client_info": {
+          "package_name": "com.example.pbl_semester5"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDLzgp-QCBQsi9ceCMFqfbjY1CwBDlnKEI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

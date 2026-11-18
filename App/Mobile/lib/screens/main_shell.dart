@@ -22,9 +22,16 @@ import '../features/scan_results/presentation/pages/scan_detail_screen.dart';
 import '../features/scan_results/presentation/pages/scan_result_screen.dart';
 import '../widgets/app_bottom_navigation.dart';
 import '../widgets/scan_components.dart';
+import '../notifications/notification_navigation.dart';
 
 class MainShell extends StatefulWidget {
-  const MainShell({super.key, required this.auth, required this.onSignOut});
+  const MainShell({
+    super.key,
+    required this.auth,
+    required this.onSignOut,
+    this.notificationNavigation,
+  });
+  final NotificationNavigation? notificationNavigation;
 
   /// Auth wiring shared with the login screen.
   final AuthDependencies auth;
@@ -47,20 +54,53 @@ class _MainShellState extends State<MainShell> {
     accountRepository: widget.auth.accountRepository,
   );
   StreamSubscription<String>? _shareSubscription;
+  int _notificationSequence = 0;
 
   @override
   void initState() {
     super.initState();
     _listenForSharedLinks();
+    widget.notificationNavigation?.addListener(_handleNotification);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _handleNotification());
   }
 
   @override
   void dispose() {
     _shareSubscription?.cancel();
+    widget.notificationNavigation?.removeListener(_handleNotification);
     _inputScan.dispose();
     _scanResults.dispose();
     _history.dispose();
     super.dispose();
+  }
+
+  Future<void> _handleNotification() async {
+    final data = widget.notificationNavigation?.take();
+    if (data == null || !mounted) return;
+    final sequence = ++_notificationSequence;
+    final reportId = data['report_id']?.toString();
+    if (reportId == null || reportId.isEmpty) {
+      _openNotifications();
+      return;
+    }
+    final report = await fetchNotificationReport(
+      reportId,
+      widget.auth.apiTokenStore,
+    );
+    if (!mounted || sequence != _notificationSequence) return;
+    if (report == null) {
+      _openReportStatus();
+      return;
+    }
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => ReportDetailScreen(
+          report: report,
+          buildReportTimeline: _history.reportStatus.buildReportTimeline,
+          isSimulated: _history.reportStatus.isSimulated,
+        ),
+      ),
+    );
   }
 
   /// Opens the share form when another app hands LinkGuard a link.
