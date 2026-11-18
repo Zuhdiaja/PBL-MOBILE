@@ -97,6 +97,7 @@ export type ManagedUser = {
   email: string;
   active: boolean;
   has_password: boolean;
+  has_google: boolean;
 };
 export type UsersResponse = {
   kind: AccountKind;
