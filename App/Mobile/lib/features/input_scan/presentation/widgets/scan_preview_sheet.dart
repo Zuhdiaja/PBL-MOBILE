@@ -96,50 +96,113 @@ class _ScanProcessingScreenState extends State<ScanProcessingScreen> {
     }
   }
 
+  /// Stops after the URL in flight and leaves the processing page.
+  void _cancel() {
+    widget.controller.cancel();
+    Navigator.of(context).pop();
+  }
+
   @override
   Widget build(BuildContext context) => AnimatedBuilder(
     animation: widget.controller,
     builder: (context, _) {
       final controller = widget.controller;
       if (controller.stage == ScanSubmissionStage.failed) {
-        return Scaffold(
-          body: SafeArea(
-            child: ScanPage(
-              children: [
-                const Text('Pemeriksaan gagal', style: sectionTitleStyle),
-                const SizedBox(height: 12),
-                Text(
-                  controller.error ?? 'Tautan belum dapat diperiksa.',
-                  style: bodyStyle,
-                ),
-                const SizedBox(height: 20),
-                ScanButton(
-                  label: 'Coba lagi',
-                  icon: Icons.refresh_rounded,
-                  onPressed: _run,
-                ),
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('Kembali'),
-                ),
-              ],
-            ),
-          ),
+        return ScanProcessingFailure(
+          message: controller.error ?? 'Tautan belum dapat diperiksa.',
+          onRetry: _run,
+          onCancel: _cancel,
         );
       }
       return ScanProcessingBody(
         urls: widget.urls,
         done: controller.done,
         total: controller.total,
-        onCancel: () {
-          controller.cancel();
-          Navigator.of(context).pop();
-        },
+        onCancel: _cancel,
       );
     },
   );
 }
 
+/// Shared frame for the processing states: a back-cancel header, the page
+/// surface, and the scrolling body used by every other Input Scan page.
+class _ProcessingFrame extends StatelessWidget {
+  const _ProcessingFrame({required this.onCancel, required this.children});
+
+  final VoidCallback onCancel;
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    body: SafeArea(
+      child: ScanPage(
+        children: [
+          Row(
+            children: [
+              IconButton(
+                tooltip: 'Batalkan pemeriksaan',
+                onPressed: onCancel,
+                icon: const Icon(Icons.arrow_back_rounded, size: 22),
+              ),
+              const SizedBox(width: 4),
+              const Expanded(
+                child: Text('Pemeriksaan tautan', style: sectionTitleStyle),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          ...children,
+        ],
+      ),
+    ),
+  );
+}
+
+/// Surface card grouping the icon, headline, and supporting copy of a state.
+class _ProcessingCard extends StatelessWidget {
+  const _ProcessingCard({required this.children});
+
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: double.infinity,
+    padding: const EdgeInsets.all(20),
+    decoration: BoxDecoration(
+      color: context.colors.surface,
+      borderRadius: BorderRadius.circular(16),
+      border: Border.all(color: context.colors.line),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: children,
+    ),
+  );
+}
+
+class _ProcessingIcon extends StatelessWidget {
+  const _ProcessingIcon({required this.icon, this.danger = false});
+
+  final IconData icon;
+  final bool danger;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: 56,
+    height: 56,
+    decoration: BoxDecoration(
+      color: danger ? context.colors.paleDanger : context.colors.paleBlue,
+      borderRadius: BorderRadius.circular(16),
+    ),
+    child: Icon(
+      icon,
+      size: 28,
+      color: danger ? context.colors.danger : context.colors.blue,
+    ),
+  );
+}
+
+/// Progress while the model checks the links, one row per URL.
 class ScanProcessingBody extends StatelessWidget {
   const ScanProcessingBody({
     super.key,
@@ -156,89 +219,239 @@ class ScanProcessingBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final count = total == 0 ? urls.length : total;
-    return ScanPage(
+    final progress = count == 0 ? 0.0 : (done / count).clamp(0.0, 1.0);
+    final progressCopy = '$done dari $count tautan selesai';
+
+    return _ProcessingFrame(
+      onCancel: onCancel,
       children: [
-        Row(
+        _ProcessingCard(
           children: [
-            const Expanded(child: LinkGuardBrand(size: 19)),
-            TextButton(onPressed: onCancel, child: const Text('Batalkan')),
-          ],
-        ),
-        const SizedBox(height: 32),
-        Container(
-          width: 68,
-          height: 68,
-          decoration: BoxDecoration(
-            color: context.colors.paleBlue,
-            borderRadius: BorderRadius.circular(18),
-          ),
-          child: Icon(
-            Icons.crop_free_rounded,
-            size: 34,
-            color: context.colors.blue,
-          ),
-        ),
-        const SizedBox(height: 24),
-        const Text('Memeriksa tautan.', style: pageTitleStyle),
-        const SizedBox(height: 10),
-        Text(
-          'Model memeriksa setiap URL satu per satu.',
-          style: TextStyle(
-            color: context.colors.muted,
-            fontSize: 13,
-            height: 1.6,
-          ),
-        ),
-        const SizedBox(height: 20),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(6),
-          child: LinearProgressIndicator(
-            value: count == 0 ? null : done / count,
-            minHeight: 6,
-            backgroundColor: context.colors.line,
-            color: context.colors.blue,
-          ),
-        ),
-        const SizedBox(height: 10),
-        Text(
-          '$done dari $count tautan selesai',
-          style: TextStyle(fontSize: 11, color: context.colors.muted),
-        ),
-        const SizedBox(height: 20),
-        for (var index = 0; index < urls.length; index++)
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            child: Row(
+            const _ProcessingIcon(icon: Icons.crop_free_rounded),
+            const SizedBox(height: 18),
+            const Text('Memeriksa tautan.', style: pageTitleStyle),
+            const SizedBox(height: 8),
+            Text(
+              'Model memeriksa setiap URL satu per satu.',
+              style: bodyStyle.copyWith(
+                fontSize: 13,
+                color: context.colors.muted,
+              ),
+            ),
+            const SizedBox(height: 22),
+            Row(
               children: [
-                Icon(
-                  index < done
-                      ? Icons.check_circle_outline_rounded
-                      : Icons.radio_button_unchecked_rounded,
-                  color: index < done
-                      ? context.colors.success
-                      : context.colors.muted,
-                  size: 20,
-                ),
-                const SizedBox(width: 10),
-                Expanded(
+                const Expanded(
                   child: Text(
-                    urls[index],
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: index < done
-                          ? context.colors.ink
-                          : context.colors.muted,
-                    ),
+                    'Progres',
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+                  ),
+                ),
+                Text(
+                  '${(progress * 100).round()}%',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: context.colors.blue,
                   ),
                 ),
               ],
             ),
+            const SizedBox(height: 10),
+            Semantics(
+              label: 'Progres pemeriksaan',
+              value: progressCopy,
+              liveRegion: true,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(6),
+                child: LinearProgressIndicator(
+                  value: progress,
+                  minHeight: 8,
+                  backgroundColor: context.colors.line,
+                  color: context.colors.blue,
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              progressCopy,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: context.colors.muted,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 24),
+        const Text(
+          'Tautan yang diperiksa',
+          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+        ),
+        const SizedBox(height: 12),
+        for (var index = 0; index < urls.length; index++) ...[
+          _ProcessingUrlRow(
+            url: urls[index],
+            state: index < done
+                ? _ProcessingUrlState.done
+                : index == done
+                ? _ProcessingUrlState.running
+                : _ProcessingUrlState.waiting,
           ),
+          if (index < urls.length - 1) const SizedBox(height: 8),
+        ],
         const SizedBox(height: 20),
         const InfoNote('Model berjalan di server LinkGuard.'),
+        const SizedBox(height: 22),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton(
+            onPressed: onCancel,
+            child: const Text('Batalkan'),
+          ),
+        ),
       ],
     );
   }
+}
+
+/// What the model is doing with one link, derived from the finished count.
+enum _ProcessingUrlState { waiting, running, done }
+
+class _ProcessingUrlRow extends StatelessWidget {
+  const _ProcessingUrlRow({required this.url, required this.state});
+
+  final String url;
+  final _ProcessingUrlState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final (label, icon, color, background) = switch (state) {
+      _ProcessingUrlState.done => (
+        'Selesai',
+        Icons.check_circle_rounded,
+        context.colors.success,
+        context.colors.paleSuccess,
+      ),
+      _ProcessingUrlState.running => (
+        'Diperiksa',
+        Icons.sync_rounded,
+        context.colors.blue,
+        context.colors.paleBlue,
+      ),
+      _ProcessingUrlState.waiting => (
+        'Menunggu',
+        Icons.schedule_rounded,
+        context.colors.muted,
+        context.colors.surface,
+      ),
+    };
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: context.colors.softSurface,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 20, color: color),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  displayHost(url),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: context.colors.ink,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  url,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 12, color: context.colors.muted),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: background,
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
+                color: color,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Shown when the submission failed, with the same frame as the progress page.
+class ScanProcessingFailure extends StatelessWidget {
+  const ScanProcessingFailure({
+    super.key,
+    required this.message,
+    required this.onRetry,
+    required this.onCancel,
+  });
+
+  final String message;
+  final VoidCallback onRetry;
+  final VoidCallback onCancel;
+
+  @override
+  Widget build(BuildContext context) => _ProcessingFrame(
+    onCancel: onCancel,
+    children: [
+      _ProcessingCard(
+        children: [
+          const _ProcessingIcon(
+            icon: Icons.error_outline_rounded,
+            danger: true,
+          ),
+          const SizedBox(height: 18),
+          const Text('Pemeriksaan gagal', style: pageTitleStyle),
+          const SizedBox(height: 8),
+          Text(
+            message,
+            style: bodyStyle.copyWith(
+              fontSize: 13,
+              color: context.colors.muted,
+            ),
+          ),
+          const SizedBox(height: 22),
+          ScanButton(
+            label: 'Coba lagi',
+            icon: Icons.refresh_rounded,
+            onPressed: onRetry,
+          ),
+          const SizedBox(height: 8),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton(
+              onPressed: onCancel,
+              child: const Text('Kembali'),
+            ),
+          ),
+        ],
+      ),
+    ],
+  );
 }
