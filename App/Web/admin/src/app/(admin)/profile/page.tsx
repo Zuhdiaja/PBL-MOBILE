@@ -8,17 +8,28 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ErrorNotice } from "@/components/feedback";
-import { api, messageOf, type User } from "@/lib/api";
+import { ApiError, api, messageOf, type User } from "@/lib/api";
+type PasswordIssue = {
+  field?: "old-password" | "new-password" | "confirm-password";
+  message: string;
+};
+
 export default function Page() {
   const { user, setUser } = useAuth();
   const [name, setName] = useState(user.name);
   const [oldPassword, setOldPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [passwordError, setPasswordError] = useState<PasswordIssue | null>(null);
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
   const [feedback, setFeedback] = useState("");
-  async function save(action: string, work: () => Promise<void>, message: string) {
+  async function save(
+    action: string,
+    work: () => Promise<void>,
+    message: string,
+    onError?: (error: unknown) => void,
+  ) {
     setBusy(action);
     setError("");
     setFeedback("");
@@ -26,7 +37,8 @@ export default function Page() {
       await work();
       setFeedback(message);
     } catch (e) {
-      setError(messageOf(e));
+      if (onError) onError(e);
+      else setError(messageOf(e));
     } finally {
       setBusy("");
     }
@@ -163,8 +175,18 @@ export default function Page() {
               className="profile-form"
               onSubmit={(e) => {
                 e.preventDefault();
+                const form = e.currentTarget;
+                function showPasswordError(issue: PasswordIssue) {
+                  setPasswordError(issue);
+                  if (issue.field) form.querySelector<HTMLInputElement>(`#${issue.field}`)?.focus();
+                }
+
+                setPasswordError(null);
                 if (newPassword !== confirmPassword) {
-                  setError("Konfirmasi password tidak sesuai.");
+                  showPasswordError({
+                    field: "confirm-password",
+                    message: "Konfirmasi password tidak sesuai.",
+                  });
                   return;
                 }
                 void save(
@@ -182,6 +204,16 @@ export default function Page() {
                     setConfirmPassword("");
                   },
                   "Password diubah. Sesi perangkat lain telah diakhiri.",
+                  (cause) => {
+                    const message = messageOf(cause);
+                    if (cause instanceof ApiError && cause.code === "invalid_password") {
+                      showPasswordError({ field: "old-password", message });
+                    } else if (cause instanceof ApiError && cause.code === "weak_password") {
+                      showPasswordError({ field: "new-password", message });
+                    } else {
+                      showPasswordError({ message });
+                    }
+                  },
                 );
               }}
             >
@@ -194,8 +226,20 @@ export default function Page() {
                   required
                   maxLength={256}
                   value={oldPassword}
-                  onChange={(e) => setOldPassword(e.target.value)}
+                  aria-invalid={passwordError?.field === "old-password"}
+                  aria-describedby={
+                    passwordError?.field === "old-password" ? "old-password-error" : undefined
+                  }
+                  onChange={(e) => {
+                    setOldPassword(e.target.value);
+                    setPasswordError(null);
+                  }}
                 />
+                {passwordError?.field === "old-password" && (
+                  <p id="old-password-error" className="text-sm text-destructive" role="alert">
+                    {passwordError.message}
+                  </p>
+                )}
               </div>
               <div className="field">
                 <Label htmlFor="new-password">Password baru</Label>
@@ -207,8 +251,20 @@ export default function Page() {
                   minLength={12}
                   maxLength={256}
                   value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
+                  aria-invalid={passwordError?.field === "new-password"}
+                  aria-describedby={
+                    passwordError?.field === "new-password" ? "new-password-error" : undefined
+                  }
+                  onChange={(e) => {
+                    setNewPassword(e.target.value);
+                    setPasswordError(null);
+                  }}
                 />
+                {passwordError?.field === "new-password" && (
+                  <p id="new-password-error" className="text-sm text-destructive" role="alert">
+                    {passwordError.message}
+                  </p>
+                )}
               </div>
               <div className="field">
                 <Label htmlFor="confirm-password">Konfirmasi password baru</Label>
@@ -220,9 +276,26 @@ export default function Page() {
                   minLength={12}
                   maxLength={256}
                   value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  aria-invalid={passwordError?.field === "confirm-password"}
+                  aria-describedby={
+                    passwordError?.field === "confirm-password"
+                      ? "confirm-password-error"
+                      : undefined
+                  }
+                  onChange={(e) => {
+                    setConfirmPassword(e.target.value);
+                    setPasswordError(null);
+                  }}
                 />
+                {passwordError?.field === "confirm-password" && (
+                  <p id="confirm-password-error" className="text-sm text-destructive" role="alert">
+                    {passwordError.message}
+                  </p>
+                )}
               </div>
+              {passwordError && !passwordError.field && (
+                <ErrorNotice message={passwordError.message} />
+              )}
               <Button type="submit" disabled={!!busy}>
                 {busy === "password" ? "Menyimpan…" : "Ubah password"}
               </Button>

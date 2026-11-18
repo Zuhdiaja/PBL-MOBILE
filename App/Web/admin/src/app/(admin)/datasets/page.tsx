@@ -101,7 +101,7 @@ function DatasetTable({
         aria-label="Tabel dataset, gulir untuk melihat semua kolom"
         aria-busy={busy}
       >
-        <Table>
+        <Table className="csv-table">
           <caption className="sr-only">
             {dataset.filename}, halaman {page} dari {result.page_count}
           </caption>
@@ -109,7 +109,11 @@ function DatasetTable({
             {table.getHeaderGroups().map((group) => (
               <TableRow key={group.id}>
                 {group.headers.map((header) => (
-                  <TableHead scope="col" key={header.id}>
+                  <TableHead
+                    scope="col"
+                    key={header.id}
+                    className={header.index === 0 ? "table-row-number" : undefined}
+                  >
                     {flexRender(header.column.columnDef.header, header.getContext())}
                   </TableHead>
                 ))}
@@ -119,8 +123,13 @@ function DatasetTable({
           <TableBody>
             {table.getRowModel().rows.map((row) => (
               <TableRow key={row.id}>
-                {row.getAllCells().map((cell) => (
-                  <TableCell key={cell.id}>{String(cell.getValue() ?? "")}</TableCell>
+                {row.getAllCells().map((cell, columnIndex) => (
+                  <TableCell
+                    key={cell.id}
+                    className={columnIndex === 0 ? "table-row-number" : undefined}
+                  >
+                    {String(cell.getValue() ?? "")}
+                  </TableCell>
                 ))}
               </TableRow>
             ))}
@@ -219,6 +228,7 @@ export default function Page() {
   }, [params]);
   const previousId = useRef<string | null>(null);
   const mounted = useRef(true);
+  const metaRequest = useRef(0);
   const selectPage = useCallback(
     (next: number, nextSize: number, id?: string) => {
       const query = new URLSearchParams(paramsRef.current.toString());
@@ -230,9 +240,10 @@ export default function Page() {
     [router],
   );
   const loadMeta = useCallback(async () => {
+    const requestId = ++metaRequest.current;
     try {
       const data = await api<DatasetResponse>("/dataset");
-      if (!mounted.current) return;
+      if (!mounted.current || requestId !== metaRequest.current) return;
       const id = data.dataset?.id;
       const known = previousId.current || paramsRef.current.get("dataset_id");
       if (id && known && known !== id) {
@@ -253,26 +264,30 @@ export default function Page() {
           : {
               ...data,
               dataset:
-                current?.dataset?.id === data.dataset?.id ? current?.dataset || null : data.dataset,
+                JSON.stringify(current?.dataset) === JSON.stringify(data.dataset)
+                  ? (current?.dataset ?? null)
+                  : data.dataset,
             },
       );
       setError("");
     } catch (e) {
-      if (mounted.current) setError(messageOf(e));
+      if (mounted.current && requestId === metaRequest.current) setError(messageOf(e));
     }
   }, [selectPage]);
   const job = meta?.latest_import;
   const importing = job?.status === "queued" || job?.status === "running";
   useEffect(() => {
     mounted.current = true;
-    void loadMeta();
-    const timer = setInterval(() => void loadMeta(), importing ? 1500 : 10000);
-    const refresh = () => void loadMeta();
-    window.addEventListener("focus", refresh);
+    const refresh = () => {
+      if (document.visibilityState === "visible") void loadMeta();
+    };
+    refresh();
+    const timer = setInterval(refresh, importing ? 1500 : 10000);
+    document.addEventListener("visibilitychange", refresh);
     return () => {
       mounted.current = false;
       clearInterval(timer);
-      window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", refresh);
     };
   }, [loadMeta, importing]);
   const dataset = meta?.dataset;
@@ -317,6 +332,7 @@ export default function Page() {
         method: "POST",
         body: form,
       });
+      metaRequest.current++;
       setMeta((current) => ({ dataset: current?.dataset || null, latest_import: data.import_job }));
       setOpen(false);
       setFile(null);
