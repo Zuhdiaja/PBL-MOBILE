@@ -7,6 +7,7 @@ import '../features/history/data/datasources/demo_notifications_data_source.dart
 import '../features/history/data/datasources/demo_report_status_data_source.dart';
 import '../features/history/data/datasources/history_data_source.dart';
 import '../features/history/data/datasources/remote_history_data_source.dart';
+import '../features/history/data/datasources/preferences_notification_read_store.dart';
 import '../features/history/data/datasources/remote_report_status_data_source.dart';
 import '../features/history/data/repositories/history_repository_impl.dart';
 import '../features/history/data/repositories/notifications_repository_impl.dart';
@@ -31,6 +32,7 @@ class HistoryDependencies {
     TokenStore? tokenStore,
     String? apiBaseUrl,
     AccountRepository? accountRepository,
+    String? accountId,
   }) {
     final base = apiBaseUrl ?? defaultApiBaseUrl();
     final HistoryDataSource historySource = tokenStore == null
@@ -71,6 +73,9 @@ class HistoryDependencies {
     this.notifications = NotificationsController(
       notifications,
       isSimulated: tokenStore == null || accountRepository == null,
+      readStore: tokenStore == null || accountId == null
+          ? null
+          : PreferencesNotificationReadStore(accountId: accountId),
     );
   }
 

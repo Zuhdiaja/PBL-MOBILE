@@ -34,9 +34,13 @@ class StatsController extends LoadController {
   ActivitySummary get summary => _summary;
 
   @override
-  Future<void> load() => loadValue(() async {
+  Future<void> load() => loadValue(_read, (value) => _summary = value);
+
+  Future<void> refresh() => refreshValue(_read, (value) => _summary = value);
+
+  Future<ActivitySummary> _read() async {
     final entries = await historyRepository.getEntries();
     final reports = await reportStatusRepository.getReports();
     return summarizeActivity(entries: entries, reportCount: reports.length);
-  }, (value) => _summary = value);
+  }
 }

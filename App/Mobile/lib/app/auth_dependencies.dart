@@ -1,5 +1,6 @@
 import '../config/api_config.dart';
 import '../config/google_config.dart';
+import '../data/report_counts_api.dart';
 import '../data/scans_api.dart';
 import '../features/auth/data/datasources/account_data_source.dart';
 import '../features/auth/data/datasources/auth_data_source.dart';
@@ -98,6 +99,10 @@ class AuthDependencies {
       ? DemoAccountDataSource()
       : PreferencesAccountDataSource(
           scans: ScansApi(baseUrl: defaultApiBaseUrl(), tokenStore: store),
+          reportCounts: ReportCountsApi(
+            baseUrl: defaultApiBaseUrl(),
+            tokenStore: store,
+          ),
         );
 
   /// Token store handed to API-backed features.

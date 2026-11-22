@@ -16,4 +16,9 @@ class HomeController extends LoadController {
     repository.getRecentScans,
     (value) => _recentScans = List.unmodifiable(value),
   );
+
+  Future<void> refresh() => refreshValue(
+    repository.getRecentScans,
+    (value) => _recentScans = List.unmodifiable(value),
+  );
 }

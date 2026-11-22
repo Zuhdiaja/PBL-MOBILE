@@ -6,9 +6,9 @@
 abstract class AccountDataSource {
   Future<int> readTotalScans();
 
-  int readSubmittedReports();
+  Future<int> readSubmittedReports();
 
-  int readPendingReports();
+  Future<int> readPendingReports();
 
   Future<bool> readReportNotificationsEnabled();
 

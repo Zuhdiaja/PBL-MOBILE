@@ -3,6 +3,7 @@ import 'package:pbl_semester5/features/history/domain/entities/app_notification.
 import 'package:pbl_semester5/features/history/domain/entities/history_entry.dart';
 import 'package:pbl_semester5/features/history/domain/entities/report_status.dart';
 import 'package:pbl_semester5/features/history/domain/repositories/history_repository.dart';
+import 'package:pbl_semester5/features/history/domain/repositories/notification_read_store.dart';
 import 'package:pbl_semester5/features/history/domain/repositories/notifications_repository.dart';
 import 'package:pbl_semester5/features/history/domain/repositories/report_status_repository.dart';
 import 'package:pbl_semester5/features/history/domain/usecases/build_report_timeline.dart';
@@ -38,6 +39,30 @@ class _FakeNotificationsRepository implements NotificationsRepository {
 
   @override
   List<AppNotification> getNotifications() => _notifications;
+}
+
+class _MutableHistoryRepository implements HistoryRepository {
+  _MutableHistoryRepository(this.entries);
+
+  List<HistoryEntry> entries;
+  Object? error;
+
+  @override
+  List<HistoryEntry> getEntries() {
+    final failure = error;
+    if (failure != null) throw failure;
+    return entries;
+  }
+}
+
+class _MemoryReadStore implements NotificationReadStore {
+  Set<String> ids = {};
+
+  @override
+  Future<Set<String>> read() async => ids;
+
+  @override
+  Future<void> write(Set<String> value) async => ids = value;
 }
 
 HistoryEntry _entry(
@@ -219,6 +244,82 @@ void main() {
       for (final item in controller.notifications) {
         expect(controller.isUnread(item), isFalse);
       }
+    });
+
+    test('read marks survive a new controller for the same account', () async {
+      final store = _MemoryReadStore();
+      final first = NotificationsController(
+        _FakeNotificationsRepository([
+          _notification('0', unread: true),
+          _notification('1', unread: true),
+        ]),
+        readStore: store,
+      );
+      addTearDown(first.dispose);
+      await first.load();
+      await first.markAllRead();
+      expect(store.ids, {'0', '1'});
+
+      final second = NotificationsController(
+        _FakeNotificationsRepository([
+          _notification('0', unread: true),
+          _notification('1', unread: true),
+        ]),
+        readStore: store,
+      );
+      addTearDown(second.dispose);
+      await second.load();
+
+      expect(second.unreadCount, 0);
+    });
+  });
+
+  group('silent refresh', () {
+    test('updates the data without showing the loading state', () async {
+      final repository = _MutableHistoryRepository([
+        _entry('a', category: 'Aman', isSafe: true),
+      ]);
+      final controller = HistoryController(
+        repository: repository,
+        filterHistoryEntries: const FilterHistoryEntries(),
+      );
+      addTearDown(controller.dispose);
+      await controller.load();
+      expect(controller.entries.length, 1);
+
+      repository.entries = [
+        _entry('a', category: 'Aman', isSafe: true),
+        _entry('b', category: 'Phishing', isSafe: false),
+      ];
+      var loadingSeen = false;
+      controller.addListener(() {
+        if (controller.isLoading) loadingSeen = true;
+      });
+
+      await controller.refresh();
+
+      expect(controller.entries.length, 2);
+      expect(loadingSeen, isFalse);
+      expect(controller.loadError, isNull);
+    });
+
+    test('keeps the previous data when the refresh fails', () async {
+      final repository = _MutableHistoryRepository([
+        _entry('a', category: 'Aman', isSafe: true),
+      ]);
+      final controller = HistoryController(
+        repository: repository,
+        filterHistoryEntries: const FilterHistoryEntries(),
+      );
+      addTearDown(controller.dispose);
+      await controller.load();
+
+      repository.error = StateError('offline');
+      await controller.refresh();
+
+      expect(controller.entries.length, 1);
+      expect(controller.loadError, isNull);
+      expect(controller.isLoading, isFalse);
     });
   });
 }

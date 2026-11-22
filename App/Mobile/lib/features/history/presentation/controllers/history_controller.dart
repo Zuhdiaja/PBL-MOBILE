@@ -49,6 +49,10 @@ class HistoryController extends LoadController {
     return loadValue(repository.getEntries, (value) => _entries = value);
   }
 
+  Future<void> refresh() {
+    return refreshValue(repository.getEntries, (value) => _entries = value);
+  }
+
   void selectFilter(String value) {
     if (_filter == value) return;
     _filter = value;

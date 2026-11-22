@@ -33,6 +33,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
       return ScanSubpage(
         title: 'Notifikasi',
+        onRefresh: controller.refresh,
         children: [
           Text(
             'Pemberitahuan saat laporan selesai ditinjau.',

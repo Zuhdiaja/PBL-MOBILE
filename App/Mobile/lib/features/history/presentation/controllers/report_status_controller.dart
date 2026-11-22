@@ -31,4 +31,8 @@ class ReportStatusController extends LoadController {
       describeError: (error) => error is HistoryFailure ? error.message : null,
     );
   }
+
+  Future<void> refresh() {
+    return refreshValue(repository.getReports, (value) => _reports = value);
+  }
 }

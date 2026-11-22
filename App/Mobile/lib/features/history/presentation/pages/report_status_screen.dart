@@ -37,6 +37,7 @@ class _ReportStatusScreenState extends State<ReportStatusScreen> {
     builder: (context) => ScanSubpage(
       title: 'Status laporan',
       selectedIndex: 4,
+      onRefresh: widget.controller.refresh,
       children: [
         Text(
           'Pantau proses peninjauan laporan yang telah Anda kirim.',

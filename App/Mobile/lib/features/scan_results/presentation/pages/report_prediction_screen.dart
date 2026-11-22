@@ -68,6 +68,7 @@ class _ReportPredictionScreenState extends State<ReportPredictionScreen> {
     final onSubmitted = widget.onSubmitted;
     if (onSubmitted != null) {
       onSubmitted();
+      if (mounted) Navigator.of(context).pop();
       return;
     }
     Navigator.of(context).pop();
