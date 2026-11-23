@@ -56,6 +56,7 @@ def create_app(config=None):
     from app.routes.mobile_auth import mobile
     from app.routes import mobile_reports as _mobile_reports
     from app.routes import mobile_scan as _mobile_scan
+    from app.routes import mobile_devices as _mobile_devices
     app.register_blueprint(api, url_prefix="/api/v1")
     app.register_blueprint(mobile, url_prefix="/api/v1/mobile")
     app.before_request(authenticate)

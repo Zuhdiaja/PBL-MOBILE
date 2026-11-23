@@ -34,6 +34,29 @@ class MobileUser(db.Model):
     google_sub = db.Column(db.String(255), unique=True)
     active = db.Column(db.Boolean, nullable=False, default=True)
     token_version = db.Column(db.Integer, nullable=False, default=1)
+    report_notifications_enabled = db.Column(db.Boolean, nullable=False, default=True, server_default=db.true())
+    created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=now)
+
+
+class MobileDevice(db.Model):
+    __tablename__ = 'mobile_devices'
+    id = db.Column(db.Integer, primary_key=True)
+    installation_id = db.Column(db.String(128), unique=True, nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('mobile_users.id', ondelete='CASCADE'), nullable=False, index=True)
+    token = db.Column(db.String(4096), unique=True, nullable=False)
+    session_key = db.Column(db.String(128), nullable=False)
+    platform = db.Column(db.String(16), nullable=False, default='android')
+    created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=now)
+    updated_at = db.Column(db.DateTime(timezone=True), nullable=False, default=now, onupdate=now)
+
+
+class PushOutbox(db.Model):
+    __tablename__ = 'push_outbox'
+    id = db.Column(db.Integer, primary_key=True)
+    report_id = db.Column(db.Integer, db.ForeignKey('prediction_reports.id', ondelete='CASCADE'), nullable=False)
+    status = db.Column(db.String(32), nullable=False)
+    attempts = db.Column(db.Integer, nullable=False, default=0)
+    sent = db.Column(db.Boolean, nullable=False, default=False)
     created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=now)
 
 

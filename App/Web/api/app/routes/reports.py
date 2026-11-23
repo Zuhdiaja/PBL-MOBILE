@@ -212,6 +212,9 @@ def reports_update(report_id):
             return error("report_synced", "Kategori laporan tersinkron tidak dapat diubah.", 409)
 
     # Validate the whole request before changing the ORM object.
+    if status is not None and status != report.status:
+        from app.models import PushOutbox
+        db.session.add(PushOutbox(report_id=report.id, status=status))
     if status is not None:
         report.status = status
     if admin_notes is not None:
@@ -290,6 +293,9 @@ def reports_sync_dataset(report_id):
 
     report.dataset_id = active.id
     report.dataset_synced = True
+    from app.models import PushOutbox
+    if report.status != 'completed':
+        db.session.add(PushOutbox(report_id=report.id, status='completed'))
     report.status = "completed"
     report.updated_at = now()
 

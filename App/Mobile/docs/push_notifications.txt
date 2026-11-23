@@ -1,8 +1,20 @@
 # Push notification laporan
 
-Backend saat ini menyimpan notifikasi dan menyediakan endpoint mobile untuk daftar, membaca, dan detail laporan. Belum ada endpoint registrasi perangkat maupun pengirim FCM; token hanya disimpan di memori aplikasi dan tidak dikirim ke server.
+Notifikasi in-app diturunkan dari laporan milik akun melalui API laporan mobile. Status baca disimpan lokal per akun. Tidak ada endpoint daftar/baca notifikasi atau tabel inbox yang digunakan aplikasi.
 
-Backend perlu menyediakan registrasi token dengan autentikasi mobile, mengaitkan token dengan akun dan instalasi, memperbarui token saat berubah, menghapus kaitan saat logout dan menangani token tidak valid. Pengiriman harus dilakukan server menggunakan Firebase Admin SDK dan kredensial server yang aman. Hormati preferensi pengguna sebelum mengirim. Jangan memasukkan service account ke aplikasi.
+Backend menyediakan POST/DELETE /api/v1/mobile/devices dan GET/PATCH /api/v1/mobile/preferences dengan bearer token mobile. Token terikat instalasi, akun dan sesi. Logout backend menghapus perangkat sesi tersebut. Token awal dan refresh disinkronkan aplikasi; preferensi server mengendalikan pengiriman dan preferensi cache akun mengendalikan tampilan foreground.
+
+Menjalankan tanpa Docker (Windows):
+1. Jalankan PostgreSQL lokal dan Redis yang dapat diakses API (Redis bisa melalui WSL atau layanan Redis terkelola). Backend yang sudah ada tetap memerlukan Redis untuk sesi dan rate limit.
+2. Di App/Web/api: .venv/Scripts/python.exe -m pip install -r requirements.lock
+3. Atur SECRET_KEY, DATABASE_URL, REDIS_URL dan GOOGLE_APPLICATION_CREDENTIALS ke berkas service account di luar repository. Jangan memasukkan service account ke APK atau Git.
+4. Jalankan migration utama secara eksplisit: .venv/Scripts/python.exe -m flask --app app db upgrade 7e93_push_devices
+   Ada migration lokal e21a_notifications yang tidak dilacak Git dan berada pada cabang berbeda. Migration tersebut tidak dibutuhkan fitur push ini; jangan memakai upgrade head sampai cabang migration lokal diselesaikan.
+5. Jalankan API: .venv/Scripts/python.exe -m flask --app app run --host 0.0.0.0 --port 3000. Di terminal terpisah jalankan ./start-push-worker.ps1, atau .venv/Scripts/python.exe push_worker.py setelah mengatur environment.
+
+Worker push native ini memakai outbox PostgreSQL langsung, sehingga tidak memerlukan fork RQ di Windows. Worker RQ imports yang sudah ada tetap dipakai fitur impor/ML, bukan push. Outbox dicatat bersama transaksi perubahan status admin/sinkronisasi dataset. Worker memeriksa preferensi dan sesi sebelum mengirim, mencoba maksimal lima kali dengan interval polling lima detik, dan menghapus token UnregisteredError. Peristiwa yang gagal lima kali tetap tersimpan untuk inspeksi operator. Pengiriman bersifat at-least-once: kegagalan setelah Firebase menerima pesan dapat menyebabkan duplikasi. Tidak ada jaminan pengiriman tanpa kredensial Firebase yang valid dan worker aktif.
+
+APK release: cleartext hanya diizinkan untuk localhost. Hubungkan perangkat/emulator melalui adb reverse tcp:3000 tcp:3000 dan build dengan --dart-define=API_BASE_URL=http://localhost:3000. Debug tetap mengizinkan HTTP development. Release ke host lain harus memakai HTTPS.
 
 Kirim FCM HTTP v1/Admin SDK dengan `notification` dan `data` sekaligus, dengan semua nilai `data` berupa string. Contoh struktur pesan (isi dan ID harus berasal dari laporan nyata):
 

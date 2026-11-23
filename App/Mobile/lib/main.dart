@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import 'dart:io' show Platform;
+import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
@@ -17,18 +17,20 @@ import 'theme/theme_controller.dart';
 import 'theme/theme_preference_store.dart';
 import 'widgets/startup_gate.dart';
 import 'notifications/push_notification_service.dart';
+import 'notifications/push_account.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final theme = ThemeDependencies();
   await theme.controller.load();
   PushNotificationService? push;
-  if (!kIsWeb && Platform.isAndroid) {
+  if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
     try {
       push = PushNotificationService();
-      await push.initialize();
+      await push.initialize().timeout(const Duration(seconds: 5));
     } catch (error) {
       debugPrint('Notifikasi tidak tersedia: $error');
+      push?.dispose();
       push = null;
     }
   }
@@ -134,7 +136,6 @@ class _WelcomeGateState extends State<_WelcomeGate> {
   Future<void> _completeOnboarding() async {
     final permission = widget.push?.permission;
     if (permission != null && await permission.shouldExplain() && mounted) {
-      await permission.markExplained();
       if (!mounted) return;
       final enable = await showDialog<bool>(
         context: context,
@@ -155,6 +156,7 @@ class _WelcomeGateState extends State<_WelcomeGate> {
           ],
         ),
       );
+      if (enable != null) await permission.markExplained();
       if (enable == true) {
         final granted = await permission.request();
         if (!granted && mounted) {
@@ -206,10 +208,43 @@ class _AuthGate extends StatefulWidget {
 }
 
 class _AuthGateState extends State<_AuthGate> {
+  String? _pushAccount;
+  @override
+  void initState() {
+    super.initState();
+    _auth.auth.addListener(_syncPush);
+    _syncPush();
+  }
+
+  void _syncPush() {
+    final id = _auth.auth.account?.id;
+    if (_pushAccount == id) return;
+    _pushAccount = id;
+    PushAccount.accountId = id;
+    if (id != null) {
+      unawaited(
+        PushAccount.preference(refresh: true).catchError((Object _) => false),
+      );
+      final tokens = widget.push?.tokens;
+      if (tokens != null) unawaited(tokens.sync().catchError((Object _) {}));
+    } else {
+      widget.push?.navigation.take();
+    }
+  }
+
+  @override
+  void dispose() {
+    _auth.auth.removeListener(_syncPush);
+    super.dispose();
+  }
+
   /// Shared so the session survives navigation between login and the shell.
   AuthDependencies get _auth => widget.auth;
 
-  void _signOut() => _auth.auth.submitSignOut();
+  Future<void> _signOut() async {
+    await widget.push?.tokens.unlink();
+    await _auth.auth.submitSignOut();
+  }
 
   Widget _buildLoginPage() => LoginPage(
     controller: _auth.auth,

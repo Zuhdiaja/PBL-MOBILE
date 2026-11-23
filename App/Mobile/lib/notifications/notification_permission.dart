@@ -17,6 +17,12 @@ class NotificationPermission {
         settings.authorizationStatus == AuthorizationStatus.provisional;
   }
 
+  Future<bool> isGranted() async {
+    final settings = await messaging.getNotificationSettings();
+    return settings.authorizationStatus == AuthorizationStatus.authorized ||
+        settings.authorizationStatus == AuthorizationStatus.provisional;
+  }
+
   Future<void> openSettings() async {
     await local
         .resolvePlatformSpecificImplementation<

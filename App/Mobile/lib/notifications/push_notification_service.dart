@@ -8,6 +8,7 @@ import 'fcm_token_manager.dart';
 import 'local_notification_service.dart';
 import 'notification_navigation.dart';
 import 'notification_permission.dart';
+import 'push_account.dart';
 
 @pragma('vm:entry-point')
 Future<void> firebaseMessageBackgroundHandler(RemoteMessage message) async {
@@ -16,6 +17,8 @@ Future<void> firebaseMessageBackgroundHandler(RemoteMessage message) async {
 }
 
 class PushNotificationService {
+  static PushNotificationService? active;
+  bool _disposed = false;
   final navigation = NotificationNavigation();
   late final local = LocalNotificationService(navigation);
   late final permission = NotificationPermission(
@@ -28,12 +31,24 @@ class PushNotificationService {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
+    if (_disposed) return;
     FirebaseMessaging.onBackgroundMessage(firebaseMessageBackgroundHandler);
     await local.initialize();
+    if (_disposed) return;
+    active = this;
     _subscriptions.add(
-      FirebaseMessaging.onMessage.listen((message) {
+      FirebaseMessaging.onMessage.listen((message) async {
         final body = message.notification?.body ?? message.data['body'];
-        if (body is String && body.isNotEmpty) local.show(message.data, body);
+        final account = PushAccount.accountId;
+        if (body is String &&
+            body.isNotEmpty &&
+            await PushAccount.preference() &&
+            await permission.isGranted() &&
+            !_disposed &&
+            account != null &&
+            account == PushAccount.accountId) {
+          await local.show(message.data, body);
+        }
       }),
     );
     _subscriptions.add(
@@ -42,6 +57,7 @@ class PushNotificationService {
       ),
     );
     final initial = await FirebaseMessaging.instance.getInitialMessage();
+    if (_disposed) return;
     if (initial != null) navigation.accept(initial.data);
     try {
       await tokens.start();
@@ -51,6 +67,8 @@ class PushNotificationService {
   }
 
   void dispose() {
+    _disposed = true;
+    if (identical(active, this)) active = null;
     for (final subscription in _subscriptions) {
       subscription.cancel();
     }

@@ -1,4 +1,4 @@
-import 'package:shared_preferences/shared_preferences.dart';
+import '../../../../notifications/push_account.dart';
 
 import '../../../../data/report_counts_api.dart';
 import '../../../../data/scans_api.dart';
@@ -8,8 +8,6 @@ import 'account_data_source.dart';
 /// counts from the API.
 class PreferencesAccountDataSource implements AccountDataSource {
   const PreferencesAccountDataSource({this.scans, this.reportCounts});
-
-  static const _notificationsKey = 'linkguard_report_notifications';
 
   /// Null when the app runs without a session, e.g. in previews.
   final ScansApi? scans;
@@ -48,13 +46,9 @@ class PreferencesAccountDataSource implements AccountDataSource {
 
   @override
   Future<bool> readReportNotificationsEnabled() async =>
-      (await SharedPreferences.getInstance()).getBool(_notificationsKey) ??
-      true;
+      PushAccount.preference(refresh: true);
 
   @override
   Future<void> writeReportNotificationsEnabled(bool enabled) async =>
-      (await SharedPreferences.getInstance()).setBool(
-        _notificationsKey,
-        enabled,
-      );
+      PushAccount.setPreference(enabled);
 }

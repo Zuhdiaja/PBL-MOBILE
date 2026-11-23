@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../../notifications/push_notification_service.dart';
+
 import '../../../../theme/app_colors.dart';
 import '../../../../theme/app_theme.dart';
 import '../../../../widgets/scan_components.dart';
@@ -17,11 +19,41 @@ class SettingsPage extends StatefulWidget {
   State<SettingsPage> createState() => _SettingsPageState();
 }
 
-class _SettingsPageState extends State<SettingsPage> {
+class _SettingsPageState extends State<SettingsPage>
+    with WidgetsBindingObserver {
+  bool? _granted;
+  bool _saving = false;
+  Future<void> _refreshPermission() async {
+    final permission = PushNotificationService.active?.permission;
+    if (permission == null) return;
+    final granted = await permission.isGranted();
+    if (mounted) setState(() => _granted = granted);
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _refreshPermission();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  Future<void> _enable() async {
+    final permission = PushNotificationService.active?.permission;
+    if (permission == null) return;
+    if (!await permission.request()) await permission.openSettings();
+    await _refreshPermission();
+  }
+
   @override
   void initState() {
     super.initState();
-    widget.controller.load();
+    WidgetsBinding.instance.addObserver(this);
+    widget.controller.load().catchError((Object _) {});
+    _refreshPermission();
   }
 
   @override
@@ -111,8 +143,41 @@ class _SettingsPageState extends State<SettingsPage> {
             ),
           ),
           value: widget.controller.reportNotificationsEnabled,
-          onChanged: (_) => widget.controller.toggleReportNotifications(),
+          onChanged: _saving
+              ? null
+              : (_) async {
+                  setState(() => _saving = true);
+                  try {
+                    await widget.controller.toggleReportNotifications();
+                  } catch (_) {
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            'Preferensi gagal disimpan. Coba lagi.',
+                          ),
+                        ),
+                      );
+                    }
+                  } finally {
+                    if (mounted) setState(() => _saving = false);
+                  }
+                },
         ),
+        if (PushNotificationService.active != null) ...[
+          Text(
+            _granted == null
+                ? 'Memeriksa izin notifikasi…'
+                : _granted!
+                ? 'Izin notifikasi aktif'
+                : 'Izin notifikasi belum aktif',
+          ),
+          if (_granted == false)
+            TextButton(
+              onPressed: _enable,
+              child: const Text('Aktifkan notifikasi'),
+            ),
+        ],
         const SizedBox(height: 12),
         Divider(color: context.colors.line),
         const SizedBox(height: 18),
