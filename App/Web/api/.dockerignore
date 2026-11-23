@@ -4,3 +4,12 @@ __pycache__
 instance
 .env
 .env.*
+*.ps1
+.secrets
+secrets
+*firebase-admin*.json
+*firebase-adminsdk*.json
+*service-account*.json
+*service_account*.json
+# Local, untracked migration branch must not enter the production image.
+migrations/versions/e21a_notifications.py

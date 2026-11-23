@@ -67,6 +67,17 @@ services:
     depends_on:
       migrate: { condition: service_completed_successfully }
     restart: unless-stopped
+  push-worker:
+    <<: *api
+    command: [python, push_worker.py]
+    environment:
+      <<: *api-env
+      GOOGLE_APPLICATION_CREDENTIALS: /run/secrets/firebase_admin
+    secrets:
+      - firebase_admin
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+    restart: unless-stopped
   scheduler:
     <<: *api
     command: [python, scheduler.py]
@@ -117,6 +128,9 @@ services:
     depends_on:
       postgres: { condition: service_healthy }
       redis: { condition: service_healthy }
+secrets:
+  firebase_admin:
+    file: ${FIREBASE_CREDENTIALS_FILE:?Set FIREBASE_CREDENTIALS_FILE to your Firebase service account JSON path}
 volumes:
   postgres_data:
   redis_data:
