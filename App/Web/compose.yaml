@@ -69,6 +69,7 @@ services:
     restart: unless-stopped
   push-worker:
     <<: *api
+    profiles: [push]
     command: [python, push_worker.py]
     environment:
       <<: *api-env
@@ -130,7 +131,7 @@ services:
       redis: { condition: service_healthy }
 secrets:
   firebase_admin:
-    file: ${FIREBASE_CREDENTIALS_FILE:?Set FIREBASE_CREDENTIALS_FILE to your Firebase service account JSON path}
+    file: ${FIREBASE_CREDENTIALS_FILE:-./secrets/firebase-admin.json}
 volumes:
   postgres_data:
   redis_data:
