@@ -25,8 +25,9 @@ class _StatsScreenState extends State<StatsScreen> {
     builder: (context) {
       final summary = widget.controller.summary;
       if (summary.totalCount == 0) {
-        return const ScanPage(
-          children: [
+        return ScanPage(
+          onRefresh: widget.controller.refresh,
+          children: const [
             Text('Statistik', style: pageTitleStyle),
             SizedBox(height: 24),
             InfoNote('Belum ada pemindaian untuk ditampilkan.'),
@@ -35,6 +36,7 @@ class _StatsScreenState extends State<StatsScreen> {
       }
 
       return ScanPage(
+        onRefresh: widget.controller.refresh,
         children: [
           const Text('Statistik', style: pageTitleStyle),
           const SizedBox(height: 8),

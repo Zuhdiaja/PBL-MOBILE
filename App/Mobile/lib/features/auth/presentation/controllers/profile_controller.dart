@@ -22,4 +22,11 @@ class ProfileController extends LoadController {
       (value) => _stats = value,
     );
   }
+
+  Future<void> refresh() {
+    return refreshValue(
+      () => loadAccountStats(repository),
+      (value) => _stats = value,
+    );
+  }
 }

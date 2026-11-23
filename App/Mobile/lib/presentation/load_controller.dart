@@ -54,6 +54,38 @@ abstract class LoadController extends ChangeNotifier {
     return completion.future;
   }
 
+  /// Re-reads the data without leaving the loaded state.
+  ///
+  /// Unlike [loadValue] this keeps the current value on screen, so a tab that
+  /// is already showing data is not replaced by a skeleton. A failed refresh
+  /// keeps the previous value instead of exposing an error.
+  @protected
+  Future<void> refreshValue<T>(
+    FutureOr<T> Function() read,
+    void Function(T value) apply,
+  ) {
+    if (_disposed || _pending != null) return Future.value();
+    final completion = Completer<void>();
+    _pending = completion.future;
+    () async {
+      try {
+        final value = await read();
+        if (!_disposed) {
+          apply(value);
+          _hasLoaded = true;
+          _loadError = null;
+          notifyListeners();
+        }
+      } catch (_) {
+        // Keep the previous value; the next load surfaces the real error.
+      } finally {
+        _pending = null;
+        completion.complete();
+      }
+    }();
+    return completion.future;
+  }
+
   @override
   void dispose() {
     _disposed = true;

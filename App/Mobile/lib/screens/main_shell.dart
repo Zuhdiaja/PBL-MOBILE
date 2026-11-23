@@ -23,9 +23,16 @@ import '../features/scan_results/presentation/pages/scan_detail_screen.dart';
 import '../features/scan_results/presentation/pages/scan_result_screen.dart';
 import '../widgets/app_bottom_navigation.dart';
 import '../widgets/scan_components.dart';
+import '../notifications/notification_navigation.dart';
 
 class MainShell extends StatefulWidget {
-  const MainShell({super.key, required this.auth, required this.onSignOut});
+  const MainShell({
+    super.key,
+    required this.auth,
+    required this.onSignOut,
+    this.notificationNavigation,
+  });
+  final NotificationNavigation? notificationNavigation;
 
   /// Auth wiring shared with the login screen.
   final AuthDependencies auth;
@@ -48,22 +55,56 @@ class _MainShellState extends State<MainShell> {
   late final _history = HistoryDependencies(
     tokenStore: widget.auth.apiTokenStore,
     accountRepository: widget.auth.accountRepository,
+    accountId: widget.auth.auth.account?.id,
   );
   StreamSubscription<String>? _shareSubscription;
+  int _notificationSequence = 0;
 
   @override
   void initState() {
     super.initState();
     _listenForSharedLinks();
+    widget.notificationNavigation?.addListener(_handleNotification);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _handleNotification());
   }
 
   @override
   void dispose() {
     _shareSubscription?.cancel();
+    widget.notificationNavigation?.removeListener(_handleNotification);
     _inputScan.dispose();
     _scanResults.dispose();
     _history.dispose();
     super.dispose();
+  }
+
+  Future<void> _handleNotification() async {
+    final data = widget.notificationNavigation?.take();
+    if (data == null || !mounted) return;
+    final sequence = ++_notificationSequence;
+    final reportId = data['report_id']?.toString();
+    if (reportId == null || reportId.isEmpty) {
+      _openNotifications();
+      return;
+    }
+    final report = await fetchNotificationReport(
+      reportId,
+      widget.auth.apiTokenStore,
+    );
+    if (!mounted || sequence != _notificationSequence) return;
+    if (report == null) {
+      _openReportStatus();
+      return;
+    }
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => ReportDetailScreen(
+          report: report,
+          buildReportTimeline: _history.reportStatus.buildReportTimeline,
+          isSimulated: _history.reportStatus.isSimulated,
+        ),
+      ),
+    );
   }
 
   /// Opens the share form when another app hands LinkGuard a link.
@@ -104,6 +145,19 @@ class _MainShellState extends State<MainShell> {
   void _selectTab(int index) {
     FocusManager.instance.primaryFocus?.unfocus();
     setState(() => _selectedIndex = index);
+    _refreshTab(index);
+  }
+
+  /// Re-reads the tab that just became visible.
+  ///
+  /// The shell keeps every tab alive in an [IndexedStack], so a screen does not
+  /// load again by itself; without this the lists would stay frozen at the
+  /// first read until the app restarts.
+  void _refreshTab(int index) {
+    if (index == 0) _inputScan.home.refresh();
+    if (index == 1) _history.stats.refresh();
+    if (index == 3) _history.history.refresh();
+    if (index == 4) widget.auth.profile.refresh();
   }
 
   Future<void> _openScan({bool paste = false}) async {
@@ -154,21 +208,36 @@ class _MainShellState extends State<MainShell> {
       builder: (_) => ReportPredictionScreen(
         controller: _scanResults.createReportController(result),
         onNavigate: _selectTab,
+        onSubmitted: _refreshReportData,
       ),
     ),
   );
 
-  void _openNotifications() => Navigator.of(context).push(
-    MaterialPageRoute<void>(
-      builder: (_) => NotificationsScreen(controller: _history.notifications),
-    ),
-  );
+  void _openNotifications() {
+    if (_history.notifications.hasLoaded) _history.notifications.refresh();
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => NotificationsScreen(controller: _history.notifications),
+      ),
+    );
+  }
 
-  void _openReportStatus() => Navigator.of(context).push(
-    MaterialPageRoute<void>(
-      builder: (_) => ReportStatusScreen(controller: _history.reportStatus),
-    ),
-  );
+  void _openReportStatus() {
+    if (_history.reportStatus.hasLoaded) _history.reportStatus.refresh();
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => ReportStatusScreen(controller: _history.reportStatus),
+      ),
+    );
+  }
+
+  /// Keeps the report views in sync after a correction is accepted.
+  void _refreshReportData() {
+    _history.reportStatus.refresh();
+    _history.notifications.refresh();
+    _history.stats.refresh();
+    widget.auth.profile.refresh();
+  }
 
   void _openQr() => Navigator.of(context).push(
     MaterialPageRoute<void>(
@@ -198,6 +267,9 @@ class _MainShellState extends State<MainShell> {
   /// Keeps the outcome of a submission and opens the results screen.
   void _handleSubmission(ScanSubmission submission) {
     _scanResults.storeSubmission(submission);
+    _inputScan.home.refresh();
+    _history.history.refresh();
+    _history.stats.refresh();
     _openResults();
   }
 

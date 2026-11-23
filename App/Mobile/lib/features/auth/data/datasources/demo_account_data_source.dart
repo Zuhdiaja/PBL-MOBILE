@@ -12,10 +12,10 @@ class DemoAccountDataSource implements AccountDataSource {
   Future<int> readTotalScans() async => totalScans;
 
   @override
-  int readSubmittedReports() => submittedReports;
+  Future<int> readSubmittedReports() async => submittedReports;
 
   @override
-  int readPendingReports() => pendingReports;
+  Future<int> readPendingReports() async => pendingReports;
 
   @override
   Future<bool> readReportNotificationsEnabled() async =>

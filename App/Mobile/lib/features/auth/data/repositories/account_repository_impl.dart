@@ -10,8 +10,8 @@ class AccountRepositoryImpl implements AccountRepository {
   @override
   Future<AccountStats> readStats() async => AccountStats(
     totalScans: await _dataSource.readTotalScans(),
-    submittedReports: _dataSource.readSubmittedReports(),
-    pendingReports: _dataSource.readPendingReports(),
+    submittedReports: await _dataSource.readSubmittedReports(),
+    pendingReports: await _dataSource.readPendingReports(),
   );
 
   @override

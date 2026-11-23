@@ -51,6 +51,22 @@ def list_reports():
                    page_size=size, row_count=count, page_count=pages)
 
 
+@mobile.get("/reports/summary")
+@mobile_required
+def report_summary():
+    """Counts for the profile screen, scoped to the bearer identity."""
+    rows = db.session.execute(
+        db.select(PredictionReport.status, db.func.count())
+        .where(PredictionReport.reporter_id == g.mobile_user.id)
+        .group_by(PredictionReport.status)
+    ).all()
+    by_status = {status: int(count) for status, count in rows}
+    total = sum(by_status.values())
+    # ``submitted`` and ``review`` are both still waiting for the admin.
+    pending = by_status.get("submitted", 0) + by_status.get("review", 0)
+    return jsonify(total=total, pending=pending, by_status=by_status)
+
+
 @mobile.get("/reports/<int:report_id>")
 @mobile_required
 def report_detail(report_id):

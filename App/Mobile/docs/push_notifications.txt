@@ -1,0 +1,43 @@
+# Push notification laporan
+
+Notifikasi in-app diturunkan dari laporan milik akun melalui API laporan mobile. Status baca disimpan lokal per akun. Tidak ada endpoint daftar/baca notifikasi atau tabel inbox yang digunakan aplikasi.
+
+Backend menyediakan POST/DELETE /api/v1/mobile/devices dan GET/PATCH /api/v1/mobile/preferences dengan bearer token mobile. Token terikat instalasi, akun dan sesi. Logout backend menghapus perangkat sesi tersebut. Token awal dan refresh disinkronkan aplikasi; preferensi server mengendalikan pengiriman dan preferensi cache akun mengendalikan tampilan foreground.
+
+Menjalankan dengan Docker Compose (alur utama):
+1. Dari App/Web, salin .env.example menjadi .env jika belum ada. Isi SECRET_KEY dan POSTGRES_PASSWORD; pertahankan nilai lama untuk database yang sudah ada.
+2. Opsional, hanya untuk push: simpan service account JSON dari proyek Firebase yang sama dengan Android di luar repository. Isi FIREBASE_CREDENTIALS_FILE dengan path berkas, misalnya C:/Users/Nama/secrets/firebase-admin.json. Gunakan slash maju pada Windows. Bila kosong, Compose mencari ./secrets/firebase-admin.json. Jangan commit kredensial. Pada host Linux, pastikan berkas secret dapat dibaca oleh UID 10001 yang menjalankan image API; jangan membuka izin tulis berkas tersebut.
+3. Jalankan docker compose config --quiet lalu docker compose up -d --build untuk stack inti. Tanpa kredensial Firebase, stack inti tetap berjalan. Untuk ikut menjalankan push worker, gunakan docker compose --profile push up -d --build. Image API perlu rebuild untuk dependency firebase-admin; migration berjalan otomatis sebelum API dan worker.
+4. Periksa docker compose ps -a: migrate harus exit 0 dan api/web healthy. Bila profile push aktif, pastikan push-worker running. Periksa docker compose logs --tail 100 migrate api push-worker. Status running saja belum membuktikan FCM berhasil.
+5. Dengan WEB_PORT=3000 dan Android USB, jalankan adb reverse tcp:3000 tcp:3000. Dari App/Mobile jalankan flutter pub get lalu flutter run --dart-define=API_BASE_URL=http://localhost:3000. Port web meneruskan /api/v1 ke API dalam Docker.
+6. Login, aktifkan izin, kirim laporan dari Android dan ubah status dari admin, termasuk sync-dataset menjadi completed. Uji push foreground/background/terminated serta tap menuju laporan. Matikan preferensi dan pastikan perubahan status berikutnya tidak menghasilkan push baru. Uji logout online serta pergantian akun.
+7. Tes backend wajib memakai database terpisah linkguard_test dan Redis database 15. Buat database uji sekali jika belum ada: docker compose exec postgres sh -c 'createdb -U "$POSTGRES_USER" linkguard_test'. Kemudian jalankan docker compose --profile test run --rm test. Fixture tes menghapus tabel database uji; jangan arahkan ke database aplikasi.
+
+Worker push memakai image API di container tersendiri dan membaca secret read-only /run/secrets/firebase_admin. Worker berada pada profile push, jadi stack inti dan CI berjalan tanpa kredensial Firebase. Secret hanya dipasang pada push-worker, bukan API, migration, atau worker impor/ML yang sudah ada.
+
+Pengujian tanpa Docker (opsional, Windows):
+1. Jalankan PostgreSQL lokal dan Redis yang dapat diakses API (Redis bisa melalui WSL atau layanan Redis terkelola). Backend yang sudah ada tetap memerlukan Redis untuk sesi dan rate limit.
+2. Di App/Web/api: .venv/Scripts/python.exe -m pip install -r requirements.lock
+3. Atur SECRET_KEY, DATABASE_URL, REDIS_URL dan GOOGLE_APPLICATION_CREDENTIALS ke berkas service account di luar repository. Jangan memasukkan service account ke APK atau Git.
+4. Jalankan migration utama secara eksplisit: .venv/Scripts/python.exe -m flask --app app db upgrade 7e93_push_devices
+   Ada migration lokal e21a_notifications yang tidak dilacak Git dan berada pada cabang berbeda. Migration tersebut tidak dibutuhkan fitur push ini; jangan memakai upgrade head sampai cabang migration lokal diselesaikan.
+5. Jalankan API: .venv/Scripts/python.exe -m flask --app app run --host 0.0.0.0 --port 3000. Di terminal terpisah jalankan .venv/Scripts/python.exe push_worker.py setelah mengatur environment yang sama.
+
+Outbox PostgreSQL dicatat bersama transaksi perubahan status admin/sinkronisasi dataset. Worker memeriksa preferensi dan sesi sebelum mengirim, mencoba maksimal lima kali dengan interval polling lima detik, dan menghapus token UnregisteredError. Peristiwa yang gagal lima kali tetap tersimpan untuk inspeksi operator. Pengiriman bersifat at-least-once: kegagalan setelah Firebase menerima pesan dapat menyebabkan duplikasi. Tidak ada jaminan pengiriman tanpa kredensial Firebase yang valid dan worker aktif.
+
+APK release: cleartext hanya diizinkan untuk localhost. Hubungkan perangkat/emulator melalui adb reverse tcp:3000 tcp:3000 dan build dengan --dart-define=API_BASE_URL=http://localhost:3000. Debug tetap mengizinkan HTTP development. Release ke host lain harus memakai HTTPS.
+
+Kirim FCM HTTP v1/Admin SDK dengan `notification` dan `data` sekaligus, dengan semua nilai `data` berupa string. Contoh struktur pesan (isi dan ID harus berasal dari laporan nyata):
+
+```json
+{
+  "token": "TOKEN_PERANGKAT",
+  "notification": {"title": "LinkGuard - Laporan Baru", "body": "PESAN_LAPORAN"},
+  "data": {"notification_id": "ID_NOTIFIKASI", "report_id": "ID_LAPORAN", "notification_type": "report", "title": "LinkGuard - Laporan Baru", "body": "PESAN_LAPORAN"},
+  "android": {"priority": "high", "notification": {"channel_id": "report_updates"}}
+}
+```
+
+Android menampilkan payload `notification` ketika aplikasi berada di background atau terminated; handler background tidak membuat notifikasi kedua. Pesan data-only tidak ditampilkan pada kondisi tersebut. Foreground menggunakan notifikasi lokal. Ketika laporan tidak ditemukan atau tidak dapat dimuat, aplikasi membuka daftar status laporan. ID detail selalu diperiksa oleh endpoint mobile yang memerlukan bearer token.
+
+Untuk pengujian Firebase Console gunakan build Android yang terhubung ke proyek yang benar dan Google Play services, buka aplikasi setidaknya sekali, selesaikan onboarding, dan aktifkan izin. Dapatkan registration token dari `FcmTokenManager.token` melalui debugger tanpa membagikannya. Di Firebase Console buat kampanye Notifications, masukkan judul dan pesan, gunakan **Send test message** dan masukkan token. Uji foreground, background, dan aplikasi yang ditutup; ketuk setiap notifikasi. Untuk menguji navigasi detail, sertakan custom data `report_id`, `notification_id`, dan `notification_type` dengan ID yang dimiliki akun; periksa kembali apakah mode test Console mendukung custom data pada pesan yang digunakan. Uji penolakan izin dan pengaturan melalui pengaturan Android, lalu uji rotasi token dengan metode yang sesuai pada perangkat uji. Pengiriman console saja tidak memverifikasi integrasi backend.

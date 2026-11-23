@@ -27,7 +27,7 @@ mobile = Blueprint("mobile", __name__)
 TOKEN_PREFIX = "linkguard:mobile:token:"
 DUMMY_HASH = generate_password_hash("unused-constant-time-password", method="scrypt")
 CORS_HEADERS = "Authorization, Content-Type, X-Requested-With"
-CORS_METHODS = "GET, POST, OPTIONS"
+CORS_METHODS = "GET, POST, PATCH, DELETE, OPTIONS"
 
 
 @mobile.after_request
@@ -218,5 +218,10 @@ def me():
 @mobile.post("/auth/logout")
 @mobile_required
 def logout():
+    from app.models import MobileDevice
+    db.session.execute(db.delete(MobileDevice).where(
+        MobileDevice.session_key == _token_key(bearer_token()),
+        MobileDevice.user_id == g.mobile_user.id))
+    db.session.commit()
     revoke_token(bearer_token())
     return jsonify(message="Anda telah keluar.")

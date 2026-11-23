@@ -43,6 +43,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
   Widget _page(BuildContext context, {bool pending = false}) {
     final controller = widget.controller;
     return ScanPage(
+      onRefresh: controller.refresh,
       children: [
         const Text('Riwayat pindai', style: pageTitleStyle),
         const SizedBox(height: 20),

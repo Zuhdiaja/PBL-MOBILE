@@ -29,3 +29,12 @@
 # Trained model artefacts stay outside version control.
 *.pkl
 *.joblib
+
+# Local credentials and Firebase Admin service account files.
+.local-env.ps1
+.secrets/
+secrets/
+*firebase-admin*.json
+*firebase-adminsdk*.json
+*service-account*.json
+*service_account*.json

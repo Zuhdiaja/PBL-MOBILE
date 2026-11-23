@@ -17,29 +17,41 @@ const sectionTitleStyle = TextStyle(
 const bodyStyle = TextStyle(fontSize: 14, height: 1.6);
 
 class ScanPage extends StatelessWidget {
-  const ScanPage({super.key, required this.children});
+  const ScanPage({super.key, required this.children, this.onRefresh});
   final List<Widget> children;
+
+  /// Enables pull to refresh when the page shows server data.
+  final Future<void> Function()? onRefresh;
+
   @override
   Widget build(BuildContext context) => LayoutBuilder(
-    builder: (context, constraints) => Align(
-      alignment: Alignment.topCenter,
-      child: SizedBox(
-        width: constraints.maxWidth.clamp(0, 640),
-        child: SingleChildScrollView(
-          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-          padding: EdgeInsets.fromLTRB(
-            constraints.maxWidth < 360 ? 18 : 22,
-            24,
-            constraints.maxWidth < 360 ? 18 : 22,
-            28,
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: children,
-          ),
+    builder: (context, constraints) {
+      final scroll = SingleChildScrollView(
+        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+        physics: onRefresh == null
+            ? null
+            : const AlwaysScrollableScrollPhysics(),
+        padding: EdgeInsets.fromLTRB(
+          constraints.maxWidth < 360 ? 18 : 22,
+          24,
+          constraints.maxWidth < 360 ? 18 : 22,
+          28,
         ),
-      ),
-    ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: children,
+        ),
+      );
+      return Align(
+        alignment: Alignment.topCenter,
+        child: SizedBox(
+          width: constraints.maxWidth.clamp(0, 640),
+          child: onRefresh == null
+              ? scroll
+              : RefreshIndicator(onRefresh: onRefresh!, child: scroll),
+        ),
+      );
+    },
   );
 }
 
@@ -80,15 +92,21 @@ class ScanSubpage extends StatelessWidget {
     this.onNavigate,
     this.selectedIndex = 1,
     required this.children,
+    this.onRefresh,
   });
   final String title;
   final ValueChanged<int>? onNavigate;
   final int selectedIndex;
   final List<Widget> children;
+
+  /// Enables pull to refresh when the page shows server data.
+  final Future<void> Function()? onRefresh;
+
   @override
   Widget build(BuildContext context) => Scaffold(
     body: SafeArea(
       child: ScanPage(
+        onRefresh: onRefresh,
         children: [
           Row(
             children: [

@@ -1,20 +1,19 @@
-import 'package:shared_preferences/shared_preferences.dart';
+import '../../../../notifications/push_account.dart';
 
+import '../../../../data/report_counts_api.dart';
 import '../../../../data/scans_api.dart';
 import 'account_data_source.dart';
 
-/// Keeps the account preferences on the device and reads the scan count from
-/// the API.
-///
-/// The report counters stay at zero here: they belong to the reports feature,
-/// which owns its own endpoint.
+/// Keeps the account preferences on the device and reads the scan and report
+/// counts from the API.
 class PreferencesAccountDataSource implements AccountDataSource {
-  const PreferencesAccountDataSource({this.scans});
-
-  static const _notificationsKey = 'linkguard_report_notifications';
+  const PreferencesAccountDataSource({this.scans, this.reportCounts});
 
   /// Null when the app runs without a session, e.g. in previews.
   final ScansApi? scans;
+
+  /// Null when the app runs without a session, e.g. in previews.
+  final ReportCountsApi? reportCounts;
 
   @override
   Future<int> readTotalScans() async {
@@ -29,20 +28,27 @@ class PreferencesAccountDataSource implements AccountDataSource {
   }
 
   @override
-  int readSubmittedReports() => 0;
+  Future<int> readSubmittedReports() async => (await _counts()).total;
 
   @override
-  int readPendingReports() => 0;
+  Future<int> readPendingReports() async => (await _counts()).pending;
+
+  Future<ReportCounts> _counts() async {
+    final api = reportCounts;
+    if (api == null) return const ReportCounts.empty();
+    try {
+      return await api.summary();
+    } on ReportCountsException {
+      // A failed count must not break the profile screen.
+      return const ReportCounts.empty();
+    }
+  }
 
   @override
   Future<bool> readReportNotificationsEnabled() async =>
-      (await SharedPreferences.getInstance()).getBool(_notificationsKey) ??
-      true;
+      PushAccount.preference(refresh: true);
 
   @override
   Future<void> writeReportNotificationsEnabled(bool enabled) async =>
-      (await SharedPreferences.getInstance()).setBool(
-        _notificationsKey,
-        enabled,
-      );
+      PushAccount.setPreference(enabled);
 }
