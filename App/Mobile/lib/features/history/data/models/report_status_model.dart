@@ -14,6 +14,9 @@ class ReportStatusModel {
     required this.submittedTime,
     this.id = '',
     this.submittedAt,
+    this.statusEventId,
+    this.statusChangedAt,
+    this.statusChangedTime,
     this.notes,
   });
 
@@ -41,6 +44,13 @@ class ReportStatusModel {
       submittedAt: json['created_at'] is String
           ? DateTime.tryParse(json['created_at'] as String)
           : null,
+      statusEventId: json['status_event_id']?.toString(),
+      statusChangedAt: json['status_changed_at'] is String
+          ? DateTime.tryParse(json['status_changed_at'] as String)
+          : null,
+      statusChangedTime: json['status_changed_at'] is String
+          ? _wibTime(json['status_changed_at'])
+          : null,
       notes: switch (json['notes']) {
         final String value when value.trim().isNotEmpty => value,
         _ => null,
@@ -55,6 +65,9 @@ class ReportStatusModel {
   final ReportStage stage;
   final String submittedTime;
   final DateTime? submittedAt;
+  final String? statusEventId;
+  final DateTime? statusChangedAt;
+  final String? statusChangedTime;
   final String? notes;
 
   ReportStatus toEntity() => ReportStatus(
@@ -65,6 +78,9 @@ class ReportStatusModel {
     stage: stage,
     submittedTime: submittedTime,
     submittedAt: submittedAt,
+    statusEventId: statusEventId,
+    statusChangedAt: statusChangedAt,
+    statusChangedTime: statusChangedTime,
     notes: notes,
   );
 

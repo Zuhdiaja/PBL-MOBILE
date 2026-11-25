@@ -49,7 +49,7 @@ class _ReportStatusScreenState extends State<ReportStatusScreen> {
         ),
         const SizedBox(height: 8),
         Text(
-          '${widget.controller.reports.length} laporan pernah dikirim',
+          '${widget.controller.total} laporan pernah dikirim',
           style: TextStyle(fontSize: 11, color: context.colors.muted),
         ),
         const SizedBox(height: 8),
@@ -59,6 +59,17 @@ class _ReportStatusScreenState extends State<ReportStatusScreen> {
           ReportStatusCard(report: report, onTap: () => _openDetail(report)),
           const SizedBox(height: 12),
         ],
+        if (widget.controller.loadMoreError case final message?)
+          InfoNote(message),
+        if (widget.controller.hasMore)
+          OutlinedButton(
+            onPressed: widget.controller.isLoadingMore
+                ? null
+                : widget.controller.loadMore,
+            child: Text(
+              widget.controller.isLoadingMore ? 'Memuat…' : 'Muat lebih banyak',
+            ),
+          ),
         const SizedBox(height: 8),
         if (widget.controller.isSimulated)
           const InfoNote('Data contoh. Laporan belum terhubung ke server.'),

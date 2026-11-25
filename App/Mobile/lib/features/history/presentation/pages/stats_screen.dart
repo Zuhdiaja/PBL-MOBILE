@@ -77,7 +77,7 @@ class _StatsScreenState extends State<StatsScreen> {
                 context.colors.success,
               ),
               _Legend(
-                '${summary.unsafeCount} perlu perhatian · ${100 - summary.safePercent}%',
+                '${summary.unsafeCount} perlu perhatian · ${summary.totalCount == 0 ? 0 : 100 - summary.safePercent}%',
                 context.colors.danger,
               ),
             ],
@@ -85,7 +85,7 @@ class _StatsScreenState extends State<StatsScreen> {
           const SizedBox(height: 24),
           const Text('Aktivitas tujuh hari', style: sectionTitleStyle),
           const SizedBox(height: 12),
-          const WeeklyActivityChart(),
+          WeeklyActivityChart(days: summary.weekly),
           const SizedBox(height: 12),
           Row(
             children: [

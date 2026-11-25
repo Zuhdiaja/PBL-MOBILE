@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:pbl_semester5/features/onboarding/presentation/pages/onboarding_page.dart';
 import 'package:pbl_semester5/main.dart';
 import 'package:pbl_semester5/theme/app_colors.dart';
@@ -160,5 +161,23 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Masuk.'), findsOneWidget);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('onboarding completion survives a new app instance', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    await tester.pumpWidget(MyApp(auth: demoAuth(), preferences: prefs));
+    await tester.pumpAndSettle();
+    expect(find.byType(OnboardingPage), findsOneWidget);
+    await tester.tap(find.text('Lewati'));
+    await tester.pumpAndSettle();
+    expect(prefs.getBool('onboarding_completed'), isTrue);
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pumpWidget(MyApp(auth: demoAuth(), preferences: prefs));
+    await tester.pumpAndSettle();
+    expect(find.byType(OnboardingPage), findsNothing);
+    expect(find.text('Masuk.'), findsOneWidget);
   });
 }

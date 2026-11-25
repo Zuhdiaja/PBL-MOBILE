@@ -14,6 +14,7 @@ class LoadView extends StatefulWidget {
     this.loadingBuilder,
     this.errorBuilder,
     this.subpage = false,
+    this.animateTransition = true,
   });
   final LoadController controller;
   final String kind;
@@ -21,6 +22,7 @@ class LoadView extends StatefulWidget {
   final WidgetBuilder? loadingBuilder;
   final WidgetBuilder? errorBuilder;
   final bool subpage;
+  final bool animateTransition;
 
   @override
   State<LoadView> createState() => _LoadViewState();
@@ -86,6 +88,7 @@ class _LoadViewState extends State<LoadView> {
       } else {
         child = widget.builder(context);
       }
+      if (!widget.animateTransition) return child;
       return AnimatedSwitcher(
         duration: MediaQuery.disableAnimationsOf(context)
             ? Duration.zero

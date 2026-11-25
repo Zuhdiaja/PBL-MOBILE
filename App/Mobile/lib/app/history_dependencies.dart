@@ -1,11 +1,13 @@
 import '../config/api_config.dart';
 import '../data/scans_api.dart';
+import '../data/report_counts_api.dart';
+import '../features/history/domain/entities/activity_summary.dart';
+import '../features/scan_results/domain/entities/scan_category.dart';
 import '../features/auth/data/datasources/token_store.dart';
 import '../features/auth/domain/repositories/account_repository.dart';
 import '../features/history/data/datasources/demo_history_data_source.dart';
 import '../features/history/data/datasources/demo_notifications_data_source.dart';
 import '../features/history/data/datasources/demo_report_status_data_source.dart';
-import '../features/history/data/datasources/history_data_source.dart';
 import '../features/history/data/datasources/remote_history_data_source.dart';
 import '../features/history/data/datasources/preferences_notification_read_store.dart';
 import '../features/history/data/datasources/remote_report_status_data_source.dart';
@@ -35,16 +37,21 @@ class HistoryDependencies {
     String? accountId,
   }) {
     final base = apiBaseUrl ?? defaultApiBaseUrl();
-    final HistoryDataSource historySource = tokenStore == null
-        ? DemoHistoryDataSource()
-        : RemoteHistoryDataSource(
-            ScansApi(baseUrl: base, tokenStore: tokenStore),
-          );
-    final history = HistoryRepositoryImpl(historySource);
+    final scans = tokenStore == null
+        ? null
+        : ScansApi(baseUrl: base, tokenStore: tokenStore);
+    final reportCounts = tokenStore == null
+        ? null
+        : ReportCountsApi(baseUrl: base, tokenStore: tokenStore);
+    final remoteHistory = scans == null ? null : RemoteHistoryDataSource(scans);
+    final remoteReports = tokenStore == null
+        ? null
+        : RemoteReportStatusDataSource(baseUrl: base, tokenStore: tokenStore);
+    final history = HistoryRepositoryImpl(
+      remoteHistory ?? DemoHistoryDataSource(),
+    );
     final reports = ReportStatusRepositoryImpl(
-      tokenStore == null
-          ? DemoReportStatusDataSource()
-          : RemoteReportStatusDataSource(baseUrl: base, tokenStore: tokenStore),
+      remoteReports ?? DemoReportStatusDataSource(),
     );
     final notifications = tokenStore == null || accountRepository == null
         ? NotificationsRepositoryImpl(DemoNotificationsDataSource())
@@ -57,17 +64,37 @@ class HistoryDependencies {
     this.history = HistoryController(
       repository: history,
       filterHistoryEntries: const FilterHistoryEntries(),
+      searchPage: remoteHistory?.readPage,
       isSimulated: tokenStore == null,
     );
     stats = StatsController(
       historyRepository: history,
       reportStatusRepository: reports,
       summarizeActivity: const SummarizeActivity(),
+      readSummary: scans == null || reportCounts == null
+          ? null
+          : () async {
+              final week = await scans.summary(weekly: true);
+              final counts = await reportCounts.summary();
+              return ActivitySummary(
+                totalCount: week.total,
+                safeCount: week.safe,
+                unsafeCount: week.unsafe,
+                phishingCount: week.countOf(ScanCategory.phishing),
+                malwareCount: week.countOf(ScanCategory.malware),
+                reportCount: counts.total,
+                safePercent: week.total == 0
+                    ? 0
+                    : (100 * week.safe / week.total).round(),
+                weekly: week.weekly,
+              );
+            },
       isSimulated: tokenStore == null,
     );
     reportStatus = ReportStatusController(
       repository: reports,
       buildReportTimeline: const BuildReportTimeline(),
+      readPage: remoteReports?.readPage,
       isSimulated: tokenStore == null,
     );
     this.notifications = NotificationsController(

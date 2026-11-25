@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'app/auth_dependencies.dart';
 import 'app/theme_dependencies.dart';
@@ -23,6 +24,7 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final theme = ThemeDependencies();
   await theme.controller.load();
+  final preferences = await SharedPreferences.getInstance();
   PushNotificationService? push;
   if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
     try {
@@ -34,11 +36,11 @@ Future<void> main() async {
       push = null;
     }
   }
-  runApp(MyApp(theme: theme.controller, push: push));
+  runApp(MyApp(theme: theme.controller, push: push, preferences: preferences));
 }
 
 class MyApp extends StatefulWidget {
-  const MyApp({super.key, this.theme, this.auth, this.push});
+  const MyApp({super.key, this.theme, this.auth, this.push, this.preferences});
 
   /// App-wide theme choice. When omitted the app follows the device theme
   /// without persistence, which keeps widget tests plugin-free.
@@ -47,6 +49,7 @@ class MyApp extends StatefulWidget {
   /// Auth wiring override for tests. The app builds the real one when omitted.
   final AuthDependencies? auth;
   final PushNotificationService? push;
+  final SharedPreferences? preferences;
 
   @override
   State<MyApp> createState() => _MyAppState();
@@ -67,7 +70,11 @@ class _MyAppState extends State<MyApp> {
     controller: _theme,
     child: ListenableBuilder(
       listenable: _theme,
-      child: _LaunchGate(auth: widget.auth, push: widget.push),
+      child: _LaunchGate(
+        auth: widget.auth,
+        push: widget.push,
+        preferences: widget.preferences,
+      ),
       builder: (context, child) => MaterialApp(
         title: 'LinkGuard',
         debugShowCheckedModeBanner: false,
@@ -97,9 +104,10 @@ class _MyAppState extends State<MyApp> {
 }
 
 class _LaunchGate extends StatefulWidget {
-  const _LaunchGate({this.auth, this.push});
+  const _LaunchGate({this.auth, this.push, this.preferences});
   final AuthDependencies? auth;
   final PushNotificationService? push;
+  final SharedPreferences? preferences;
   @override
   State<_LaunchGate> createState() => _LaunchGateState();
 }
@@ -117,23 +125,54 @@ class _LaunchGateState extends State<_LaunchGate> {
   @override
   Widget build(BuildContext context) => StartupGate(
     controller: _auth.auth,
-    child: _WelcomeGate(auth: _auth, push: widget.push),
+    child: _WelcomeGate(
+      auth: _auth,
+      push: widget.push,
+      preferences: widget.preferences,
+    ),
   );
 }
 
 class _WelcomeGate extends StatefulWidget {
-  const _WelcomeGate({required this.auth, this.push});
+  const _WelcomeGate({required this.auth, this.push, this.preferences});
   final AuthDependencies auth;
   final PushNotificationService? push;
+  final SharedPreferences? preferences;
 
   @override
   State<_WelcomeGate> createState() => _WelcomeGateState();
 }
 
 class _WelcomeGateState extends State<_WelcomeGate> {
-  bool _onboardingComplete = false;
+  static const _completedKey = 'onboarding_completed';
+  late bool _onboardingComplete;
+
+  @override
+  void initState() {
+    super.initState();
+    final prefs = widget.preferences;
+    _onboardingComplete =
+        prefs?.getBool(_completedKey) == true ||
+        (prefs != null &&
+            (widget.auth.auth.isSignedIn ||
+                prefs.getBool('linkguard_notification_explanation_shown') ==
+                    true));
+    if (_onboardingComplete && prefs?.getBool(_completedKey) != true) {
+      unawaited(_rememberCompletion());
+    }
+  }
+
+  Future<void> _rememberCompletion() async {
+    try {
+      await widget.preferences?.setBool(_completedKey, true);
+    } catch (error) {
+      debugPrint('Status onboarding belum tersimpan: $error');
+    }
+  }
 
   Future<void> _completeOnboarding() async {
+    await _rememberCompletion();
+    if (!mounted) return;
     final permission = widget.push?.permission;
     if (permission != null && await permission.shouldExplain() && mounted) {
       if (!mounted) return;

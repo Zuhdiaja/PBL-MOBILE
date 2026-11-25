@@ -282,70 +282,93 @@ class _MainShellState extends State<MainShell> {
     ),
   );
 
-  void _signOut() {
-    widget.auth.auth.submitSignOut();
-    widget.onSignOut();
-  }
-
   @override
-  Widget build(BuildContext context) => Scaffold(
-    body: SafeArea(
-      bottom: false,
-      child: IndexedStack(
-        index: _selectedIndex,
-        children:
-            [
-                  HomeScreen(
-                    controller: _inputScan.home,
-                    name:
-                        (widget.auth.auth.account ?? widget.auth.displayAccount)
-                            .firstName,
-                    initials:
-                        (widget.auth.auth.account ?? widget.auth.displayAccount)
-                            .initials,
-                    onNotifications: _openNotifications,
-                    onRecentScan: (scan) => _openResultById(scan.id),
-                    onScan: _openScan,
-                    onPaste: () => _openScan(paste: true),
-                    onQr: _openQr,
-                    onShare: _openShare,
-                    onHistory: () => _selectTab(3),
-                    onProfile: () => _selectTab(4),
+  Widget build(BuildContext context) {
+    final wide = MediaQuery.sizeOf(context).width >= 840;
+    final pages = IndexedStack(
+      index: _selectedIndex,
+      children:
+          [
+                HomeScreen(
+                  controller: _inputScan.home,
+                  name: (widget.auth.auth.account ?? widget.auth.displayAccount)
+                      .firstName,
+                  initials:
+                      (widget.auth.auth.account ?? widget.auth.displayAccount)
+                          .initials,
+                  onNotifications: _openNotifications,
+                  onRecentScan: (scan) => _openResultById(scan.id),
+                  onScan: _openScan,
+                  onPaste: () => _openScan(paste: true),
+                  onQr: _openQr,
+                  onShare: _openShare,
+                  onHistory: () => _selectTab(3),
+                  onProfile: () => _selectTab(4),
+                ),
+                StatsScreen(controller: _history.stats),
+                ScanUrlScreen(
+                  controller: _inputScan.scanUrl,
+                  submissionController: _inputScan.submission,
+                  onQr: _openQr,
+                  onShare: _openShare,
+                  onSubmitted: _handleSubmission,
+                ),
+                HistoryScreen(
+                  controller: _history.history,
+                  onOpenDetail: (entry) => _openResultById(entry.id),
+                ),
+                ProfilePage(
+                  controller: widget.auth.profile,
+                  account:
+                      widget.auth.auth.account ?? widget.auth.displayAccount,
+                  onSettings: _openSettings,
+                  onSignOut: widget.onSignOut,
+                  onReportStatus: _openReportStatus,
+                  onNotifications: _openNotifications,
+                ),
+              ].indexed
+              .map(
+                (entry) => TickerMode(
+                  enabled: entry.$1 == _selectedIndex,
+                  child: entry.$2,
+                ),
+              )
+              .toList(),
+    );
+    return Scaffold(
+      body: SafeArea(
+        bottom: wide,
+        child: wide
+            ? Row(
+                children: [
+                  NavigationRail(
+                    selectedIndex: _selectedIndex,
+                    onDestinationSelected: _selectTab,
+                    labelType: NavigationRailLabelType.all,
+                    destinations: [
+                      for (
+                        var i = 0;
+                        i < AppBottomNavigation.labels.length;
+                        i++
+                      )
+                        NavigationRailDestination(
+                          icon: Icon(AppBottomNavigation.icons[i]),
+                          label: Text(AppBottomNavigation.labels[i]),
+                        ),
+                    ],
                   ),
-                  StatsScreen(controller: _history.stats),
-                  ScanUrlScreen(
-                    controller: _inputScan.scanUrl,
-                    submissionController: _inputScan.submission,
-                    onQr: _openQr,
-                    onShare: _openShare,
-                    onSubmitted: _handleSubmission,
-                  ),
-                  HistoryScreen(
-                    controller: _history.history,
-                    onOpenDetail: (entry) => _openResultById(entry.id),
-                  ),
-                  ProfilePage(
-                    controller: widget.auth.profile,
-                    account:
-                        widget.auth.auth.account ?? widget.auth.displayAccount,
-                    onSettings: _openSettings,
-                    onSignOut: _signOut,
-                    onReportStatus: _openReportStatus,
-                    onNotifications: _openNotifications,
-                  ),
-                ].indexed
-                .map(
-                  (entry) => TickerMode(
-                    enabled: entry.$1 == _selectedIndex,
-                    child: entry.$2,
-                  ),
-                )
-                .toList(),
+                  const VerticalDivider(width: 1),
+                  Expanded(child: pages),
+                ],
+              )
+            : pages,
       ),
-    ),
-    bottomNavigationBar: AppBottomNavigation(
-      selectedIndex: _selectedIndex,
-      onDestinationSelected: _selectTab,
-    ),
-  );
+      bottomNavigationBar: wide
+          ? null
+          : AppBottomNavigation(
+              selectedIndex: _selectedIndex,
+              onDestinationSelected: _selectTab,
+            ),
+    );
+  }
 }

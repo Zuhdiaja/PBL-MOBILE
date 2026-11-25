@@ -224,11 +224,6 @@ class _LabeledFieldState extends State<_LabeledField> {
   Widget build(BuildContext context) => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      Text(
-        widget.field.label,
-        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-      ),
-      const SizedBox(height: 8),
       TextField(
         controller: widget.field.controller,
         obscureText: widget.field.obscure && !_visible,
@@ -244,6 +239,8 @@ class _LabeledFieldState extends State<_LabeledField> {
             : const [AutofillHints.name],
         style: TextStyle(fontSize: 15, color: context.colors.ink),
         decoration: InputDecoration(
+          labelText: widget.field.label,
+          floatingLabelBehavior: FloatingLabelBehavior.always,
           hintText: widget.field.hint,
           suffixIcon: widget.field.obscure
               ? IconButton(

@@ -70,12 +70,7 @@ class ScanResultsDependencies {
     } on StateError {
       final api = _scansApi;
       if (api == null) rethrow;
-      final records = await api.listAll();
-      final match = records.where((record) => record.id == id).firstOrNull;
-      if (match == null) {
-        throw StateError('Hasil pindai $id tidak ditemukan.');
-      }
-      final model = ScanResultModel.fromScan(match);
+      final model = ScanResultModel.fromScan(await api.detail(id));
       final source = _resultSource;
       if (source is SessionScanResultsDataSource) source.remember([model]);
       return model.toEntity();

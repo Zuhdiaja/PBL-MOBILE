@@ -71,53 +71,68 @@ class StatsCard extends StatelessWidget {
 }
 
 class WeeklyActivityChart extends StatelessWidget {
-  const WeeklyActivityChart({super.key});
-  static const _values = [0, 0, 0, 2, 2, 2, 2];
-  static const _days = ['Sab', 'Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum'];
+  const WeeklyActivityChart({super.key, required this.days});
+  final Map<DateTime, int> days;
+  static const _dayNames = ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'];
+
   @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.fromLTRB(16, 20, 16, 12),
-    decoration: BoxDecoration(
-      color: context.colors.surface,
-      borderRadius: BorderRadius.circular(16),
-    ),
-    child: Row(
-      crossAxisAlignment: CrossAxisAlignment.end,
-      children: [
-        for (var i = 0; i < _values.length; i++)
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 4),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    '${_values[i]}',
-                    style: TextStyle(color: context.colors.muted, fontSize: 11),
-                  ),
-                  const SizedBox(height: 10),
-                  Container(
-                    height: _values[i] == 0 ? 3 : 76,
-                    width: double.infinity,
-                    decoration: BoxDecoration(
-                      color: i == 6
-                          ? context.colors.blue
-                          : context.colors.paleBlue,
-                      borderRadius: const BorderRadius.vertical(
-                        top: Radius.circular(7),
+  Widget build(BuildContext context) {
+    if (days.isEmpty)
+      return const Text('Belum ada aktivitas untuk ditampilkan.');
+    final entries = days.entries.toList(growable: false);
+    final peak = days.values.reduce(
+      (left, right) => left > right ? left : right,
+    );
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 20, 16, 12),
+      decoration: BoxDecoration(
+        color: context.colors.surface,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          for (var i = 0; i < entries.length; i++)
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      '${entries[i].value}',
+                      style: TextStyle(
+                        color: context.colors.muted,
+                        fontSize: 11,
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    _days[i],
-                    style: TextStyle(color: context.colors.muted, fontSize: 10),
-                  ),
-                ],
+                    const SizedBox(height: 10),
+                    Container(
+                      height: peak == 0 ? 3 : 3 + 73 * entries[i].value / peak,
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        color: i == entries.length - 1
+                            ? context.colors.blue
+                            : context.colors.paleBlue,
+                        borderRadius: const BorderRadius.vertical(
+                          top: Radius.circular(7),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      _dayNames[entries[i].key.weekday - 1],
+                      style: TextStyle(
+                        color: context.colors.muted,
+                        fontSize: 10,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
-      ],
-    ),
-  );
+        ],
+      ),
+    );
+  }
 }
