@@ -19,18 +19,22 @@ docker compose exec api flask --app app:create_app create-admin \
   --email admin@example.com --name "Admin LinkGuard"
 ```
 
-CLI meminta password minimal 12 karakter secara interaktif. Buka **http://localhost:3000**. Compose menjalankan web Next.js, API Flask, worker RQ, scheduler training, PostgreSQL, Redis, dan migration otomatis. Hanya port web yang dibuka ke host; API, database, dan Redis berada di jaringan internal. CSV sementara dan avatar berada pada volume privat bersama API/worker.
+CLI meminta password minimal 12 karakter secara interaktif. Buka **http://localhost:3000**. Compose menjalankan gateway Nginx, dashboard Next.js, API Flask, worker RQ, scheduler training, PostgreSQL, Redis, dan migrasi otomatis. Endpoint health memeriksa revisi skema yang dipakai API. Hanya port web yang dibuka ke host; API, database, dan Redis berada di jaringan internal. CSV sementara dan avatar berada pada volume privat bersama API/worker.
 
 ```sh
-docker compose logs -f api worker scheduler web
+docker compose logs -f api worker scheduler admin web
 docker compose stop
 ```
 
-Volume data tetap tersimpan saat layanan dihentikan. Perubahan `MAX_UPLOAD_MB` memerlukan rebuild web karena konfigurasi proxy dibaca saat build.
+Volume data tetap tersimpan saat layanan dihentikan. Jalankan kembali `docker compose up -d --build --wait` setelah mengganti `MAX_UPLOAD_MB`.
+
+### Push Android
+
+Simpan Firebase Admin service account JSON di path privat dan set `FIREBASE_CREDENTIALS_FILE`. Jalankan `docker compose --profile push up -d --build --wait`. Worker memvalidasi kredensial saat mulai dan mencatat kegagalan akhir setelah lima percobaan. Jalankan `docker compose exec api flask --app app:create_app push-status` untuk melihat jumlah `pending`, `failed`, dan `handled`. Tanpa profile ini, status laporan tetap tersedia di mobile melalui API.
 
 ## HTTPS
 
-Untuk deployment HTTPS, arahkan reverse proxy ke web dan set `COOKIE_SECURE=true`. Sesuaikan batas request reverse proxy minimal `MAX_UPLOAD_MB + 1` MB. Rewrite Next.js meneruskan `/api/v1` ke Flask; cookie sesi Redis bersifat HttpOnly, SameSite=Lax, dan berlaku maksimal delapan jam. Request perubahan memerlukan CSRF. Password memakai scrypt; perubahan password mengakhiri sesi perangkat lain.
+Untuk deployment HTTPS, arahkan reverse proxy ke web dan set `COOKIE_SECURE=true`. Sesuaikan batas request reverse proxy minimal `MAX_UPLOAD_MB + 1` MB. Gateway Docker meneruskan `/api/v1` ke Flask dan mengisi identitas IP dari koneksi yang diterima. Untuk reverse proxy HTTPS eksternal, konfigurasikan real-IP Nginx hanya untuk alamat proxy tepercaya. Di mode dev tanpa Nginx, rewrite Next.js meneruskan API secara lokal. Cookie sesi Redis bersifat HttpOnly, SameSite=Lax, dan berlaku maksimal delapan jam. Request perubahan memerlukan CSRF. Password memakai scrypt; perubahan password mengakhiri sesi perangkat lain.
 
 Implementasi mengacu pada [shadcn Next.js](https://ui.shadcn.com/docs/installation/next), [pagination TanStack](https://tanstack.com/table/latest/docs/framework/react/guide/pagination).
 
@@ -70,7 +74,7 @@ Sumber yang dituju adalah [MURL 2026 di Mendeley](https://data.mendeley.com/data
 
 ## Laporan
 
-Menu **Laporan** menampung koreksi prediksi dari pengguna mobile. Admin dapat meninjau, mengubah status dan kategori, lalu menyetujui laporan sehingga satu baris baru ditambahkan ke dataset aktif. Ejaan kategori mengikuti dataset yang sedang aktif, dan kelas `legitimate` tidak pernah diubah.
+Menu **Laporan** menampung koreksi prediksi dari pengguna mobile. Admin dapat meninjau, mengubah status dan kategori, lalu menyetujui laporan sehingga satu baris baru ditambahkan ke dataset aktif. Gunakan **Unduh CSV aktif** untuk membawa koreksi ke unggahan training berikutnya. Ejaan kategori mengikuti dataset yang sedang aktif, dan kelas `legitimate` tidak pernah diubah.
 
 Alur, aturan kategori, kode error, serta cara menguji dengan dataset MURL asli dijelaskan di [reports/README.md](reports/README.md).
 
@@ -84,14 +88,14 @@ Di **Detail Training**, pilih kartu **Train**, **Validation**, atau **Test** unt
 
 ### Training manual
 
-Di **Pipeline ML**, klik **Train sekarang** saat dataset aktif sudah selesai diimpor dan belum berhasil dilatih. Permintaan masuk ke antrean scheduler yang juga menangani jadwal harian. Status antrean, proses, dan hasil tampil di Pipeline ML. Saat training manual berhasil, jadwal harian melewati dataset yang sama.
+Di **Pipeline ML**, klik **Train sekarang** saat dataset aktif sudah selesai diimpor dan belum berhasil dilatih. Permintaan masuk ke antrean scheduler yang juga menangani jadwal harian. Status antrean, proses, dan hasil tampil di Pipeline ML. Setelah evaluasi selesai, jadwal harian melewati unggahan yang sama. Pilih kandidat berstatus **Siap ditinjau** di Riwayat model, periksa hasilnya, lalu pilih **Setujui dan aktifkan**.
 
 ### Training terjadwal
 
 1. Unggah CSV melalui **Dataset** dan tunggu impor selesai. Training membutuhkan tepat satu kolom `url` dan satu kolom kelas (`label`, `category`, `class`, atau `type`).
 2. Buka **Jadwal Training**, aktifkan jadwal, pilih jam WIB, lalu simpan. Jadwal awal nonaktif.
 3. Scheduler berjalan di proses sendiri dan memeriksa dataset aktif setiap hari pada menit yang dipilih. Dataset yang sudah berhasil dilatih dilewati. Penyuntingan melalui sinkronisasi laporan saja tidak memicu retraining. Jika scheduler mati pada menit jadwal, pemeriksaan berikutnya berlangsung pada jadwal hari berikutnya.
-4. Training memakai preprocessing URL yang sama dengan inference, menghapus duplikat URL hasil preprocessing, dan membagi data berdasarkan grup domain. CSV harus memiliki minimal dua kelas yang dapat terwakili di train, validation, dan test. Hasil dan berkas model dipublikasikan bersama setelah verifikasi. Selama training, pemindaian memakai model yang sudah aktif. Jika training gagal atau dataset berubah saat proses berjalan, model aktif dipertahankan.
+4. Training memakai preprocessing URL yang sama dengan inference, menghapus duplikat URL hasil preprocessing, dan membagi data berdasarkan grup domain. CSV harus memiliki minimal dua kelas yang dapat terwakili di train, validation, dan test. Hasil tetap tercatat di riwayat. Kandidat dapat disetujui jika semua kelas dikenali mobile dan artefaknya valid. Admin dapat meninjau metrik per kelas sebelum menyetujui kandidat. Selama training dan peninjauan, pemindaian memakai model yang sudah aktif. Jika training gagal atau dataset berubah saat proses berjalan, model aktif dipertahankan.
 
 Untuk membandingkan metrik notebook tanpa mengubah model pemindaian, gunakan **Impor hasil** atau perintah berikut:
 
