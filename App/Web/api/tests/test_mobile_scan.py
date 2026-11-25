@@ -216,6 +216,36 @@ def test_scans_lists_only_the_callers_scans(app, client, tmp_path):
     assert all(item["url"] != "https://c.test" for item in body["items"])
 
 
+def test_scan_history_search_and_filters_apply_before_pagination(app, client):
+    mine = _token(client, email="mine@example.com")
+    _token(client, email="theirs@example.com")
+    url = "https://older.test/needle_%"
+    older = _store_scan(app, "mine@example.com", "Legitimate", url)
+    _store_scan(app, "theirs@example.com", "legitimate", url)
+    _store_scan(app, "mine@example.com", "phishing", url)
+    for index in range(25):
+        _store_scan(app, "mine@example.com", "legitimate", f"https://new.test/needleAz-{index}")
+
+    first = client.get("/api/v1/mobile/scans", headers=mine).json
+    assert first["page_count"] == 2
+    assert older not in [row["scan_id"] for row in first["items"]]
+
+    response = client.get(
+        "/api/v1/mobile/scans", headers=mine,
+        query_string={"search": " NEEDLE_% ", "category": "legitimate", "scope": "safe"},
+    )
+    assert response.status_code == 200
+    assert [row["scan_id"] for row in response.json["items"]] == [older]
+    assert response.json["row_count"] == response.json["page_count"] == 1
+
+    legacy = _store_scan(app, "mine@example.com", "legacy", url)
+    result = client.get(
+        "/api/v1/mobile/scans", headers=mine,
+        query_string={"category": "unknown", "scope": "unsafe"},
+    ).json
+    assert [row["scan_id"] for row in result["items"]] == [legacy]
+
+
 def test_scans_returns_an_empty_page_for_a_new_account(client):
     headers = _token(client, email="empty@example.com")
 
