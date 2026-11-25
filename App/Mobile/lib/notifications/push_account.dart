@@ -10,7 +10,7 @@ import '../features/auth/data/datasources/token_store.dart';
 /// Shared account context. Never persists bearer credentials in preference keys.
 class PushAccount {
   static String? accountId;
-  static final store = SharedPreferencesTokenStore();
+  static final store = const SecureTokenStore();
   static Future<String> installationId() async {
     final prefs = await SharedPreferences.getInstance();
     var id = prefs.getString('push_installation');

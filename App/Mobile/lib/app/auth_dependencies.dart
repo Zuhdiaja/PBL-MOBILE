@@ -60,7 +60,7 @@ class AuthDependencies {
     TokenStore? tokenStore,
     GoogleIdentitySource? googleIdentity,
   }) {
-    final store = tokenStore ?? SharedPreferencesTokenStore();
+    final store = tokenStore ?? const SecureTokenStore();
     final source =
         authSource ??
         RemoteAuthDataSource(

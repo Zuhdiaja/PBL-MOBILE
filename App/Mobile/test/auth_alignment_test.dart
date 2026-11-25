@@ -4,6 +4,38 @@ import 'package:pbl_semester5/features/auth/presentation/widgets/auth_form.dart'
 import 'package:pbl_semester5/theme/app_theme.dart';
 
 void main() {
+  testWidgets('auth input has a programmatic field name', (tester) async {
+    final semantics = tester.ensureSemantics();
+    final email = TextEditingController();
+    addTearDown(email.dispose);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: linkGuardTheme(Brightness.light),
+        home: AuthForm(
+          title: 'Masuk.',
+          subtitle: 'Lanjutkan untuk melihat riwayat Anda.',
+          fields: [
+            AuthField(
+              label: 'Email',
+              hint: 'nama@email.com',
+              controller: email,
+            ),
+          ],
+          actionLabel: 'Masuk',
+          footerPrompt: 'Belum punya akun?',
+          footerAction: 'Daftar sekarang',
+          onFooterTap: () {},
+          onSubmit: () {},
+        ),
+      ),
+    );
+    final input = tester
+        .getSemantics(find.byType(EditableText))
+        .getSemanticsData();
+    semantics.dispose();
+    expect('${input.label} ${input.hint}', contains('Email'));
+  });
+
   for (final width in [150.0, 320.0, 390.0, 600.0]) {
     for (final scale in [1.0, 1.3, 2.0]) {
       testWidgets('email divider centered at width=$width scale=$scale', (
