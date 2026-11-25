@@ -1,6 +1,8 @@
 /* oxlint-disable react/set-state-in-effect -- Loading state synchronizes with asynchronous server pagination. */
 /* oxlint-disable jsx-a11y/no-noninteractive-tabindex -- Scrollable data region must be keyboard reachable. */
 "use client";
+
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
@@ -351,10 +353,28 @@ export default function Page() {
           <h1>Dataset</h1>
           <p>Unggah dan lihat data URL yang digunakan LinkGuard.</p>
         </div>
-        <Button onClick={beginUpload} disabled={importing || uploading}>
-          <Upload />
-          Unggah dataset
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          {dataset && (
+            <Button
+              variant="outline"
+              nativeButton={false}
+              render={
+                <Link
+                  href="/api/v1/dataset/export"
+                  download
+                  prefetch={false}
+                  aria-label="Unduh CSV aktif"
+                />
+              }
+            >
+              Unduh CSV aktif
+            </Button>
+          )}
+          <Button onClick={beginUpload} disabled={importing || uploading}>
+            <Upload />
+            Unggah dataset
+          </Button>
+        </div>
       </div>
       {notice && (
         <div className="success-notice" aria-live="polite">

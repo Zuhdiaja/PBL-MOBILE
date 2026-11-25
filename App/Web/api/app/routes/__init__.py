@@ -1,11 +1,12 @@
+import csv
 import hmac
 import math
 import secrets
 import time
-from io import BytesIO
+from io import BytesIO, StringIO
 from pathlib import Path
 from uuid import uuid4
-from flask import Blueprint, current_app, g, jsonify, request, send_file, session
+from flask import Blueprint, Response, current_app, g, jsonify, request, send_file, session, stream_with_context
 from PIL import Image, UnidentifiedImageError
 from rq import Callback
 from sqlalchemy.exc import IntegrityError
@@ -172,6 +173,33 @@ def dataset():
     active = db.session.get(Dataset, state.active_id) if state and state.active_id else None
     latest = db.session.scalar(db.select(ImportJob).order_by(ImportJob.created_at.desc()).limit(1))
     return jsonify(dataset=active.public() if active else None, latest_import=latest.public() if latest else None)
+
+
+@api.get("/dataset/export")
+def export_dataset():
+    state = db.session.get(DatasetState, 1, with_for_update={"read": True})
+    dataset = db.session.get(Dataset, state.active_id) if state and state.active_id else None
+    if not dataset:
+        return error("dataset_missing", "Belum ada dataset aktif.", 404)
+
+    def rows():
+        buffer = StringIO(newline="")
+        writer = csv.writer(buffer)
+        writer.writerow(dataset.columns)
+        yield buffer.getvalue()
+        query = db.select(DatasetRow.values).where(DatasetRow.dataset_id == dataset.id).order_by(
+            DatasetRow.row_number
+        ).execution_options(yield_per=1000)
+        with db.session.scalars(query) as values:
+            for row in values:
+                buffer.seek(0)
+                buffer.truncate()
+                writer.writerow(row)
+                yield buffer.getvalue()
+
+    return Response(stream_with_context(rows()), mimetype="text/csv", headers={
+        "Content-Disposition": "attachment; filename=linkguard-dataset.csv",
+    })
 
 
 @api.post("/dataset/imports")
