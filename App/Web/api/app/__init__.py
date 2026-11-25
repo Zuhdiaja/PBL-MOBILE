@@ -33,6 +33,7 @@ def create_app(config=None):
         MAX_DATASET_BYTES=int(os.environ.get("MAX_UPLOAD_MB", "512")) * 1024 * 1024,
         PRIVATE_STORAGE=os.environ.get("PRIVATE_STORAGE", str(Path(app.instance_path) / "private")),
         RATELIMIT_STORAGE_URI=redis_url,
+        TRUSTED_PROXY_HOST=os.environ.get("TRUSTED_PROXY_HOST"),
         IMPORT_TIMEOUT=3600,
         GOOGLE_MOBILE_CLIENT_IDS=[client.strip() for client in
                                   os.environ.get("GOOGLE_MOBILE_CLIENT_IDS", "").split(",")
@@ -100,6 +101,18 @@ def create_app(config=None):
         db.session.commit()
         click.echo(f"Admin {email} dibuat.")
 
+    @app.cli.command("push-status")
+    def push_status():
+        """Report outstanding and terminal notification events."""
+        from app.models import PUSH_MAX_ATTEMPTS, PushOutbox
+
+        pending, failed, handled = db.session.execute(db.select(
+            db.func.count().filter(PushOutbox.sent.is_(False), PushOutbox.attempts < PUSH_MAX_ATTEMPTS),
+            db.func.count().filter(PushOutbox.sent.is_(False), PushOutbox.attempts >= PUSH_MAX_ATTEMPTS),
+            db.func.count().filter(PushOutbox.sent.is_(True)),
+        )).one()
+        click.echo(json.dumps(dict(pending=pending, failed=failed, handled=handled)))
+
     @app.cli.command("ml-import")
     @click.option("--path", required=True, type=click.Path(exists=True, dir_okay=False, path_type=Path),
                   help="Path to svm_tfidf_metrics.json.")
@@ -130,6 +143,7 @@ def create_app(config=None):
         import sklearn
         from app.extensions import db
         from app.ml.inference import clear_cache, file_sha256
+        from app.ml.quality import unsupported_classes_error
         from app.ml.store import activate, lock_model_changes
         from app.models import MLRun
 
@@ -139,6 +153,9 @@ def create_app(config=None):
             raise click.ClickException(f"Run {run_id} tidak ditemukan.")
         if run.is_synthetic:
             raise click.ClickException("Run contoh tidak boleh dijadikan model aktif.")
+        issue = unsupported_classes_error(run.classes)
+        if issue:
+            raise click.ClickException(issue)
 
         root = Path(app.config["PRIVATE_STORAGE"]).resolve()
         resolved = path.resolve()

@@ -54,8 +54,20 @@ def body():
 
 @api.get("/health")
 def health():
-    db.session.execute(db.text("SELECT 1"))
-    current_app.config["SESSION_REDIS"].ping()
+    from alembic.runtime.migration import MigrationContext
+    from alembic.script import ScriptDirectory
+    from sqlalchemy.exc import SQLAlchemyError
+    from redis.exceptions import RedisError
+
+    try:
+        migration = current_app.extensions["migrate"].migrate
+        expected = set(ScriptDirectory.from_config(migration.get_config()).get_heads())
+        actual = set(MigrationContext.configure(db.session.connection()).get_current_heads())
+        if actual != expected:
+            return error("schema_outdated", "Migrasi database belum selesai.", 503)
+        current_app.config["SESSION_REDIS"].ping()
+    except (SQLAlchemyError, RedisError):
+        return error("unavailable", "Database atau Redis belum tersedia.", 503)
     return jsonify(status="ok")
 
 

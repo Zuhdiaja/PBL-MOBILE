@@ -50,6 +50,9 @@ class MobileDevice(db.Model):
     updated_at = db.Column(db.DateTime(timezone=True), nullable=False, default=now, onupdate=now)
 
 
+PUSH_MAX_ATTEMPTS = 5
+
+
 class PushOutbox(db.Model):
     __tablename__ = 'push_outbox'
     id = db.Column(db.Integer, primary_key=True)
