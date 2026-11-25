@@ -44,10 +44,15 @@ class MobileDevice(db.Model):
     installation_id = db.Column(db.String(128), unique=True, nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey('mobile_users.id', ondelete='CASCADE'), nullable=False, index=True)
     token = db.Column(db.String(4096), unique=True, nullable=False)
+    target_type = db.Column(db.String(5), nullable=False, server_default='token')
     session_key = db.Column(db.String(128), nullable=False)
     platform = db.Column(db.String(16), nullable=False, default='android')
     created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=now)
     updated_at = db.Column(db.DateTime(timezone=True), nullable=False, default=now, onupdate=now)
+
+    __table_args__ = (
+        db.CheckConstraint("target_type IN ('token', 'fid')", name='mobile_device_target_type_check'),
+    )
 
 
 PUSH_MAX_ATTEMPTS = 5

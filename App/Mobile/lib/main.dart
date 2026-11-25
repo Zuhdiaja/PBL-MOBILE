@@ -264,8 +264,10 @@ class _AuthGateState extends State<_AuthGate> {
       unawaited(
         PushAccount.preference(refresh: true).catchError((Object _) => false),
       );
-      final tokens = widget.push?.tokens;
-      if (tokens != null) unawaited(tokens.sync().catchError((Object _) {}));
+      final registration = widget.push?.registration;
+      if (registration != null) {
+        unawaited(registration.sync().catchError((Object _) {}));
+      }
     } else {
       widget.push?.navigation.take();
     }
@@ -281,7 +283,7 @@ class _AuthGateState extends State<_AuthGate> {
   AuthDependencies get _auth => widget.auth;
 
   Future<void> _signOut() async {
-    await widget.push?.tokens.unlink();
+    await widget.push?.registration.unlink();
     await _auth.auth.submitSignOut();
   }
 
