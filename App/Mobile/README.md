@@ -1,33 +1,19 @@
 # LinkGuard Mobile
 
-Aplikasi pemeriksa tautan berbasis Flutter. Autentikasi (masuk, daftar, dan
-login Google) sudah terhubung ke API LinkGuard dan tercatat di database.
-Riwayat, statistik, status laporan, dan notifikasi masih memakai data contoh.
+Aplikasi pemeriksa tautan berbasis Flutter. Sesi, pemindaian, riwayat, statistik tujuh hari WIB, dan koreksi laporan terhubung ke API LinkGuard. Prediksi dijalankan oleh model aktif pada backend. Notifikasi di dalam aplikasi membaca status laporan dari API. Pengiriman push Android membutuhkan worker Firebase pada deployment web.
 
 ## Halaman
 
-- Beranda
-- Scan URL (maksimal 5 URL)
-- Scan QR Code
-- Bagikan ke LinkGuard
-
-Login, daftar, profil, dan pengaturan tersedia. Riwayat, statistik, status
-laporan, dan notifikasi menggunakan data contoh.
+- Onboarding satu kali per instalasi, masuk, dan daftar
+- Beranda, pindai hingga lima URL, kamera QR, dan Bagikan ke LinkGuard
+- Hasil pindai, detail skor margin, koreksi, dan riwayat berpaginasi
+- Statistik tujuh hari, profil, status laporan, notifikasi, dan pengaturan
 
 ## Menjalankan
 
-```sh
-flutter pub get
-git branch --show-current
-flutter run   # lengkapi dengan perintah per platform di bawah
-```
+Jalankan backend Docker sesuai [panduan web](../Web/README.md). Gunakan Flutter 3.50.1 dan Android SDK API 37. Jalankan `flutter pub get`, lalu pilih perintah sesuai platform di bawah.
 
-**Pastikan branch yang aktif adalah branch fitur yang sedang dikerjakan.**
-Kode autentikasi nyata berada di branch fitur, bukan di `main`. Kalau
-`git branch --show-current` menunjukkan `main` atau branch dokumentasi, aplikasi
-akan terkompilasi dari kode lama: cirinya email terprefill `nadia@gmail.com`,
-hint kata sandi "Minimal 6 karakter", dan keterangan "Login Google belum
-terhubung." selalu muncul walau client ID sudah diberikan.
+Build debug memakai `flutter build apk --debug`. Untuk menandatangani build release, isi `LINKGUARD_KEYSTORE`, `LINKGUARD_STORE_PASSWORD`, `LINKGUARD_KEY_ALIAS`, dan `LINKGUARD_KEY_PASSWORD` dari secret CI atau shell lokal sebelum menjalankan build release.
 
 ### Client ID OAuth proyek ini
 
@@ -102,19 +88,17 @@ Akibatnya:
 
 | Pesan di aplikasi | Penyebab | Solusi |
 | --- | --- | --- |
-| "Login Google belum terhubung." | Define `GOOGLE_WEB_CLIENT_ID` tidak ikut saat kompilasi, atau branch yang aktif bukan branch fitur | Hentikan aplikasi, jalankan perintah siap salin di atas, pastikan branch benar |
+| "Login Google belum terhubung." | Define `GOOGLE_WEB_CLIENT_ID` tidak ikut saat kompilasi | Hentikan aplikasi dan jalankan kembali dengan perintah lengkap |
 | "Tidak dapat terhubung ke server. Periksa koneksi Anda." | Origin browser tidak terdaftar di CORS, atau stack Docker belum jalan | Pakai `--web-port 8080`, pastikan `docker compose up` aktif |
 | "Login Google gagal: popup tertutup tanpa akun" | Popup Google tertutup sebelum selesai, atau akun bukan test user saat status masih Testing | Selesaikan popup sampai tuntas; tambah akun di Audience → Test users, atau publish aplikasi |
 | "Login Google dibatalkan." | Popup ditutup pengguna, atau Google menolak lalu menutup popup | Coba lagi; periksa isi popup |
 | "OAuth client was not found / invalid_client" di popup | Nilai client ID yang terkirim salah atau tertukar dengan client Android | Salin client Web dari tabel di atas |
 | "People API has not been used in project ..." | API People belum diaktifkan di project Google Cloud | Aktifkan People API di console, tunggu beberapa menit |
-| Email terprefill `nadia@gmail.com` dan hint "Minimal 6 karakter" | Aplikasi terkompilasi dari kode lama (branch salah) | `git checkout feat/mobile-google-signin` lalu run ulang |
 
 ### Memastikan akun benar-benar tercatat
 
 Setelah daftar atau login Google di aplikasi, akun muncul di dashboard web:
 masuk sebagai admin di `http://localhost:3000`, buka menu **Pengguna** → tab
-**Pengguna mobile**. Akun hasil Google ditandai metode masuk "Belum diatur"
-karena tidak memakai password.
+**Pengguna mobile**. Akun yang tertaut ditandai dengan metode masuk **Google SSO**.
 
-Pengecekan: `flutter analyze --no-pub` dan `flutter test --no-pub`.
+Pengecekan: `flutter analyze --no-pub --no-fatal-infos` dan `flutter test --no-pub`.
