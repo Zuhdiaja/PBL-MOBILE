@@ -56,13 +56,18 @@ class PushNotificationService {
         (message) => navigation.accept(message.data),
       ),
     );
-    final initial = await FirebaseMessaging.instance.getInitialMessage();
-    if (_disposed) return;
-    if (initial != null) navigation.accept(initial.data);
+    // Play services may take several seconds to return a registration token.
+    // The app can show notification settings as soon as the listeners are ready.
+    unawaited(_restoreInitialMessage());
+    unawaited(tokens.start().catchError((Object _) {}));
+  }
+
+  Future<void> _restoreInitialMessage() async {
     try {
-      await tokens.start();
+      final initial = await FirebaseMessaging.instance.getInitialMessage();
+      if (!_disposed && initial != null) navigation.accept(initial.data);
     } catch (_) {
-      /* Retry on a later launch. */
+      /* The rest of the notification service remains available. */
     }
   }
 
