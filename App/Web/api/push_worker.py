@@ -33,8 +33,9 @@ def deliver_one():
                 db.session.delete(device)
                 continue
             data = dict(report_id=str(report.id), notification_id=str(event.id), notification_type='report', body=f'Status laporan Anda: {event.status}')
+            recipient = {device.target_type: device.token}
             try:
-                messaging.send(messaging.Message(token=device.token,
+                messaging.send(messaging.Message(**recipient,
                     notification=messaging.Notification(title='LinkGuard - Pembaruan laporan', body=data['body']),
                     data=data, android=messaging.AndroidConfig(priority='high',
                         notification=messaging.AndroidNotification(channel_id='report_updates'))))

@@ -1,4 +1,6 @@
 """Authenticated device registration and account push preferences."""
+import re
+
 from flask import g, jsonify
 from app.extensions import db
 from app.models import MobileDevice
@@ -9,23 +11,34 @@ from .mobile_auth import mobile, mobile_required, body, error, bearer_token, _to
 @mobile_required
 def register_device():
     data = body()
-    installation, token = data.get('installation_id'), data.get('token')
+    installation = data.get('installation_id')
     if (not isinstance(installation, str) or not 1 <= len(installation) <= 128
-            or not isinstance(token, str) or not 1 <= len(token) <= 4096
             or data.get('platform') != 'android'):
         return error('invalid_device', 'Data perangkat tidak valid.')
+    if 'fid' in data:
+        target = data['fid']
+        if 'token' in data or not isinstance(target, str) or not re.fullmatch(r'[A-Za-z0-9_-]{22}', target):
+            return error('invalid_device', 'Data perangkat tidak valid.')
+        target_type = 'fid'
+    else:
+        target = data.get('token')
+        if not isinstance(target, str) or not 1 <= len(target) <= 4096:
+            return error('invalid_device', 'Data perangkat tidak valid.')
+        target_type = 'token'
     # Serialize upserts so simultaneous launch/refresh requests cannot violate
     # the unique installation or token constraints (PostgreSQL transaction lock).
     db.session.execute(db.text('SELECT pg_advisory_xact_lock(73193001)'))
     device = db.session.scalar(db.select(MobileDevice).filter_by(installation_id=installation))
-    duplicate = db.session.scalar(db.select(MobileDevice).filter_by(token=token))
+    duplicate = db.session.scalar(db.select(MobileDevice).filter_by(token=target))
     if duplicate is not None and duplicate is not device:
         db.session.delete(duplicate)
         db.session.flush()
     if device is None:
         device = MobileDevice(installation_id=installation)
         db.session.add(device)
-    device.user_id, device.token = g.mobile_user.id, token
+    device.user_id = g.mobile_user.id
+    device.token = target
+    device.target_type = target_type
     device.session_key = _token_key(bearer_token())
     db.session.commit()
     return jsonify(registered=True)

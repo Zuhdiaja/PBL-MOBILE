@@ -4,7 +4,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 
 import '../firebase_options.dart';
-import 'fcm_token_manager.dart';
+import 'fcm_registration.dart';
 import 'local_notification_service.dart';
 import 'notification_navigation.dart';
 import 'notification_permission.dart';
@@ -25,7 +25,7 @@ class PushNotificationService {
     FirebaseMessaging.instance,
     local.plugin,
   );
-  late final tokens = FcmTokenManager(FirebaseMessaging.instance);
+  late final registration = FcmRegistration(FirebaseMessaging.instance);
   final List<StreamSubscription<dynamic>> _subscriptions = [];
   Future<void> initialize() async {
     await Firebase.initializeApp(
@@ -56,10 +56,10 @@ class PushNotificationService {
         (message) => navigation.accept(message.data),
       ),
     );
-    // Play services may take several seconds to return a registration token.
+    // Play services may take several seconds to register the installation.
     // The app can show notification settings as soon as the listeners are ready.
     unawaited(_restoreInitialMessage());
-    unawaited(tokens.start().catchError((Object _) {}));
+    unawaited(registration.start().catchError((Object _) {}));
   }
 
   Future<void> _restoreInitialMessage() async {
@@ -77,7 +77,7 @@ class PushNotificationService {
     for (final subscription in _subscriptions) {
       subscription.cancel();
     }
-    tokens.dispose();
+    registration.dispose();
     navigation.dispose();
   }
 }

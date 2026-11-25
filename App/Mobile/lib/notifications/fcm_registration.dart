@@ -1,14 +1,16 @@
 import 'dart:async';
 
+import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/foundation.dart';
 
 import 'push_account.dart';
 
-/// Serializes authenticated device registration. Never logs tokens.
-class FcmTokenManager {
-  FcmTokenManager(this.messaging);
+/// Synchronizes the Firebase installation with the signed-in account.
+class FcmRegistration {
+  FcmRegistration(this.messaging);
   final FirebaseMessaging messaging;
-  String? token;
+  String? _fid;
   StreamSubscription<String>? _subscription;
   Future<void> _pending = Future.value();
   bool _disposed = false;
@@ -18,7 +20,7 @@ class FcmTokenManager {
       if (_disposed ||
           account == null ||
           account != PushAccount.accountId ||
-          token == null) {
+          _fid == null) {
         return;
       }
       final bearer = await PushAccount.store.read();
@@ -29,7 +31,7 @@ class FcmTokenManager {
         bearer: bearer,
         data: {
           'installation_id': await PushAccount.installationId(),
-          'token': token,
+          'fid': _fid,
           'platform': 'android',
         },
       );
@@ -52,16 +54,15 @@ class FcmTokenManager {
   }
 
   Future<void> start() async {
-    // The backend contract requires FCM registration tokens rather than FIDs.
-    // ignore: deprecated_member_use
-    _subscription = messaging.onTokenRefresh.listen((value) {
-      token = value;
+    _subscription = messaging.onRegistered.listen((fid) {
+      _fid = fid;
       unawaited(sync().catchError((Object _) {}));
     });
-    // ignore: deprecated_member_use
-    final initialToken = await messaging.getToken();
-    token ??= initialToken;
-    await sync();
+    try {
+      await messaging.register();
+    } on FirebaseException catch (error) {
+      debugPrint('Registrasi FCM gagal (${error.code})');
+    }
   }
 
   void dispose() {
