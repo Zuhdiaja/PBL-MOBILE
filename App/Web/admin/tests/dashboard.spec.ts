@@ -31,9 +31,13 @@ test("login → impor → pagination → profil → logout", async ({ page }, in
   await expect(page.getByRole("button", { name: "Masuk dengan Google" })).toHaveCount(0);
   await expect(page.getByRole("link", { name: /daftar|registrasi/i })).toHaveCount(0);
   await mkdir("test-results/screenshots", { recursive: true });
+  await expect(page.getByRole("heading", { name: "Masuk ke dashboard" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Masuk", exact: true })).toBeEnabled();
+  const loginAside = page.getByRole("complementary", { name: "Ruang kerja LinkGuard" });
   if (info.project.name === "desktop") {
-    await expect(page.locator(".login-illustration")).not.toHaveJSProperty("naturalWidth", 0);
+    await expect(loginAside).toBeVisible();
+  } else {
+    await expect(loginAside).toBeHidden();
   }
   await page.screenshot({
     path: `test-results/screenshots/login-${info.project.name}.png`,
