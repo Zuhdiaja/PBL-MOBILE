@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Icons.verified_user_outlined, as used by LinkGuardBrand. -->
+    <path
+        android:fillColor="#2454D3"
+        android:pathData="M54 27 31.94 36.881V51.587C31.94 65.145 41.362 77.898 54 81C66.638 77.898 76.06 65.145 76.06 51.587V36.881L54 27ZM71.119 51.587C71.119 62.617 63.881 72.843 54 75.945C44.119 72.843 36.881 62.617 36.881 51.587V39.983L54 32.4L71.119 39.983V51.587ZM42.74 52.966 39.294 56.413 49.06 66.294 68.706 46.647 65.26 43.2 49.06 59.285 42.74 52.966Z" />
+</vector>

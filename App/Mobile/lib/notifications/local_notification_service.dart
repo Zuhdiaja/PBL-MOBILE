@@ -27,7 +27,7 @@ class LocalNotificationService {
   Future<void> initialize() async {
     await plugin.initialize(
       settings: const InitializationSettings(
-        android: AndroidInitializationSettings('@mipmap/ic_launcher'),
+        android: AndroidInitializationSettings('linkguard_mark'),
       ),
       onDidReceiveNotificationResponse: (response) => _tap(response.payload),
     );
