@@ -35,6 +35,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
     controller: widget.controller,
     kind: 'history',
     subpage: false,
+    animateTransition: false,
     loadingBuilder: (context) => _page(context, pending: true),
     errorBuilder: (context) => _page(context),
     builder: (context) => _page(context),
@@ -42,6 +43,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
 
   Widget _page(BuildContext context, {bool pending = false}) {
     final controller = widget.controller;
+    pending = pending || controller.isSearchPending;
     return ScanPage(
       onRefresh: controller.refresh,
       children: [
@@ -109,9 +111,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
           children: [
             Expanded(
               child: Text(
-                pending
-                    ? 'Memuat riwayat…'
-                    : '${controller.visibleEntries.length} hasil',
+                pending ? 'Memuat riwayat…' : '${controller.resultCount} hasil',
                 style: TextStyle(fontSize: 11, color: context.colors.muted),
               ),
             ),
@@ -181,6 +181,15 @@ class _HistoryScreenState extends State<HistoryScreen> {
           )
         else
           ..._buildGroupedItems(controller.visibleEntries),
+        if (!pending && controller.loadMoreError != null)
+          InfoNote(controller.loadMoreError!),
+        if (!pending && controller.loadError == null && controller.hasMore)
+          OutlinedButton(
+            onPressed: controller.isLoadingMore ? null : controller.loadMore,
+            child: Text(
+              controller.isLoadingMore ? 'Memuat…' : 'Muat lebih banyak',
+            ),
+          ),
         const SizedBox(height: 20),
         if (controller.isSimulated)
           const InfoNote(

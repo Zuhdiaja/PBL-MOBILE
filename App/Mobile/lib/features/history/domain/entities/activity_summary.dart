@@ -8,6 +8,7 @@ class ActivitySummary {
     required this.malwareCount,
     required this.reportCount,
     required this.safePercent,
+    this.weekly = const {},
   });
 
   final int totalCount;
@@ -17,4 +18,5 @@ class ActivitySummary {
   final int malwareCount;
   final int reportCount;
   final int safePercent;
+  final Map<DateTime, int> weekly;
 }

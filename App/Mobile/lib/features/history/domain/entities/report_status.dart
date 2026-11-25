@@ -21,6 +21,9 @@ class ReportStatus {
     required this.stage,
     required this.submittedTime,
     this.submittedAt,
+    this.statusEventId,
+    this.statusChangedAt,
+    this.statusChangedTime,
     this.notes,
   });
 
@@ -36,6 +39,9 @@ class ReportStatus {
 
   /// Submission time as returned by the API, used to group notifications.
   final DateTime? submittedAt;
+  final String? statusEventId;
+  final DateTime? statusChangedAt;
+  final String? statusChangedTime;
   final String? notes;
 }
 

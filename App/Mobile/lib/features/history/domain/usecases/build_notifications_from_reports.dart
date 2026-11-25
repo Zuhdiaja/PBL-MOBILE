@@ -14,10 +14,14 @@ class BuildNotificationsFromReports {
       final content = _contentFor(report);
       items.add(
         AppNotification(
-          id: report.id.isNotEmpty ? 'report-${report.id}' : 'report-$i',
+          id: report.statusEventId != null
+              ? 'report-event-${report.statusEventId}'
+              : report.id.isNotEmpty
+              ? 'report-${report.id}'
+              : 'report-$i',
           title: content.title,
           body: content.body,
-          time: report.submittedTime,
+          time: report.statusChangedTime ?? report.submittedTime,
           group: _isToday(report, today) ? 'Hari ini' : 'Sebelumnya',
           kind: NotificationKind.report,
           unread: content.unread,
@@ -64,7 +68,7 @@ class BuildNotificationsFromReports {
       nowUtc.toUtc().add(const Duration(hours: 7));
 
   static bool _isToday(ReportStatus report, DateTime todayWib) {
-    final submittedAt = report.submittedAt;
+    final submittedAt = report.statusChangedAt ?? report.submittedAt;
     if (submittedAt == null) return false;
     final wib = submittedAt.toUtc().add(const Duration(hours: 7));
     return wib.year == todayWib.year &&

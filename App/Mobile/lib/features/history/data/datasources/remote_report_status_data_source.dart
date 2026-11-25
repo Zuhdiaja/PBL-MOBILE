@@ -4,6 +4,8 @@ import 'package:http/http.dart' as http;
 
 import '../../../auth/data/datasources/token_store.dart';
 import '../../domain/entities/history_failure.dart';
+import '../../domain/entities/history_page.dart';
+import '../../domain/entities/report_status.dart';
 import '../models/report_status_model.dart';
 import 'report_status_data_source.dart';
 
@@ -27,36 +29,53 @@ class RemoteReportStatusDataSource implements ReportStatusDataSource {
 
   static const _timeout = Duration(seconds: 10);
   static const _pageSize = 100;
-  static const _maxPages = 10;
 
   @override
   Future<List<ReportStatusModel>> readReports() async {
+    final token = await _token();
+    final reports = <ReportStatusModel>[];
+    var page = 1;
+    var pageCount = 1;
+    while (page <= pageCount) {
+      final payload = await _fetch(token, page);
+      reports.addAll(_items(payload));
+      final reportedPages = payload['page_count'];
+      pageCount = reportedPages is int && reportedPages > 0 ? reportedPages : 1;
+      page++;
+    }
+    return reports;
+  }
+
+  Future<HistoryPage<ReportStatus>> readPage(int page) async {
+    final payload = await _fetch(await _token(), page);
+    return (
+      items: [for (final item in _items(payload)) item.toEntity()],
+      page: payload['page'] is int ? payload['page'] as int : page,
+      pageCount: payload['page_count'] is int
+          ? payload['page_count'] as int
+          : 1,
+      total: payload['row_count'] is int ? payload['row_count'] as int : 0,
+    );
+  }
+
+  Future<String> _token() async {
     final token = await tokenStore.read();
     if (token == null) {
       throw const HistoryFailure(
         'Sesi Anda sudah berakhir. Silakan masuk kembali.',
       );
     }
+    return token;
+  }
 
-    final reports = <ReportStatusModel>[];
-    var page = 1;
-    var pageCount = 1;
-    while (page <= pageCount && page <= _maxPages) {
-      final payload = await _fetch(token, page);
-      final items = payload['items'];
-      if (items is! List) {
-        throw const HistoryFailure('Respons server tidak dikenali.');
-      }
-      for (final item in items) {
-        if (item is Map<String, dynamic>) {
-          reports.add(ReportStatusModel.fromJson(item));
-        }
-      }
-      final reportedPages = payload['page_count'];
-      pageCount = reportedPages is int && reportedPages > 0 ? reportedPages : 1;
-      page++;
-    }
-    return reports;
+  List<ReportStatusModel> _items(Map<String, dynamic> payload) {
+    final items = payload['items'];
+    if (items is! List)
+      throw const HistoryFailure('Respons server tidak dikenali.');
+    return [
+      for (final item in items)
+        if (item is Map<String, dynamic>) ReportStatusModel.fromJson(item),
+    ];
   }
 
   Future<Map<String, dynamic>> _fetch(String token, int page) async {

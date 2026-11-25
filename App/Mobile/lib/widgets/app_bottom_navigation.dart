@@ -36,6 +36,7 @@ class AppBottomNavigation extends StatelessWidget {
                   selected: selectedIndex == i,
                   button: true,
                   label: labels[i],
+                  onTap: () => onDestinationSelected(i),
                   child: ExcludeSemantics(
                     child: Material(
                       color: i != 2 && selectedIndex == i

@@ -21,9 +21,10 @@ abstract class LoadController extends ChangeNotifier {
     FutureOr<T> Function() read,
     void Function(T value) apply, {
     String? Function(Object error)? describeError,
+    bool supersede = false,
   }) {
     if (_disposed) return Future.value();
-    if (_pending != null) return _pending!;
+    if (_pending != null && !supersede) return _pending!;
     _isLoading = true;
     _loadError = null;
     final completion = Completer<void>();
@@ -32,21 +33,21 @@ abstract class LoadController extends ChangeNotifier {
     () async {
       try {
         final value = await read();
-        if (!_disposed) {
+        if (!_disposed && identical(_pending, completion.future)) {
           apply(value);
           _hasLoaded = true;
         }
       } catch (error) {
-        if (!_disposed) {
+        if (!_disposed && identical(_pending, completion.future)) {
           _loadError =
               describeError?.call(error) ??
               'Data belum dapat dimuat. Silakan coba lagi.';
         }
       } finally {
-        _pending = null;
-        if (!_disposed) {
+        if (identical(_pending, completion.future)) {
+          _pending = null;
           _isLoading = false;
-          notifyListeners();
+          if (!_disposed) notifyListeners();
         }
         completion.complete();
       }
@@ -70,7 +71,7 @@ abstract class LoadController extends ChangeNotifier {
     () async {
       try {
         final value = await read();
-        if (!_disposed) {
+        if (!_disposed && identical(_pending, completion.future)) {
           apply(value);
           _hasLoaded = true;
           _loadError = null;
@@ -79,7 +80,7 @@ abstract class LoadController extends ChangeNotifier {
       } catch (_) {
         // Keep the previous value; the next load surfaces the real error.
       } finally {
-        _pending = null;
+        if (identical(_pending, completion.future)) _pending = null;
         completion.complete();
       }
     }();

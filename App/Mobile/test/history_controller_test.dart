@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pbl_semester5/features/history/domain/entities/app_notification.dart';
 import 'package:pbl_semester5/features/history/domain/entities/history_entry.dart';
+import 'package:pbl_semester5/features/history/domain/entities/history_page.dart';
 import 'package:pbl_semester5/features/history/domain/entities/report_status.dart';
 import 'package:pbl_semester5/features/history/domain/repositories/history_repository.dart';
 import 'package:pbl_semester5/features/history/domain/repositories/notification_read_store.dart';
@@ -126,6 +129,51 @@ void main() {
       expect(controller.entries.length, 2);
       expect(controller.filters, ['Semua', 'Phishing', 'Benign']);
       expect(controller.visibleEntries.length, 2);
+    });
+
+    testWidgets('debounces searches and ignores a stale page response', (
+      tester,
+    ) async {
+      final older = _entry('older', category: 'Legitimate', isSafe: true);
+      final newer = _entry('newer', category: 'Phishing', isSafe: false);
+      final stale = Completer<HistoryPage<HistoryEntry>>();
+      final requests = <(int, HistoryQuery)>[];
+      final controller = HistoryController(
+        repository: _FakeHistoryRepository([]),
+        filterHistoryEntries: const FilterHistoryEntries(),
+        searchPage: (page, query) async {
+          requests.add((page, query));
+          if (query.search.isEmpty) {
+            return (items: [newer], page: 1, pageCount: 2, total: 101);
+          }
+          if (query.search == 'newer') return stale.future;
+          return (items: [older], page: 1, pageCount: 1, total: 1);
+        },
+      );
+      addTearDown(controller.dispose);
+      await controller.load();
+      expect(controller.visibleEntries, [newer]);
+      controller.setQuery('newer');
+      await tester.pump(const Duration(milliseconds: 300));
+
+      controller.setQuery('old');
+      await tester.pump(const Duration(milliseconds: 100));
+      controller.setQuery('older');
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(requests.map((request) => request.$2.search), [
+        '',
+        'newer',
+        'older',
+      ]);
+      expect(controller.visibleEntries, [older]);
+      expect(controller.resultCount, 1);
+
+      stale.complete((items: [newer], page: 1, pageCount: 1, total: 1));
+      await tester.pump();
+      expect(controller.visibleEntries, [older]);
+      expect(controller.isLoading, isFalse);
+      expect(controller.hasMore, isFalse);
+      expect(controller.filters, contains('Legitimate'));
     });
 
     test('narrowing the filter notifies and hides other categories', () async {

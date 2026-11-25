@@ -60,13 +60,15 @@ class ScanCounts {
     required this.safe,
     required this.unsafe,
     required this.byCategory,
+    this.weekly = const {},
   });
 
   const ScanCounts.empty()
     : total = 0,
       safe = 0,
       unsafe = 0,
-      byCategory = const {};
+      byCategory = const {},
+      weekly = const {};
 
   final int total;
   final int safe;
@@ -74,6 +76,7 @@ class ScanCounts {
 
   /// Canonical category name to number of scans.
   final Map<String, int> byCategory;
+  final Map<DateTime, int> weekly;
 
   int countOf(String category) => byCategory[category] ?? 0;
 }
@@ -105,17 +108,13 @@ class ScansApi {
 
   static const _timeout = Duration(seconds: 10);
   static const _pageSize = 100;
-  static const _maxPages = 10;
 
   /// Every scan of the account, newest first.
-  ///
-  /// The list is bounded so one account with a long history cannot stall the
-  /// screen; the summary endpoint stays exact because the server counts rows.
   Future<List<ScanRecord>> listAll() async {
     final records = <ScanRecord>[];
     var page = 1;
     var pageCount = 1;
-    while (page <= pageCount && page <= _maxPages) {
+    while (page <= pageCount) {
       final result = await list(page: page);
       records.addAll(result.items);
       pageCount = result.pageCount;
@@ -124,10 +123,21 @@ class ScansApi {
     return records;
   }
 
-  Future<ScansPage> list({int page = 1}) async {
+  Future<ScansPage> list({
+    int page = 1,
+    String search = '',
+    String? category,
+    String scope = 'all',
+  }) async {
     final payload = await _get(
       '/api/v1/mobile/scans',
-      query: {'page': '$page', 'page_size': '$_pageSize'},
+      query: {
+        'page': '$page',
+        'page_size': '$_pageSize',
+        if (search.isNotEmpty) 'search': search,
+        'category': ?category,
+        if (scope != 'all') 'scope': scope,
+      },
     );
     final items = payload['items'];
     if (items is! List) {
@@ -146,8 +156,20 @@ class ScansApi {
     );
   }
 
-  Future<ScanCounts> summary() async {
-    final payload = await _get('/api/v1/mobile/scans/summary');
+  Future<ScanRecord> detail(String id) async {
+    final payload = await _get(
+      '/api/v1/mobile/scans/${Uri.encodeComponent(id)}',
+    );
+    if (payload['scan'] case final Map<String, dynamic> scan)
+      return _record(scan);
+    throw const ScansApiException('Respons server tidak dikenali.');
+  }
+
+  Future<ScanCounts> summary({bool weekly = false}) async {
+    final payload = await _get(
+      '/api/v1/mobile/scans/summary',
+      query: weekly ? {'period': '7d'} : null,
+    );
     final raw = payload['by_category'];
     final byCategory = <String, int>{};
     if (raw is Map) {
@@ -163,6 +185,13 @@ class ScansApi {
       safe: payload['safe'] is int ? payload['safe'] as int : 0,
       unsafe: payload['unsafe'] is int ? payload['unsafe'] as int : 0,
       byCategory: byCategory,
+      weekly: {
+        if (payload['weekly'] case final List days)
+          for (final day in days)
+            if (day case {'date': final String date, 'count': final int count})
+              if (DateTime.tryParse(date) case final DateTime parsed)
+                parsed: count,
+      },
     );
   }
 

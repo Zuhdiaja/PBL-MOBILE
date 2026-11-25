@@ -12,11 +12,13 @@ class StatsController extends LoadController {
     required this.reportStatusRepository,
     required this.summarizeActivity,
     this.isSimulated = true,
+    this.readSummary,
   });
 
   final HistoryRepository historyRepository;
   final ReportStatusRepository reportStatusRepository;
   final SummarizeActivity summarizeActivity;
+  final Future<ActivitySummary> Function()? readSummary;
 
   /// True while the scan figures come from example data.
   final bool isSimulated;
@@ -39,6 +41,7 @@ class StatsController extends LoadController {
   Future<void> refresh() => refreshValue(_read, (value) => _summary = value);
 
   Future<ActivitySummary> _read() async {
+    if (readSummary case final read?) return read();
     final entries = await historyRepository.getEntries();
     final reports = await reportStatusRepository.getReports();
     return summarizeActivity(entries: entries, reportCount: reports.length);
