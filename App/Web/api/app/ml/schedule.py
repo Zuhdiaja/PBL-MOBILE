@@ -12,7 +12,8 @@ from app.extensions import db
 from app.ml.dataset_binding import dataset_digest
 from app.ml.dataset_columns import LABEL_KEYS, column_index
 from app.ml.inference import file_sha256
-from app.ml.store import activate, lock_model_changes
+from app.ml.quality import unsupported_classes_error
+from app.ml.store import lock_model_changes
 from app.ml.training import TrainingError, train
 from app.models import Dataset, DatasetRow, DatasetState, MLRun, TrainingSchedule, now
 
@@ -27,7 +28,10 @@ def pending_dataset(dataset):
     return not db.session.scalar(
         db.select(db.exists().where(
             MLRun.dataset_id == dataset.id,
-            MLRun.artifact_path.is_not(None),
+            db.or_(
+                MLRun.artifact_path.is_not(None),
+                MLRun.provenance["failure_reason"].astext == "unsupported_classes",
+            ),
             MLRun.provenance["dataset_filename"].astext.is_not(None),
         ))
     )
@@ -35,18 +39,23 @@ def pending_dataset(dataset):
 
 def schedule_view(schedule, dataset):
     queued = schedule is not None and schedule.requested_dataset_id is not None
+    pending = pending_dataset(dataset)
+    last_status = schedule.last_status if schedule else None
+    last_message = schedule.last_message if schedule else None
+    if pending and last_status == "quality_failed":
+        last_status = last_message = None
     return {
         "enabled": schedule.enabled if schedule else False,
         "time": (schedule.time if schedule else DEFAULT_TIME).isoformat(timespec="minutes"),
         "timezone": "Asia/Jakarta",
         "dataset": dataset.public() if dataset else None,
-        "pending_dataset": pending_dataset(dataset),
+        "pending_dataset": pending,
         "last_started_at": schedule.last_started_at.isoformat() if schedule and schedule.last_started_at and not queued else None,
         "last_date": schedule.last_date.isoformat() if schedule and schedule.last_date else None,
-        "last_status": "queued" if queued else (schedule.last_status if schedule else None),
+        "last_status": "queued" if queued else last_status,
         "last_message": (
             "Permintaan training menunggu scheduler." if queued else
-            (schedule.last_message if schedule else None)
+            last_message
         ),
     }
 
@@ -74,6 +83,23 @@ def read_snapshot(requested_dataset_id):
 
 def publish(dataset_id, digest, filename, rows):
     pipeline, payload = train(rows)
+    issue = unsupported_classes_error(payload["classes"])
+    state = db.session.scalar(
+        db.select(DatasetState).where(DatasetState.id == 1).with_for_update(read=True)
+    )
+    dataset = db.session.get(Dataset, state.active_id) if state and state.active_id else None
+    if dataset_digest(dataset) != digest:
+        raise TrainingError("Dataset berubah saat training. Coba lagi dengan dataset aktif.")
+    lock_model_changes()
+    if not pending_dataset(dataset):
+        raise TrainingError("Dataset ini sudah memiliki hasil training.")
+    payload["provenance"].update(dataset_filename=filename, source_row_count=len(rows))
+    if issue:
+        payload["status"] = "quality_failed"
+        payload["provenance"]["failure_reason"] = "unsupported_classes"
+        db.session.add(MLRun(**payload, dataset_id=dataset_id, dataset_sha256=digest))
+        return "quality_failed", issue
+
     root = Path(current_app.config["PRIVATE_STORAGE"])
     relative = Path("models", f"{payload['id']}.joblib")
     # Stage, reload, and verify before changing any inference metadata.
@@ -85,26 +111,17 @@ def publish(dataset_id, digest, filename, rows):
             raise TrainingError("Verifikasi pipeline model baru gagal.")
         checksum = file_sha256(Path(staged.name))
 
-        state = db.session.scalar(
-            db.select(DatasetState).where(DatasetState.id == 1).with_for_update(read=True)
-        )
-        dataset = db.session.get(Dataset, state.active_id) if state and state.active_id else None
-        if dataset_digest(dataset) != digest:
-            raise TrainingError("Dataset berubah saat training. Coba lagi dengan dataset aktif.")
-        lock_model_changes()
-        if not pending_dataset(dataset):
-            raise TrainingError("Dataset ini sudah memiliki model yang terpasang.")
         # Preserve the temporary filename for NamedTemporaryFile cleanup.
         os.link(staged.name, root / relative)
 
-    payload["provenance"]["dataset_filename"] = filename
-    payload["provenance"]["source_row_count"] = len(rows)
+    payload["status"] = "awaiting_review"
     run = MLRun(
         **payload, dataset_id=dataset_id, dataset_sha256=digest,
         artifact_path=relative.as_posix(), artifact_sha256=checksum,
         artifact_sklearn_version=sklearn.__version__,
     )
-    activate(run)
+    db.session.add(run)
+    return "awaiting_review", "Training selesai. Buka riwayat model untuk menyetujui kandidat."
 
 
 def run_due(when=None):
@@ -155,8 +172,7 @@ def check_schedule(local):
         snapshot = read_snapshot(requested_dataset_id)
         db.session.commit()
         if snapshot:
-            publish(*snapshot)
-            status, message = "completed", "Model baru aktif dan hasil evaluasi tersedia."
+            status, message = publish(*snapshot)
         else:
             status, message = "skipped", "Belum ada dataset unggahan baru yang siap dilatih."
     except TrainingError as exc:
