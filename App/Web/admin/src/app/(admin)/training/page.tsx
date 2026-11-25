@@ -15,6 +15,8 @@ const statusLabels = {
   completed: "Selesai",
   failed: "Training gagal",
   skipped: "Dilewati",
+  awaiting_review: "Menunggu persetujuan",
+  quality_failed: "Evaluasi belum lulus",
 };
 
 const dateFormat = new Intl.DateTimeFormat("id-ID", {

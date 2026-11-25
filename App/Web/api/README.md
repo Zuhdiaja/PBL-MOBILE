@@ -58,7 +58,7 @@ dari `url` asli, sehingga prediksi bisa diaudit.
 Kegagalan model menghasilkan `503` dengan kode `inference_unavailable`, baik
 ketika belum ada model aktif, artefak hilang, checksum tidak cocok, versi
 scikit-learn berbeda, maupun ketika model bertanda contoh (`is_synthetic`).
-Prediksi hanya dilayani oleh satu run aktif; kolom `ml_runs.is_active` dijaga
+Run kandidat harus memiliki kategori yang didukung mobile, artefak yang valid, serta persetujuan admin melalui Pipeline ML. Prediksi dilayani oleh satu run aktif; kolom `ml_runs.is_active` dijaga
 oleh indeks unik parsial di database.
 
 ### Integrasi laporan mobile (Prioritas 2)
@@ -106,9 +106,9 @@ Record historis tidak diubah otomatis oleh migration selain penambahan kolom.
 | --- | --- |
 | Auth | `GET /auth/csrf`, `POST /auth/login`, `POST /auth/logout`, `GET /auth/me` |
 | Profil | `PATCH /profile`, `PUT/GET /profile/avatar`, `POST /profile/password` |
-| Dataset | `GET /dataset`, `POST /dataset/imports`, `GET /dataset/imports/{id}`, `GET /dataset/rows` |
+| Dataset | `GET /dataset`, `POST /dataset/imports`, `GET /dataset/imports/{id}`, `GET /dataset/rows`, `GET /dataset/export` |
 | Laporan | `POST /reports/submit`, `GET /reports`, `GET/PATCH/DELETE /reports/{id}`, `POST /reports/{id}/sync-dataset` |
-| Pipeline ML | `GET /ml/status`, `GET /ml/runs?page=1`, `GET /ml/runs/{id}`, `POST /ml/runs/import`, `GET /ml/dataset-summary`, `GET /ml/preprocessing-examples?dataset_id={id}`, `POST /ml/preview` |
+| Pipeline ML | `GET /ml/status`, `GET /ml/runs?page=1`, `GET /ml/runs/{id}`, `POST /ml/runs/import`, `POST /ml/runs/{id}/promote`, `GET /ml/dataset-summary`, `GET /ml/preprocessing-examples?dataset_id={id}`, `POST /ml/preview` |
 | Training ML | `GET/PUT /ml/schedule`, `POST /ml/train` |
 | Pengguna | `GET /users?kind=admin|mobile&page=1&page_size=25`, `POST /users/{kind}`, `PATCH /users/{kind}/{id}`, `POST /users/{kind}/{id}/password` |
 | Mobile auth | `POST /mobile/auth/register`, `POST /mobile/auth/login`, `POST /mobile/auth/google`, `GET /mobile/auth/me`, `POST /mobile/auth/logout` |

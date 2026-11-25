@@ -14,7 +14,7 @@ from flask import Blueprint, current_app, g, jsonify, request
 from sqlalchemy.exc import IntegrityError
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from app.extensions import db, limiter
+from app.extensions import client_address, db, limiter
 from app.models import MobileUser
 from app.services.google_tokens import (
     GoogleTokenError,
@@ -94,23 +94,44 @@ def bearer_token():
     return header[len("Bearer "):].strip() or None
 
 
+def session_identity(session_key):
+    stored = current_app.config["SESSION_REDIS"].get(session_key)
+    if stored is None:
+        return None
+    try:
+        user_id, version = map(int, stored.decode().split(":", 1))
+    except (AttributeError, TypeError, ValueError):
+        return None
+    return user_id, version
+
+
+def session_matches(user, identity):
+    return user is not None and user.active and identity == (user.id, user.token_version)
+
+
+def mobile_session():
+    if "mobile_session" not in g:
+        raw = bearer_token()
+        identity = session_identity(_token_key(raw)) if raw else None
+        user = db.session.get(MobileUser, identity[0]) if identity else None
+        g.mobile_session = user if session_matches(user, identity) else None
+        if raw and g.mobile_session is None:
+            revoke_token(raw)
+    return g.mobile_session
+
+
+def mobile_limit_key():
+    user = mobile_session()
+    return f"mobile-user:{user.id}" if user else client_address()
+
+
 def mobile_required(view):
     @wraps(view)
     def wrapper(*args, **kwargs):
-        raw = bearer_token()
-        if raw is None:
+        if bearer_token() is None:
             return error("unauthorized", "Silakan masuk kembali.", 401)
-        stored = current_app.config["SESSION_REDIS"].get(_token_key(raw))
-        if stored is None:
-            return error("unauthorized", "Sesi sudah berakhir. Silakan masuk kembali.", 401)
-        try:
-            user_id, version = (int(part) for part in stored.decode().split(":", 1))
-        except (AttributeError, TypeError, ValueError):
-            revoke_token(raw)
-            return error("unauthorized", "Sesi tidak valid. Silakan masuk kembali.", 401)
-        user = db.session.get(MobileUser, user_id)
-        if user is None or not user.active or user.token_version != version:
-            revoke_token(raw)
+        user = mobile_session()
+        if user is None:
             return error("unauthorized", "Sesi sudah berakhir. Silakan masuk kembali.", 401)
         g.mobile_user = user
         return view(*args, **kwargs)

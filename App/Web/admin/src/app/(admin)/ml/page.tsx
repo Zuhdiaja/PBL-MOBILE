@@ -370,6 +370,12 @@ function ModelHistory({
                     </span>
                   </span>
                   {run.id === activeId && <Badge>Aktif</Badge>}
+                  {run.status === "awaiting_review" && (
+                    <Badge variant="outline">Siap ditinjau</Badge>
+                  )}
+                  {run.status === "quality_failed" && (
+                    <Badge variant="outline">Evaluasi belum lulus</Badge>
+                  )}
                 </button>
               </li>
             ))}
@@ -615,6 +621,21 @@ export default function PipelineMLPage() {
     }
   }
 
+  async function handlePromote(runId: string) {
+    setTrainingSubmitting(true);
+    setTrainingError("");
+    try {
+      await api(`/ml/runs/${runId}/promote`, { method: "POST" });
+      setChosenId(null);
+      setHistoryRevision((value) => value + 1);
+    } catch (cause) {
+      setTrainingError(messageOf(cause));
+    } finally {
+      await loadStatus();
+      setTrainingSubmitting(false);
+    }
+  }
+
   function navigateStage(tab: typeof activeTab, id: string) {
     setActiveTab(tab);
     window.requestAnimationFrame(() => {
@@ -725,6 +746,8 @@ export default function PipelineMLPage() {
                   </strong>
                   {activeId && " Pemindaian tetap memakai model aktif."}
                 </>
+              ) : ["awaiting_review", "quality_failed"].includes(training.last_status ?? "") ? (
+                training.last_message
               ) : training.last_status === "failed" ? (
                 <>
                   <strong className="text-foreground">Training terakhir gagal.</strong>{" "}
@@ -820,6 +843,14 @@ export default function PipelineMLPage() {
                       {percent.format(selected.metrics.test.accuracy)}
                     </p>
                   </div>
+                )}
+                {selected?.status === "awaiting_review" && datasetMatches === true && (
+                  <Button
+                    disabled={trainingSubmitting}
+                    onClick={() => void handlePromote(selected.id)}
+                  >
+                    Setujui dan aktifkan
+                  </Button>
                 )}
                 {preferredRun && (
                   <Button
@@ -1142,7 +1173,9 @@ export default function PipelineMLPage() {
                             <Link className="underline" href="/training">
                               Jadwal Training
                             </Link>{" "}
-                            untuk memeriksa status dataset terbaru.
+                            untuk memeriksa status dataset terbaru. Training menunggu unggahan baru.
+                            Unduh CSV aktif dari halaman Dataset untuk membawa koreksi yang sudah
+                            disinkronkan.
                           </p>
                         )}
                       </div>

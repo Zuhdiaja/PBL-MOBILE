@@ -223,6 +223,7 @@ export default function ScansPage() {
             <Search className="absolute left-2.5 top-2.5 size-4 text-muted-foreground" />
             <Input
               type="search"
+              aria-label="Cari URL atau pengguna"
               placeholder="Cari URL atau pengguna…"
               className="pl-8"
               value={searchInput}
@@ -251,53 +252,51 @@ export default function ScansPage() {
             </p>
           </div>
         ) : (
-          <div className="overflow-x-auto" tabIndex={0}>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-12">No</TableHead>
-                  <TableHead>URL Diperiksa</TableHead>
-                  <TableHead>Kategori</TableHead>
-                  <TableHead>Skor Margin</TableHead>
-                  <TableHead>Pengguna</TableHead>
-                  <TableHead>Model</TableHead>
-                  <TableHead>Waktu</TableHead>
+          <Table scrollLabel="Tabel pemindaian URL">
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-12">No</TableHead>
+                <TableHead>URL Diperiksa</TableHead>
+                <TableHead>Kategori</TableHead>
+                <TableHead>Skor Margin</TableHead>
+                <TableHead>Pengguna</TableHead>
+                <TableHead>Model</TableHead>
+                <TableHead>Waktu</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {scans.map((scan, idx) => (
+                <TableRow key={scan.scan_id}>
+                  <TableCell className="font-mono text-xs text-muted-foreground">
+                    {(currentPage - 1) * currentPageSize + idx + 1}
+                  </TableCell>
+                  <TableCell className="max-w-xs truncate font-mono text-xs font-medium">
+                    {scan.url}
+                  </TableCell>
+                  <TableCell>
+                    <span
+                      className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${categoryTone(scan.category)}`}
+                    >
+                      {scan.category}
+                    </span>
+                  </TableCell>
+                  <TableCell className="font-mono text-xs">
+                    {scan.score_kind === "margin" ? scan.score.toFixed(4) : scan.score}
+                  </TableCell>
+                  <TableCell className="text-xs">
+                    <div className="font-medium">{scan.user.name}</div>
+                    <div className="text-muted-foreground">{scan.user.email}</div>
+                  </TableCell>
+                  <TableCell className="font-mono text-xs text-muted-foreground">
+                    {scan.model_run_id ? scan.model_run_id.slice(0, 8) : "-"}
+                  </TableCell>
+                  <TableCell className="text-xs text-muted-foreground">
+                    {formatTime(scan.created_at)}
+                  </TableCell>
                 </TableRow>
-              </TableHeader>
-              <TableBody>
-                {scans.map((scan, idx) => (
-                  <TableRow key={scan.scan_id}>
-                    <TableCell className="font-mono text-xs text-muted-foreground">
-                      {(currentPage - 1) * currentPageSize + idx + 1}
-                    </TableCell>
-                    <TableCell className="max-w-xs truncate font-mono text-xs font-medium">
-                      {scan.url}
-                    </TableCell>
-                    <TableCell>
-                      <span
-                        className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${categoryTone(scan.category)}`}
-                      >
-                        {scan.category}
-                      </span>
-                    </TableCell>
-                    <TableCell className="font-mono text-xs">
-                      {scan.score_kind === "margin" ? scan.score.toFixed(4) : scan.score}
-                    </TableCell>
-                    <TableCell className="text-xs">
-                      <div className="font-medium">{scan.user.name}</div>
-                      <div className="text-muted-foreground">{scan.user.email}</div>
-                    </TableCell>
-                    <TableCell className="font-mono text-xs text-muted-foreground">
-                      {scan.model_run_id ? scan.model_run_id.slice(0, 8) : "-"}
-                    </TableCell>
-                    <TableCell className="text-xs text-muted-foreground">
-                      {formatTime(scan.created_at)}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
+              ))}
+            </TableBody>
+          </Table>
         )}
 
         {scans.length > 0 && (

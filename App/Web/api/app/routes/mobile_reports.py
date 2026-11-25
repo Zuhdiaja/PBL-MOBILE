@@ -4,21 +4,33 @@ import math
 from flask import g, jsonify, request
 
 from app.extensions import db, limiter
-from app.models import PredictionReport
-from app.routes.mobile_auth import mobile, mobile_required, error
+from app.models import PredictionReport, PushOutbox
+from app.routes.mobile_auth import mobile, mobile_limit_key, mobile_required, error
 from app.routes.reports import create_report
 
 
-def mobile_report(report):
+def mobile_report(report, status_event=None):
     # Internal admin notes and reporter identity are not part of the mobile API.
     data = report.public()
     for key in ("admin_notes", "reporter_email", "reporter_id", "dataset_id"):
         data.pop(key)
+    if status_event:
+        data.update(status_event_id=status_event.id, status_changed_at=status_event.created_at.isoformat())
     return data
 
 
+def status_events(report_ids):
+    if not report_ids:
+        return {}
+    latest = db.select(db.func.max(PushOutbox.id)).where(
+        PushOutbox.report_id.in_(report_ids)
+    ).group_by(PushOutbox.report_id)
+    events = db.session.scalars(db.select(PushOutbox).where(PushOutbox.id.in_(latest)))
+    return {event.report_id: event for event in events}
+
+
 @mobile.post("/reports")
-@limiter.limit("30 per minute")
+@limiter.limit("30 per minute", key_func=mobile_limit_key)
 @mobile_required
 def submit_report():
     response, status = create_report(g.mobile_user)
@@ -47,7 +59,8 @@ def list_reports():
     items = db.session.scalars(query.order_by(
         PredictionReport.created_at.desc(), PredictionReport.id.desc()
     ).offset((page - 1) * size).limit(size)).all()
-    return jsonify(items=[mobile_report(item) for item in items], page=page,
+    events = status_events([item.id for item in items])
+    return jsonify(items=[mobile_report(item, events.get(item.id)) for item in items], page=page,
                    page_size=size, row_count=count, page_count=pages)
 
 
@@ -74,4 +87,4 @@ def report_detail(report_id):
         PredictionReport.id == report_id, PredictionReport.reporter_id == g.mobile_user.id))
     if report is None:
         return error("not_found", "Laporan tidak ditemukan.", 404)
-    return jsonify(report=mobile_report(report))
+    return jsonify(report=mobile_report(report, status_events([report.id]).get(report.id)))

@@ -4,7 +4,7 @@ from pathlib import Path
 from app.extensions import db
 from app.ml import schedule
 from app.ml.inference import predict
-from app.models import Dataset, DatasetRow, DatasetState, TrainingSchedule
+from app.models import Dataset, DatasetRow, DatasetState, MLRun, TrainingSchedule
 from app.routes import mobile_auth
 
 NOW = datetime(2026, 11, 18, 2, 0, tzinfo=schedule.JAKARTA)
@@ -28,6 +28,15 @@ def seed_dataset(id, invalid=False):
     db.session.commit()
 
 
+def approve_latest(client, headers):
+    latest = client.get("/api/v1/ml/runs").json["items"][0]
+    assert latest["status"] == "awaiting_review"
+    result = client.post(f"/api/v1/ml/runs/{latest['id']}/promote", headers=headers)
+    assert result.status_code == 200, result.json
+    assert result.json["active_id"] == latest["id"]
+    return latest["id"]
+
+
 def test_scheduled_training_switches_serving_and_publishes_metrics(app, authenticated, monkeypatch):
     client, headers = authenticated
     assert client.put("/api/v1/ml/schedule", json={"enabled": True, "time": "2:00"}, headers=headers).status_code == 400
@@ -40,6 +49,7 @@ def test_scheduled_training_switches_serving_and_publishes_metrics(app, authenti
         schedule.run_due(NOW - timedelta(minutes=1))
         assert db.session.get(TrainingSchedule, 1).last_status is None
         schedule.run_due(NOW)
+        approve_latest(client, headers)
         first = predict("https://benign0.com/example")[0]
         assert first.dataset_id == "first"
         first_id = first.id
@@ -59,6 +69,8 @@ def test_scheduled_training_switches_serving_and_publishes_metrics(app, authenti
     with app.app_context():
         seed_dataset("second")
         schedule.run_due(NOW + timedelta(days=2))
+        assert predict("https://benign0.com/example")[0].id == first_id
+        approve_latest(client, headers)
         run, _, _, score = predict("https://benign0.com/benign/example-test")
         assert run.id != first_id
         assert score > 0
@@ -103,7 +115,7 @@ def test_replacement_during_training_does_not_activate_stale_model(app, authenti
     with app.app_context():
         seed_dataset("stable")
         schedule.run_due(NOW)
-        active_id = predict("benign0.com/benign")[0].id
+        active_id = approve_latest(client, headers)
 
         seed_dataset("training")
         monkeypatch.setattr(schedule, "train", replace_dataset)
@@ -137,7 +149,7 @@ def test_manual_training_uses_shared_scheduler(app, authenticated, monkeypatch):
 
     with app.app_context():
         schedule.run_due(NOW + timedelta(hours=1))
-        first_id = predict("benign0.com/example")[0].id
+        first_id = approve_latest(client, headers)
         seed_dataset("manual-next")
 
     train = schedule.train
@@ -154,6 +166,7 @@ def test_manual_training_uses_shared_scheduler(app, authenticated, monkeypatch):
     with app.app_context():
         schedule.run_due(NOW + timedelta(days=1))
         schedule.run_due(NOW + timedelta(days=1))
+    approve_latest(client, headers)
     listed = client.get("/api/v1/ml/runs").json
     assert listed["training"]["last_status"] == "completed"
     assert listed["active_id"] != first_id
@@ -202,3 +215,43 @@ def test_mobile_google_login_appears_in_admin_users(app, authenticated, monkeypa
     assert user["has_google"] is True
     assert user["has_password"] is False
     assert "google_sub" not in user
+
+
+def test_low_recall_can_be_approved_after_a_legacy_rejection(app, authenticated, monkeypatch):
+    client, headers = authenticated
+    assert client.put("/api/v1/ml/schedule", json={"enabled": True, "time": "02:00"}, headers=headers).status_code == 200
+    with app.app_context():
+        seed_dataset("first")
+        train = schedule.train
+
+        def low_recall(rows):
+            pipeline, payload = train(rows)
+            for split in ("validation", "test"):
+                payload["report"][split]["phishing"]["recall"] = 0.25
+            return pipeline, payload
+
+        _, _, filename, rows = schedule.read_snapshot("first")
+        _, legacy = low_recall(rows)
+        legacy["status"] = "quality_failed"
+        legacy["provenance"]["dataset_filename"] = filename
+        db.session.add(MLRun(**legacy, dataset_id="first"))
+        training = db.session.get(TrainingSchedule, 1)
+        training.last_status = "quality_failed"
+        training.last_message = "Recall minimum per kelas 50% belum tercapai."
+        db.session.commit()
+        assert client.get("/api/v1/ml/schedule").json["pending_dataset"]
+
+        monkeypatch.setattr(schedule, "train", low_recall)
+        assert client.post(
+            "/api/v1/ml/train", json={"dataset_id": "first"}, headers=headers,
+        ).status_code == 202
+        schedule.run_due(NOW)
+    runs = client.get("/api/v1/ml/runs").json
+    assert runs["active_id"] is None
+    assert runs["training"]["last_status"] == "awaiting_review"
+    assert not runs["training"]["pending_dataset"]
+    run_id = approve_latest(client, headers)
+    detail = client.get(f"/api/v1/ml/runs/{run_id}").json["run"]
+    assert detail["report"]["test"]["phishing"]["recall"] == 0.25
+    with app.app_context():
+        assert predict("benign0.com/benign")[0].id == run_id

@@ -237,7 +237,15 @@ export type MLTrainingSchedule = {
   pending_dataset: boolean;
   last_date: string | null;
   last_started_at: string | null;
-  last_status: "queued" | "running" | "completed" | "failed" | "skipped" | null;
+  last_status:
+    | "queued"
+    | "running"
+    | "completed"
+    | "failed"
+    | "skipped"
+    | "awaiting_review"
+    | "quality_failed"
+    | null;
   last_message: string | null;
 };
 export type MLDatasetSummary = {

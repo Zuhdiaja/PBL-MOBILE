@@ -14,8 +14,10 @@ from app.ml.dataset_binding import active_dataset, dataset_digest
 from app.ml.dataset_columns import LABEL_KEYS, column_index
 from app.ml.ngrams import char_ngrams
 from app.ml.normalize import normalize_url
+from app.ml.inference import InferenceUnavailable, load_pipeline
+from app.ml.quality import unsupported_classes_error
 from app.ml.schedule import DEFAULT_TIME, pending_dataset, schedule_view
-from app.ml.store import InstalledRunError, upsert_run
+from app.ml.store import InstalledRunError, activate, lock_model_changes, upsert_run
 from app.ml.url_text import model_input
 from app.models import Dataset, DatasetRow, DatasetState, MLRun, TrainingSchedule
 from app.routes import api, body, error
@@ -134,6 +136,37 @@ def ml_run_detail(run_id):
     if not run:
         return error("run_not_found", "Hasil model tidak ditemukan.", 404)
     return jsonify(run=run.public(detail=True, dataset_digest=dataset_digest(active_dataset())))
+
+
+@api.post("/ml/runs/<run_id>/promote")
+def ml_promote(run_id):
+    state = db.session.get(DatasetState, 1, with_for_update={"read": True})
+    lock_model_changes()
+    run = db.session.get(MLRun, run_id)
+    if not run:
+        return error("run_not_found", "Hasil model tidak ditemukan.", 404)
+    if run.is_active:
+        return ml_status()
+    if run.status != "awaiting_review":
+        return error("promotion_unavailable", "Kandidat ini tidak dapat dipromosikan.", 409)
+    dataset = db.session.get(Dataset, state.active_id) if state and state.active_id else None
+    if dataset_digest(dataset) != run.dataset_sha256:
+        return error("dataset_changed", "Dataset aktif sudah berubah sejak kandidat dilatih.", 409)
+    issue = unsupported_classes_error(run.classes)
+    if issue:
+        return error("quality_failed", issue, 409)
+    try:
+        load_pipeline(run)
+    except InferenceUnavailable as exc:
+        return error("inference_unavailable", str(exc), 409)
+    schedule = db.session.get(TrainingSchedule, 1, with_for_update=True)
+    if schedule and schedule.last_status == "awaiting_review":
+        schedule.last_status = "completed"
+        schedule.last_message = "Model disetujui dan aktif untuk pemindaian."
+    run.status = "completed"
+    activate(run)
+    db.session.commit()
+    return ml_status()
 
 
 @api.post("/ml/runs/import")
